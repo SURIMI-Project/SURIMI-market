@@ -1,0 +1,45 @@
+@startuml Domain Model
+
+title SURIMI Market Domain Model
+
+class "Market" as Market{
+    -name: String
+    -Stock[] stockList
+    +ActionLog : ActionLog
+    __
+    +calculate_market_value(): float
+}
+
+class "ActionLog" as ActionLog{
+   -ActionLogEntry[] action_history
+   __
+   +add_action_log_entry(tick, type, T)
+   +plot_data()
+}
+
+class "ActionLogEntry" as ActionLogEntry {
+   -tick: int
+   -type: String
+   -T : payload
+}
+
+class "Stock" as Stock {
+   - name: int
+   - type: String
+   - stock: int
+}
+
+Market "1" o-- "1" ActionLog : "has"
+Market "1" *-- "*" Stock : "has"
+ActionLog --> ActionLogEntry : "use"
+@enduml
+
+
+/'
+Extension	<|--	Specialization of a class in a hierarchy
+Implementation	<|..	Realization of an interface by a class
+Composition	*--	The part cannot exist without the whole
+Aggregation	o--	The part can exist independently of the whole
+Dependency	-->	The object uses another object
+Dependency	..>	A weaker form of dependency
+'/

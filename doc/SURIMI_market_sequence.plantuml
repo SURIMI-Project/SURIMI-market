@@ -1,0 +1,18 @@
+@startuml
+title SURIMI Market Model Sequence Diagram
+
+participant Market
+participant EwE
+participant Poseidon
+participant CMSY
+
+'Continue Here !!!!'
+
+== Initialization ==
+
+
+== Simulation ==
+' starting the simulation'
+
+@enduml
+
