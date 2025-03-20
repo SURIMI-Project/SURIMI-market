@@ -1,7 +1,7 @@
 import grpc
 import time
 from pb import market_pb2, market_pb2_grpc
-from src.Market import Market, Tick
+from src.market import Market, Tick
 
 class MarketSimulator:
     def __init__(self, server_address="localhost:50051"):

@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from pb import market_pb2 as proto_dot_market__pb2
+from pb import market_pb2 as market__pb2
 
 GRPC_GENERATED_VERSION = '1.71.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in proto/market_pb2_grpc.py depends on'
+        + f' but the generated code in market_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -26,8 +26,7 @@ if _version_not_supported:
 
 
 class MarketServiceStub(object):
-    """Define the service
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
         """Constructor.
@@ -37,19 +36,23 @@ class MarketServiceStub(object):
         """
         self.SendUpdatePrices = channel.unary_stream(
                 '/market.MarketService/SendUpdatePrices',
-                request_serializer=proto_dot_market__pb2.EmptyRequest.SerializeToString,
-                response_deserializer=proto_dot_market__pb2.UpdatePrices.FromString,
+                request_serializer=market__pb2.EmptyRequest.SerializeToString,
+                response_deserializer=market__pb2.MarketMessage.FromString,
                 _registered_method=True)
         self.TriggerUpdate = channel.unary_unary(
                 '/market.MarketService/TriggerUpdate',
-                request_serializer=proto_dot_market__pb2.EmptyRequest.SerializeToString,
-                response_deserializer=proto_dot_market__pb2.EmptyRequest.FromString,
+                request_serializer=market__pb2.EmptyRequest.SerializeToString,
+                response_deserializer=market__pb2.EmptyRequest.FromString,
+                _registered_method=True)
+        self.StartSimulation = channel.unary_unary(
+                '/market.MarketService/StartSimulation',
+                request_serializer=market__pb2.SimulationRequest.SerializeToString,
+                response_deserializer=market__pb2.EmptyRequest.FromString,
                 _registered_method=True)
 
 
 class MarketServiceServicer(object):
-    """Define the service
-    """
+    """Missing associated documentation comment in .proto file."""
 
     def SendUpdatePrices(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -63,18 +66,29 @@ class MarketServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StartSimulation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MarketServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'SendUpdatePrices': grpc.unary_stream_rpc_method_handler(
                     servicer.SendUpdatePrices,
-                    request_deserializer=proto_dot_market__pb2.EmptyRequest.FromString,
-                    response_serializer=proto_dot_market__pb2.UpdatePrices.SerializeToString,
+                    request_deserializer=market__pb2.EmptyRequest.FromString,
+                    response_serializer=market__pb2.MarketMessage.SerializeToString,
             ),
             'TriggerUpdate': grpc.unary_unary_rpc_method_handler(
                     servicer.TriggerUpdate,
-                    request_deserializer=proto_dot_market__pb2.EmptyRequest.FromString,
-                    response_serializer=proto_dot_market__pb2.EmptyRequest.SerializeToString,
+                    request_deserializer=market__pb2.EmptyRequest.FromString,
+                    response_serializer=market__pb2.EmptyRequest.SerializeToString,
+            ),
+            'StartSimulation': grpc.unary_unary_rpc_method_handler(
+                    servicer.StartSimulation,
+                    request_deserializer=market__pb2.SimulationRequest.FromString,
+                    response_serializer=market__pb2.EmptyRequest.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -85,8 +99,7 @@ def add_MarketServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class MarketService(object):
-    """Define the service
-    """
+    """Missing associated documentation comment in .proto file."""
 
     @staticmethod
     def SendUpdatePrices(request,
@@ -103,8 +116,8 @@ class MarketService(object):
             request,
             target,
             '/market.MarketService/SendUpdatePrices',
-            proto_dot_market__pb2.EmptyRequest.SerializeToString,
-            proto_dot_market__pb2.UpdatePrices.FromString,
+            market__pb2.EmptyRequest.SerializeToString,
+            market__pb2.MarketMessage.FromString,
             options,
             channel_credentials,
             insecure,
@@ -130,8 +143,35 @@ class MarketService(object):
             request,
             target,
             '/market.MarketService/TriggerUpdate',
-            proto_dot_market__pb2.EmptyRequest.SerializeToString,
-            proto_dot_market__pb2.EmptyRequest.FromString,
+            market__pb2.EmptyRequest.SerializeToString,
+            market__pb2.EmptyRequest.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StartSimulation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/market.MarketService/StartSimulation',
+            market__pb2.SimulationRequest.SerializeToString,
+            market__pb2.EmptyRequest.FromString,
             options,
             channel_credentials,
             insecure,

@@ -22,8 +22,8 @@ COPY ./pb /app/pb/
 # Copy the market_service.py file
 COPY ./server/market_service.py /app/server/
 
-# Debugging: Check if Market.py exists inside the container
-RUN ls -l /app/src/Market.py || echo "Market.py NOT FOUND!"
+# Debugging: Check if market.py exists inside the container
+RUN ls -l /app/src/market.py || echo "Market.py NOT FOUND!"
 
 # Add src to Python's module search path
 ENV PYTHONPATH="/app:$PYTHONPATH"

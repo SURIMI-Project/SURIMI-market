@@ -3,7 +3,7 @@ import time
 import grpc
 from server.market_service import serve
 from client.market_client import run
-from src.Market import Market, Tick
+from src.market import Market, Tick
 
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)  # multiprocessing
