@@ -1,0 +1,26 @@
+services:
+  grpc-server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: surimi_sd-grpc-server
+    container_name: grpc_server
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./proto:/app/proto
+      - ./pb:/app/pb
+      - ./src:/app/src
+
+  grpc-client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    image: surimi_sd-grpc-client
+    container_name: grpc_client
+    depends_on:
+      - grpc-server
+
+networks:
+  grpc_network:
+    driver: bridge

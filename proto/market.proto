@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package market;
+
+// Define the UpdatePrices message format
+message UpdatePrices {
+    string species_id = 1;
+    string port_id = 2;
+    double price = 3;
+    string measurement_unit = 4;
+    string currency = 5;
+    string timestamp = 6;
+}
+
+// Define an empty request message
+message EmptyRequest {}
+
+// Define the service
+service MarketService {
+    rpc SendUpdatePrices (EmptyRequest) returns (stream UpdatePrices);
+    rpc TriggerUpdate (EmptyRequest) returns (EmptyRequest);
+}
