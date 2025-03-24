@@ -1,5 +1,4 @@
 import sys
-
 import grpc
 from pb import market_pb2, market_pb2_grpc
 
@@ -51,5 +50,5 @@ if __name__ == "__main__":
 
         trigger_price_update()  # Trigger the updates
         listen_for_price_updates()
-        # wait = input("Press Enter to continue...")
+        wait = input("Press Enter to continue...")
 
