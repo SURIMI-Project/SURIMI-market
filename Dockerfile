@@ -20,4 +20,4 @@ ENV PYTHONPATH=/app
 EXPOSE 5000 5001
 
 # Run both the server and client with the correct order
-CMD python server/market_service.py & python client/market_client.py
+CMD python server/market_service.py & sleep 2 && python client/market_client.py
