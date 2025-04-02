@@ -71,9 +71,9 @@ def serve():
     market_pb2_grpc.add_MarketServiceServicer_to_server(service, server)
 
     # Bind the server to a port
-    server.add_insecure_port("[::]:50051")
+    server.add_insecure_port("[::]:5001")
     server.start()
-    print("[OK] gRPC Server running on port 50051")
+    print("[OK] gRPC Server running on port 5001")
 
     # Wait for the server to stop
     try:

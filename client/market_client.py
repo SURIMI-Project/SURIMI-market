@@ -1,10 +1,11 @@
 import sys
+import time
 import grpc
 from pb import market_pb2, market_pb2_grpc
 
 
 def trigger_price_update():
-    with grpc.insecure_channel('localhost:50051') as channel:
+    with grpc.insecure_channel('localhost:5001') as channel:
         stub = market_pb2_grpc.MarketServiceStub(channel)
 
         # Send a trigger to start the price update process
@@ -14,7 +15,7 @@ def trigger_price_update():
 
 
 def start_simulation(simulation_type, steps):
-    with grpc.insecure_channel('localhost:50051') as channel:
+    with grpc.insecure_channel('localhost:5001') as channel:
         stub = market_pb2_grpc.MarketServiceStub(channel)
 
         # Create a request with the simulation type
@@ -25,7 +26,7 @@ def start_simulation(simulation_type, steps):
         print(f"[Client] Simulation type {simulation_type} started with {steps} steps.")
 
 def listen_for_price_updates():
-    with grpc.insecure_channel('localhost:50051') as channel:
+    with grpc.insecure_channel('localhost:5001') as channel:
         stub = market_pb2_grpc.MarketServiceStub(channel)
 
         # Send an empty request to the server to start streaming price updates
@@ -50,5 +51,5 @@ if __name__ == "__main__":
 
         trigger_price_update()  # Trigger the updates
         listen_for_price_updates()
-        wait = input("Press Enter to continue...")
-
+        # wait = input("Press Enter to continue...") # Wait for user input
+        time.sleep(2)  # Wait for a few seconds before triggering the next update
