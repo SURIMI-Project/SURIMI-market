@@ -14,11 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
 
 # Add the /app folder to PYTHONPATH so that the `pb` module is found
-ENV PYTHONPATH=/app
+#ENV PYTHONPATH=/app/pb
 
 # Expose both the client and server ports
 EXPOSE 5000 5001
 
 # Run both the server and client with the correct order
-CMD python server/market_service.py
-# & sleep 2 && python client/market_client.py
+CMD ["python", "server/market_service.py"]
