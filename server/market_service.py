@@ -1,7 +1,8 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from concurrent import futures
-from surimi.v1 import market_pb2, market_pb2_grpc, species_price_pb2, species_price_pb2_grpc
+from server.workflow_service import WorkflowService
+from surimi.v1 import market_pb2, market_pb2_grpc, species_price_pb2, species_price_pb2_grpc, workflow_pb2, workflow_pb2_grpc
 
 class MarketService(market_pb2_grpc.MarketServiceServicer):
     def __init__(self):
@@ -31,8 +32,11 @@ def serve():
 
     # Create the server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    service = MarketService()  # Instantiate the service
-    market_pb2_grpc.add_MarketServiceServicer_to_server(service, server)
+    market_service = MarketService()  # Instantiate the market service
+    market_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
+
+    workflow_service = WorkflowService()  # Instantiate the workflow service
+    workflow_pb2_grpc.add_WorkflowServiceServicer_to_server(workflow_service, server)
 
     # Bind the server to a port
     server.add_insecure_port("[::]:5001")
