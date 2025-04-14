@@ -1,7 +1,7 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from concurrent import futures
-from pb.surimi.v1 import market_pb2, market_pb2_grpc, species_price_pb2, species_price_pb2_grpc
+from surimi.v1 import market_pb2, market_pb2_grpc, species_price_pb2, species_price_pb2_grpc
 
 class MarketService(market_pb2_grpc.MarketServiceServicer):
     def __init__(self):

@@ -1,7 +1,7 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from concurrent import futures
-from pb.surimi.v1 import workflow_pb2, workflow_pb2_grpc
+from surimi.v1 import workflow_pb2, workflow_pb2_grpc
 
 class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
     def __init__(self):

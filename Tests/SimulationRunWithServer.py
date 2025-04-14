@@ -1,6 +1,6 @@
 import grpc
 import time
-from pb import market_pb2, market_pb2_grpc
+from surimi.v1 import market_pb2, market_pb2_grpc
 from src.market import Market, Tick
 
 class MarketSimulator:

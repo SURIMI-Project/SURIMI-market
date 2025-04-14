@@ -10,11 +10,11 @@ COPY requirements.txt /app/requirements.txt
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all the application files into the container, including pb directory
+# Copy all the application files into the container
 COPY . /app
 
-# Add the /app folder to PYTHONPATH so that the `pb` module is found
-#ENV PYTHONPATH=/app/pb
+# Add the /app folder to PYTHONPATH so that the `surimi` module is found
+ENV PYTHONPATH=/app
 
 # Expose both the client and server ports
 EXPOSE 5000 5001
