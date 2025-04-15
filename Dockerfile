@@ -16,8 +16,11 @@ COPY . /app
 # Add the /app folder to PYTHONPATH so that the `surimi` module is found
 ENV PYTHONPATH=/app
 
-# Expose both the client and server ports
-EXPOSE 5000 5001
+# Expose server port
+EXPOSE 5001
 
-# Run both the server and client with the correct order
-CMD ["python", "server/market_service.py"]
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:18889
+ENV OTEL_SERVICE_NAME=market
+
+# Runthe server 
+CMD ["python", "server/app.py"]
