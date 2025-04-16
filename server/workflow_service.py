@@ -11,7 +11,13 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         with self.tracer.start_as_current_span("WorkflowService.Init") as span:
             try:
                 print("[Server] Init...")
-    
+
+                if(request.scenario_id == "testmarket"):
+                    print("[ERROR] SimulationId is testmarket")
+                    context.abort(grpc.StatusCode.INVALID_ARGUMENT, "SimulationId is testmarket")
+                if(request.scenario_id == "testmarket2"):
+                    print("[ERROR] SimulationId is testmarket" + 1 / 0)
+
                 return workflow_pb2.InitResponse()
             except Exception as e:
                 print(f"[ERROR] gRPC Stream Error: {e}")
@@ -21,7 +27,7 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         with self.tracer.start_as_current_span("WorkflowService.SimulateStep") as span:
             try:
                 print("[Server] SimulateStep of SimulationId..." + request.simulation_id)
-    
+
                 currentTimestamp = Timestamp()
                 currentTimestamp.GetCurrentTime()
 
