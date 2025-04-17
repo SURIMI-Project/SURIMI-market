@@ -1,3 +1,12 @@
+## How to re-generate the python proxy files from the protobuf files
+
+In the subdirectory \surimi\v1\ a collection of python files exist. These files are generated from the protobuf files of the proto submodule. Follow the procedure below to re-generate them when the protobuf files change.
+- Go to the top directory
+- python -m grpc_tools.protoc -Iproto --python_out=. --grpc_python_out=. proto/surimi/v1/*.proto
+
+
+
+
 # SURIMI
 
 

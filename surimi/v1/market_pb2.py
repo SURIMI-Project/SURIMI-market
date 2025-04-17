@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from surimi.v1 import species_price_pb2 as surimi_dot_v1_dot_species__price__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16surimi/v1/market.proto\x12\tsurimi.v1\x1a\x1dsurimi/v1/species_price.proto\"\x19\n\x17GetSpeciesPricesRequest\"C\n\x18GetSpeciesPricesResponse\x12\'\n\x06prices\x18\x01 \x03(\x0b\x32\x17.surimi.v1.SpeciesPrice2l\n\rMarketService\x12[\n\x10GetSpeciesPrices\x12\".surimi.v1.GetSpeciesPricesRequest\x1a#.surimi.v1.GetSpeciesPricesResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16surimi/v1/market.proto\x12\tsurimi.v1\x1a\x1dsurimi/v1/species_price.proto\"0\n\x17GetSpeciesPricesRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"C\n\x18GetSpeciesPricesResponse\x12\'\n\x06prices\x18\x01 \x03(\x0b\x32\x17.surimi.v1.SpeciesPrice2l\n\rMarketService\x12[\n\x10GetSpeciesPrices\x12\".surimi.v1.GetSpeciesPricesRequest\x1a#.surimi.v1.GetSpeciesPricesResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,9 +34,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
   _globals['_GETSPECIESPRICESREQUEST']._serialized_start=68
-  _globals['_GETSPECIESPRICESREQUEST']._serialized_end=93
-  _globals['_GETSPECIESPRICESRESPONSE']._serialized_start=95
-  _globals['_GETSPECIESPRICESRESPONSE']._serialized_end=162
-  _globals['_MARKETSERVICE']._serialized_start=164
-  _globals['_MARKETSERVICE']._serialized_end=272
+  _globals['_GETSPECIESPRICESREQUEST']._serialized_end=116
+  _globals['_GETSPECIESPRICESRESPONSE']._serialized_start=118
+  _globals['_GETSPECIESPRICESRESPONSE']._serialized_end=185
+  _globals['_MARKETSERVICE']._serialized_start=187
+  _globals['_MARKETSERVICE']._serialized_end=295
 # @@protoc_insertion_point(module_scope)

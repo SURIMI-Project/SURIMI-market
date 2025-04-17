@@ -50,11 +50,6 @@ class WorkflowServiceStub(object):
                 request_serializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepRequest.SerializeToString,
                 response_deserializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepResponse.FromString,
                 _registered_method=True)
-        self.RequestBiomass = channel.unary_unary(
-                '/surimi.v1.WorkflowService/RequestBiomass',
-                request_serializer=surimi_dot_v1_dot_workflow__pb2.RequestBiomassRequest.SerializeToString,
-                response_deserializer=surimi_dot_v1_dot_workflow__pb2.RequestBiomassResponse.FromString,
-                _registered_method=True)
         self.UpdateBiomass = channel.unary_unary(
                 '/surimi.v1.WorkflowService/UpdateBiomass',
                 request_serializer=surimi_dot_v1_dot_workflow__pb2.UpdateBiomassRequest.SerializeToString,
@@ -84,12 +79,6 @@ class WorkflowServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RequestBiomass(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def UpdateBiomass(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -113,11 +102,6 @@ def add_WorkflowServiceServicer_to_server(servicer, server):
                     servicer.SimulateStep,
                     request_deserializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepRequest.FromString,
                     response_serializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepResponse.SerializeToString,
-            ),
-            'RequestBiomass': grpc.unary_unary_rpc_method_handler(
-                    servicer.RequestBiomass,
-                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.RequestBiomassRequest.FromString,
-                    response_serializer=surimi_dot_v1_dot_workflow__pb2.RequestBiomassResponse.SerializeToString,
             ),
             'UpdateBiomass': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateBiomass,
@@ -207,33 +191,6 @@ class WorkflowService(object):
             '/surimi.v1.WorkflowService/SimulateStep',
             surimi_dot_v1_dot_workflow__pb2.SimulateStepRequest.SerializeToString,
             surimi_dot_v1_dot_workflow__pb2.SimulateStepResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def RequestBiomass(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/surimi.v1.WorkflowService/RequestBiomass',
-            surimi_dot_v1_dot_workflow__pb2.RequestBiomassRequest.SerializeToString,
-            surimi_dot_v1_dot_workflow__pb2.RequestBiomassResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -27,7 +27,7 @@ from surimi.v1 import biomass_pb2 as surimi_dot_v1_dot_biomass__pb2
 from surimi.v1 import species_price_pb2 as surimi_dot_v1_dot_species__price__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18surimi/v1/workflow.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17surimi/v1/biomass.proto\x1a\x1dsurimi/v1/species_price.proto\"\x81\x01\n\x0bInitRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x13\n\x0bscenario_id\x18\x02 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tstep_size\x18\x04 \x01(\t\"\x0e\n\x0cInitResponse\"U\n\x13UpdatePricesRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\'\n\x06prices\x18\x02 \x03(\x0b\x32\x17.surimi.v1.SpeciesPrice\"\x16\n\x14UpdatePricesResponse\",\n\x13SimulateStepRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"E\n\x14SimulateStepResponse\x12-\n\tdate_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\".\n\x15RequestBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"a\n\x16RequestBiomassResponse\x12\x18\n\x10measurement_unit\x18\x01 \x01(\t\x12-\n\rbiomass_grids\x18\x02 \x03(\x0b\x32\x16.surimi.v1.BiomassGrid\"v\n\x14UpdateBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x18\n\x10measurement_unit\x18\x02 \x01(\t\x12-\n\rbiomass_grids\x18\x03 \x03(\x0b\x32\x16.surimi.v1.BiomassGrid\"\x17\n\x15UpdateBiomassResponse2\x97\x03\n\x0fWorkflowService\x12\x37\n\x04Init\x12\x16.surimi.v1.InitRequest\x1a\x17.surimi.v1.InitResponse\x12O\n\x0cUpdatePrices\x12\x1e.surimi.v1.UpdatePricesRequest\x1a\x1f.surimi.v1.UpdatePricesResponse\x12O\n\x0cSimulateStep\x12\x1e.surimi.v1.SimulateStepRequest\x1a\x1f.surimi.v1.SimulateStepResponse\x12U\n\x0eRequestBiomass\x12 .surimi.v1.RequestBiomassRequest\x1a!.surimi.v1.RequestBiomassResponse\x12R\n\rUpdateBiomass\x12\x1f.surimi.v1.UpdateBiomassRequest\x1a .surimi.v1.UpdateBiomassResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18surimi/v1/workflow.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17surimi/v1/biomass.proto\x1a\x1dsurimi/v1/species_price.proto\"\x81\x01\n\x0bInitRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x13\n\x0bscenario_id\x18\x02 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tstep_size\x18\x04 \x01(\t\"\x0e\n\x0cInitResponse\"U\n\x13UpdatePricesRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\'\n\x06prices\x18\x02 \x03(\x0b\x32\x17.surimi.v1.SpeciesPrice\"\x16\n\x14UpdatePricesResponse\",\n\x13SimulateStepRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"E\n\x14SimulateStepResponse\x12-\n\tdate_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"v\n\x14UpdateBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x18\n\x10measurement_unit\x18\x02 \x01(\t\x12-\n\rbiomass_grids\x18\x03 \x03(\x0b\x32\x16.surimi.v1.BiomassGrid\"\x17\n\x15UpdateBiomassResponse2\xc0\x02\n\x0fWorkflowService\x12\x37\n\x04Init\x12\x16.surimi.v1.InitRequest\x1a\x17.surimi.v1.InitResponse\x12O\n\x0cUpdatePrices\x12\x1e.surimi.v1.UpdatePricesRequest\x1a\x1f.surimi.v1.UpdatePricesResponse\x12O\n\x0cSimulateStep\x12\x1e.surimi.v1.SimulateStepRequest\x1a\x1f.surimi.v1.SimulateStepResponse\x12R\n\rUpdateBiomass\x12\x1f.surimi.v1.UpdateBiomassRequest\x1a .surimi.v1.UpdateBiomassResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -47,14 +47,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SIMULATESTEPREQUEST']._serialized_end=431
   _globals['_SIMULATESTEPRESPONSE']._serialized_start=433
   _globals['_SIMULATESTEPRESPONSE']._serialized_end=502
-  _globals['_REQUESTBIOMASSREQUEST']._serialized_start=504
-  _globals['_REQUESTBIOMASSREQUEST']._serialized_end=550
-  _globals['_REQUESTBIOMASSRESPONSE']._serialized_start=552
-  _globals['_REQUESTBIOMASSRESPONSE']._serialized_end=649
-  _globals['_UPDATEBIOMASSREQUEST']._serialized_start=651
-  _globals['_UPDATEBIOMASSREQUEST']._serialized_end=769
-  _globals['_UPDATEBIOMASSRESPONSE']._serialized_start=771
-  _globals['_UPDATEBIOMASSRESPONSE']._serialized_end=794
-  _globals['_WORKFLOWSERVICE']._serialized_start=797
-  _globals['_WORKFLOWSERVICE']._serialized_end=1204
+  _globals['_UPDATEBIOMASSREQUEST']._serialized_start=504
+  _globals['_UPDATEBIOMASSREQUEST']._serialized_end=622
+  _globals['_UPDATEBIOMASSRESPONSE']._serialized_start=624
+  _globals['_UPDATEBIOMASSRESPONSE']._serialized_end=647
+  _globals['_WORKFLOWSERVICE']._serialized_start=650
+  _globals['_WORKFLOWSERVICE']._serialized_end=970
 # @@protoc_insertion_point(module_scope)
