@@ -50,7 +50,6 @@ class MarketServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-
 def add_MarketServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetSpeciesPrices': grpc.unary_unary_rpc_method_handler(

@@ -12,6 +12,7 @@ from surimi.v1 import market_pb2_grpc, workflow_pb2_grpc
 def serve():
     # Configure logging
     logger = configure_logging()
+    simulation_dictionary = {}
 
     otel_exporter_otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "http://localhost:4317"
 
@@ -25,10 +26,10 @@ def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10),
                          interceptors=[ExceptionMetadataInterceptor()])
     
-    market_service = MarketService(tracer)  # Instantiate the market service
+    market_service = MarketService(tracer, simulation_dictionary)  # Instantiate the market service
     market_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
 
-    workflow_service = WorkflowService(tracer)  # Instantiate the workflow service
+    workflow_service = WorkflowService(tracer, simulation_dictionary)  # Instantiate the workflow service
     workflow_pb2_grpc.add_WorkflowServiceServicer_to_server(workflow_service, server)
 
     # Bind the server to a port

@@ -1,11 +1,19 @@
 from src.market import Market
 import threading
+from surimi.v1 import workflow_pb2
+from google.protobuf.timestamp_pb2 import Timestamp
+
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, simulation_id, scenario_id, start_time, step_size):
         """
         Static simulation parameters, will be replaced later
         """
+        self.simulation_id = simulation_id
+        self.scenario_id = scenario_id
+        self.start_time = start_time
+        self.step_size = step_size
+        # add scenario parameters
         self.market = Market("Global Seafood Market", "EUR", "kg")
         self.market.add_port("Barcelona", "ESBCN")  # Barcelona, Spain
         self.market.add_port("Valencia", "ESVLC")  # Valencia, Spain
@@ -14,56 +22,39 @@ class Simulation:
         self.update_event = threading.Event()
         self.latest_market_prices = None
 
-    def run(self):
+    def init_response(self):
         """
-        Method to be implemented by subclasses.
+        This method will handle simulation initialization
+        and streaming updates triggered externally (by the client).
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        print("-" * 60)
+        self.market.tick.increase_tick()
+        print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been initialized ... ")
 
-    @staticmethod
-    def pick_simulation(simulation_type):
-        """
-        Pick the correct simulation based on the type.
-        """
-        if simulation_type == "1":
-            return Simulation_1()
-        elif simulation_type == "2":
-            return Simulation_2()
-        else:
-            raise ValueError("Unknown simulation type")
-
-    def PlotPricesOverTime(self):
-        # Plot fish prices over time
-        self.market.action_log.plot_data()
-
-# Subclass of Simulation for Simulation 1
-class Simulation_1(Simulation):
-    def run(self):
-        for _ in range(10):
-            self.market.tick.increase_tick()
-            print("-" * 60)
-            print(f"Day {Tick.get_tick()} - {Tick.get_timestamp()}")
-            self.latest_market_prices = self.market.send_update_prices_message()
-
-
-# Subclass of Simulation for Simulation 2
-class Simulation_2(Simulation):
-    def __init__(self):
-        super().__init__()
-
-    def run(self):
-        """
-        Instead of automatically running for a fixed number of ticks,
-        the simulation will wait for a trigger to stream updates.
-        """
-        print("[Simulation] Simulation_2 is running. Waiting for trigger from client.")
-
-    def trigger_simulation(self):
+    def simulate_step(self):
         """
         This method will handle simulation steps
         and streaming updates triggered externally (by the client).
         """
         print("-" * 60)
         self.market.tick.increase_tick()
-        print(f"[Simulation] Day {self.market.tick.get_tick()} has been triggered ")
-        self.latest_market_prices = self.market.send_update_prices_message()
+        print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been triggered ... ")
+        currentTimestamp = Timestamp()
+
+        print(f"[Simulation] Current tick: {self.market.tick.get_timestamp()}")
+        currentTimestamp.FromJsonString(self.market.tick.get_timestamp())
+
+        return workflow_pb2.SimulateStepResponse(date_time=currentTimestamp)
+
+    def sent_species_prices(self):
+        """
+        This method will handle prices updates
+        and streaming updates triggered externally (by the client).
+        """
+        print("-" * 60)
+        self.latest_market_prices = self.market.update_prices_message()
+        print(f"[Simulation] ID: {self.simulation_id}, Prices have been sent ... ")
+
+
+
+

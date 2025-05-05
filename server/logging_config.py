@@ -3,7 +3,9 @@ import sys
 
 
 def configure_logging():
-    """Configures the logger and redirects print statements to the logger."""
+    """Configures the logger and redirects print statements to the logger.
+    Used for opentelemetry tracing.
+    """
     # Configure the logger
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     logger = logging.getLogger("SURIMI-market")

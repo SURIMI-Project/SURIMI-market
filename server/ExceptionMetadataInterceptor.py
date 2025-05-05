@@ -4,6 +4,9 @@ from grpc_interceptor import ServerInterceptor
 from grpc_interceptor.exceptions import GrpcException
 
 class ExceptionMetadataInterceptor(ServerInterceptor):
+    """
+    This is a monitor for the GUI to track the source of an exception.
+             """
 
     def intercept(
         self,
