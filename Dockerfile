@@ -10,15 +10,17 @@ COPY requirements.txt /app/requirements.txt
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all the application files into the container, including pb directory
+# Copy all the application files into the container
 COPY . /app
 
-# Add the /app folder to PYTHONPATH so that the `pb` module is found
+# Add the /app folder to PYTHONPATH so that the `surimi` module is found
 ENV PYTHONPATH=/app
 
-# Expose both the client and server ports
-EXPOSE 5000 5001
+# Expose server port
+EXPOSE 5001
 
-# Run both the server and client with the correct order
-CMD python server/market_service.py
-# & sleep 2 && python client/market_client.py
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:18889
+ENV OTEL_SERVICE_NAME=market
+
+# Runthe server 
+CMD ["python", "server/app.py"]

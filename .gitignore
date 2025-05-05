@@ -1,0 +1,8 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.venv
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
