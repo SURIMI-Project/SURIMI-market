@@ -8,6 +8,7 @@ import random
 from collections import defaultdict
 import datetime
 from surimi.v1 import species_price_pb2, market_pb2
+from google.protobuf.timestamp_pb2 import Timestamp
 
 # tick.py
 class Tick:
@@ -105,7 +106,8 @@ class Market:
         Generates an update message containing pricing details for all species at all ports.
         """
         messages = []
-        timestamp = self.tick.get_timestamp()
+        timestamp = Timestamp()
+        timestamp.FromJsonString(self.tick.get_timestamp())
 
         for species in self.species_list:
             for port in self.ports_list:

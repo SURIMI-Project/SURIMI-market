@@ -23,17 +23,12 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
 
     def SimulateStep(self, request, context):
         with self.tracer.start_as_current_span("WorkflowService.SimulateStep") as span:
-            try:
-                print(f"[Server] SimulateStep of Simulation if {request.simulation_id}.")
-                if not request.simulation_id in self.simulation_dictionary.keys():
-                    context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Simulation Id does not exists.")
+            print(f"[Server] SimulateStep of Simulation if {request.simulation_id}.")
+            if not request.simulation_id in self.simulation_dictionary.keys():
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Simulation Id does not exists.")
 
-                current_simulation = self.simulation_dictionary[request.simulation_id]
+            current_simulation = self.simulation_dictionary[request.simulation_id]
 
-                return current_simulation.simulate_step()
-
-            except Exception as e:
-                print(f"[ERROR] gRPC Stream Error: {e}")
-                context.abort(grpc.StatusCode.INTERNAL, "Server Error")
+            return current_simulation.simulate_step()
 
 
