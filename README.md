@@ -17,7 +17,7 @@ After that, the 'proto' subdirectory will be filled with the contents of the SUR
 
 In the subdirectory \surimi\v1\ a collection of python files exist. These files are generated from the protobuf files of the proto submodule. Follow the procedure below to re-generate them when the protobuf files change.
 ```bash
-C:\Users\<user>\source\repos\SURIMI-market> python -m grpc_tools.protoc -Iproto --python_out=. --grpc_python_out=. proto/surimi/v1/*.proto
+C:\Users\<user>\source\repos\SURIMI-market> python -m grpc_tools.protoc -Iproto --python_out=. --grpc_python_out=. --pyi_out=. proto/surimi/v1/*.proto
 ```
 
 

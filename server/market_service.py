@@ -15,4 +15,11 @@ class MarketService(market_pb2_grpc.MarketServiceServicer):
             current_simulation = self.simulation_dictionary[request.simulation_id]
             return current_simulation.send_species_prices()
 
-
+    def UpdateSales(self, request, context):
+        with self.tracer.start_as_current_span("MarketService.UpdateSales") as span:
+            print("[Server] Update Sales...")
+            if not request.simulation_id in self.simulation_dictionary.keys():
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "SimulationId does not exist.")
+#            current_simulation = self.simulation_dictionary[request.simulation_id]
+#            return current_simulation.send_species_prices()
+            return market_pb2.UpdateSalesResponse()
