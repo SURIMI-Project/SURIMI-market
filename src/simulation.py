@@ -1,6 +1,6 @@
 from src.market import Market
 import threading
-from surimi.v1 import workflow_pb2
+from surimi.v1 import workflow_pb2, market_pb2
 
 class Simulation:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -20,34 +20,41 @@ class Simulation:
         self.update_event = threading.Event()
         self.latest_market_prices = None
 
-    def init_response(self):
+    def init_simulation(self):
         """
-        This method will handle simulation initialization
-        and streaming updates triggered externally (by the client).
+        This method will trigger simulation initialization and responds to controller.
         """
         print("-" * 60)
         self.market.tick.increase_tick()
         print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been initialized ... ")
+        return workflow_pb2.InitResponse()
 
     def simulate_step(self):
         """
-        This method will handle simulation steps
-        and streaming updates triggered externally (by the client).
+        This method will trigger a simulation step and responds to controller.
         """
         print("-" * 60)
         self.market.tick.increase_tick()
         print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been triggered ... ")
         return workflow_pb2.SimulateStepResponse()
 
-    def send_species_prices(self):
+    def update_prices(self):
         """
-        This method will handle prices updates
-        and streaming updates triggered externally (by the client).
+        This method will send current prices to the controller.
         """
         print("-" * 60)
         self.latest_market_prices = self.market.update_species_prices_message()
         print(f"[Simulation] ID: {self.simulation_id}, Prices have been sent ... ")
-        return self.latest_market_prices
+        return market_pb2.GetSpeciesPricesResponse()
+
+    def update_sales(self):
+        """
+        This method will update sales for the next step.
+        """
+        print("-" * 60)
+        print(f"[Simulation] ID: {self.simulation_id}, Sales have been sent ... ")
+        return market_pb2.UpdateSalesResponse()
+
 
 
 

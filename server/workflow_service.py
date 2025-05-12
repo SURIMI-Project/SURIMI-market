@@ -18,7 +18,8 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
             self.simulation_dictionary[request.simulation_id] = new_simulation
             print(f"[Server] Simulation {request.simulation_id} started.")
 
-            return workflow_pb2.InitResponse()
+            # return workflow_pb2.InitResponse()
+            return new_simulation.init_simulation()
 
 
     def SimulateStep(self, request, context):
@@ -30,5 +31,6 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
             current_simulation = self.simulation_dictionary[request.simulation_id]
 
             return current_simulation.simulate_step()
+
 
 
