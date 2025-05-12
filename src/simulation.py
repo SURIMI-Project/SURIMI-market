@@ -1,8 +1,6 @@
 from src.market import Market
 import threading
 from surimi.v1 import workflow_pb2
-from google.protobuf.timestamp_pb2 import Timestamp
-
 
 class Simulation:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -39,12 +37,7 @@ class Simulation:
         print("-" * 60)
         self.market.tick.increase_tick()
         print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been triggered ... ")
-        currentTimestamp = Timestamp()
-
-        print(f"[Simulation] Current tick: {self.market.tick.get_timestamp()}")
-        currentTimestamp.FromJsonString(self.market.tick.get_timestamp())
-
-        return workflow_pb2.SimulateStepResponse(date_time=currentTimestamp)
+        return workflow_pb2.SimulateStepResponse()
 
     def send_species_prices(self):
         """

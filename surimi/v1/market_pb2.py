@@ -22,10 +22,12 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+from surimi.v1 import sales_pb2 as surimi_dot_v1_dot_sales__pb2
 from surimi.v1 import species_price_pb2 as surimi_dot_v1_dot_species__price__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16surimi/v1/market.proto\x12\tsurimi.v1\x1a\x1dsurimi/v1/species_price.proto\"0\n\x17GetSpeciesPricesRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"C\n\x18GetSpeciesPricesResponse\x12\'\n\x06prices\x18\x01 \x03(\x0b\x32\x17.surimi.v1.SpeciesPrice2l\n\rMarketService\x12[\n\x10GetSpeciesPrices\x12\".surimi.v1.GetSpeciesPricesRequest\x1a#.surimi.v1.GetSpeciesPricesResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16surimi/v1/market.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x15surimi/v1/sales.proto\x1a\x1dsurimi/v1/species_price.proto\"0\n\x17GetSpeciesPricesRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"C\n\x18GetSpeciesPricesResponse\x12\'\n\x06prices\x18\x01 \x03(\x0b\x32\x17.surimi.v1.SpeciesPrice\"\xc5\x01\n\x12UpdateSalesRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_date_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\x0fsales_summaries\x18\x04 \x03(\x0b\x32\x17.surimi.v1.SalesSummary\"\x15\n\x13UpdateSalesResponse2\xba\x01\n\rMarketService\x12[\n\x10GetSpeciesPrices\x12\".surimi.v1.GetSpeciesPricesRequest\x1a#.surimi.v1.GetSpeciesPricesResponse\x12L\n\x0bUpdateSales\x12\x1d.surimi.v1.UpdateSalesRequest\x1a\x1e.surimi.v1.UpdateSalesResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,10 +35,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'surimi.v1.market_pb2', _glo
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
-  _globals['_GETSPECIESPRICESREQUEST']._serialized_start=68
-  _globals['_GETSPECIESPRICESREQUEST']._serialized_end=116
-  _globals['_GETSPECIESPRICESRESPONSE']._serialized_start=118
-  _globals['_GETSPECIESPRICESRESPONSE']._serialized_end=185
-  _globals['_MARKETSERVICE']._serialized_start=187
-  _globals['_MARKETSERVICE']._serialized_end=295
+  _globals['_GETSPECIESPRICESREQUEST']._serialized_start=124
+  _globals['_GETSPECIESPRICESREQUEST']._serialized_end=172
+  _globals['_GETSPECIESPRICESRESPONSE']._serialized_start=174
+  _globals['_GETSPECIESPRICESRESPONSE']._serialized_end=241
+  _globals['_UPDATESALESREQUEST']._serialized_start=244
+  _globals['_UPDATESALESREQUEST']._serialized_end=441
+  _globals['_UPDATESALESRESPONSE']._serialized_start=443
+  _globals['_UPDATESALESRESPONSE']._serialized_end=464
+  _globals['_MARKETSERVICE']._serialized_start=467
+  _globals['_MARKETSERVICE']._serialized_end=653
 # @@protoc_insertion_point(module_scope)
