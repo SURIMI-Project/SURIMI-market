@@ -1,12 +1,12 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pb")))
-
-from typing import List, Dict
-import matplotlib.pyplot as plt
-import random
-from collections import defaultdict
+import math
 import datetime
+
+from collections import defaultdict
+from typing import Dict
+
 from surimi.v1 import species_price_pb2, market_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -62,9 +62,62 @@ class Port:
     Each port has a unique identifier and a UN Location Code.
     """
 
-    def __init__(self, port_name: str, port_id: str):
+    def __init__(self, port_name: str, port_id: str, parent_model: "Market"):
         self.name = port_name
         self.id = port_id  # UN Location Code
+        self.local_market = LocalMarket(port_id, parent_model)
+
+class GlobalMarket:
+    """
+    Represents the global market for all species, prices are fixed.
+    """
+    def __init__(self):
+        self.prices: Dict[str, float] = {}  # species_id -> fixed price p
+
+    def set_price(self, species_id: str, price: float):
+        self.prices[species_id] = price
+
+    def get_price(self, species_id: str) -> float:
+       return self.prices.get(species_id, 0.0)
+
+class LocalMarket:
+    """
+    Represents a local market at a specific port.
+    Each local market has a unique identifier and tracks its own species.
+    """
+
+    def __init__(self, port_id: str, parent_model: "Market"):
+        self.port_id = port_id
+        self.parent_model = parent_model # Needed for cross-market influence
+        self.species_price_params = {}  # species_id → { 'd': ..., 'beta': ... }
+        self.monthly_catch = defaultdict(float) # species_id → quantity landed
+
+    def set_price_parameters(self, species_id: str, local_base_price: float, beta: float):
+        self.species_price_params[species_id] = {
+            "d": local_base_price,
+            "beta": beta,
+        }
+
+    def record_landing(self, species_id: str, quantity: float):
+        self.daily_catch[species_id] += quantity
+
+    def calculate_price(self, species_id: str) -> float:
+        params = self.species_price_params[species_id]
+        d = params["d"]
+        beta = params["beta"]
+
+        # Total catch across all ports (influence mechanism)
+        total_catch = 0.0
+        for port in self.parent_model.ports.values():
+            total_catch += port.local_market.daily_catch[species_id]
+
+        return d * math.exp(-beta * total_catch)
+
+    def get_elasticity(self, species_id: str) -> float:
+        p = self.parent_model.global_market.get_price(species_id)
+        d = self.species_price_params[species_id]["d"]
+        return 1 / math.log(p / d)
+
 
 
 # market.py
@@ -74,25 +127,33 @@ class Market:
     Also maintains an action log for tracking events.
     """
 
-    def __init__(self, name: str, currency: str, measurement_unit: str):
-        self.name = name
-        self.ports_list: List[Port] = []
-        self.species_list: List[Species] = []
+    def __init__(self, currency: str, measurement_unit: str):
+        self.tick = Tick()
+        self.ports_dict: Dict[str, Port] = {}
+        self.species_dict: Dict[str, Species] = {}
         self.currency = currency  # 3-letter ISO 4217 currency code
         self.measurement_unit = measurement_unit  # Unit of measurement (e.g., kg, lb)
-        self.tick = Tick()
+        self.global_market = GlobalMarket()
+
 
     def add_port(self, port_name: str, port_id: str):
         """
         Adds a new port to the market.
         """
-        self.ports_list.append(Port(port_name, port_id))
+        self.ports_dict.append(Port(port_name, port_id))
 
     def add_species(self, species_name:str, species_id: str):
         """
         Adds a new species to the market.
         """
-        self.species_list.append(Species(species_name, species_id))
+        self.species_dict.append(Species(species_name, species_id))
+
+    def set_local_market_parameters(self, port_id: str, species_id: str, d: float, beta: float):
+        port = self.ports[port_id]
+        port.local_market.set_price_parameters(species_id, d, beta)
+
+    def catch_by_species(self, port_id: str, species_id: str, quantity: float):
+        self.ports[port_id].local_market.record_landing(species_id, quantity)
 
     def calculate_species_price(self) -> float:
         """
@@ -109,8 +170,8 @@ class Market:
         timestamp = Timestamp()
         timestamp.FromJsonString(self.tick.get_timestamp())
 
-        for species in self.species_list:
-            for port in self.ports_list:
+        for species in self.species_dict:
+            for port in self.ports_dict:
                 message = species_price_pb2.SpeciesPrice(
                     species_id=species.id,
                     port_id=port.id,
