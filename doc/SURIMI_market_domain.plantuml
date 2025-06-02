@@ -1,45 +1,66 @@
-@startuml Domain Model
-
-title SURIMI Market Domain Model
-
-class "Market" as Market{
-    -name: String
-    -Stock[] stockList
-    +ActionLog : ActionLog
-    __
-    +calculate_market_value(): float
+@startuml
+' Core classes
+class Tick {
+  +tick: int
+  +start_time: datetime
+  +increase_tick(): void
+  +get_tick(): int
+  +get_timestamp(): str
 }
 
-class "ActionLog" as ActionLog{
-   -ActionLogEntry[] action_history
-   __
-   +add_action_log_entry(tick, type, T)
-   +plot_data()
+class Species {
+  -name: str
+  -id: str
 }
 
-class "ActionLogEntry" as ActionLogEntry {
-   -tick: int
-   -type: String
-   -T : payload
+class Market {
+  -tick: Tick
+  -ports_dict: Dict[str, Port]
+  -species_dict: Dict[str, Species]
+  -currency: str
+  -measurement_unit: str
+  -global_market: GlobalMarket
+  +add_port(name: str, id: str)
+  +add_species(name: str, id: str)
+  +set_local_market_parameters(...)
+  +catch_by_species(...)
+  +calculate_species_price(): float
+  +update_species_prices_message()
 }
 
-class "Stock" as Stock {
-   - name: int
-   - type: String
-   - stock: int
+class Port {
+  -name: str
+  -id: str
+  -local_market: LocalMarket
+  -global_market: GlobalMarket
 }
 
-Market "1" o-- "1" ActionLog : "has"
-Market "1" *-- "*" Stock : "has"
-ActionLog --> ActionLogEntry : "use"
+class GlobalMarket {
+  -prices: Dict[str, float]
+  +set_price(id: str, price: float)
+  +get_price(id: str): float
+}
+
+class LocalMarket {
+  -port_id: str
+  -parent_model: Market
+  -species_price_params: Dict
+  -monthly_catch: Dict[str, float]
+  +set_price_parameters(...)
+  +record_landing(...)
+  +calculate_price(...): float
+  +get_elasticity(...): float
+}
+
+' Relationships
+Market --> Tick
+Market --> "0..*" Port
+Market --> "0..*" Species
+Market --> GlobalMarket
+Port --> LocalMarket
+Port --> GlobalMarket
+LocalMarket --> Market
+GlobalMarket --> "0..*" Species
+LocalMarket --> "0..*" Species
+
 @enduml
-
-
-/'
-Extension	<|--	Specialization of a class in a hierarchy
-Implementation	<|..	Realization of an interface by a class
-Composition	*--	The part cannot exist without the whole
-Aggregation	o--	The part can exist independently of the whole
-Dependency	-->	The object uses another object
-Dependency	..>	A weaker form of dependency
-'/

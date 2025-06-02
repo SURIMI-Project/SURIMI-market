@@ -38,11 +38,12 @@ Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
 
 ```tree
 ── MarketModel   
-    ├── GlobalMarket  
     ├── Species (dict)  
+    ├── GlobalMarket 
+        └── species_price_params, catch, etc.
     └── Ports (dict)  
         └── LocalMarket  
-        └── species_price_params, catch, etc.  
+            └── species_price_params, catch, etc.  
 ```
 
 ## Notation
