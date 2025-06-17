@@ -1,66 +1,64 @@
-@startuml
-' Core classes
-class Tick {
-  +tick: int
-  +start_time: datetime
-  +increase_tick(): void
-  +get_tick(): int
-  +get_timestamp(): str
+@startuml MarketSystemDomain
+
+class MarketSystem {
+  - currency: str
+  - measurement_unit: str
+  - species_dict: Dict[str, Species]
+  - local_markets: Dict[str, LocalMarket]
+  - global_market: GlobalMarket
+  - tick: Tick
+  + add_species(s: Species)
+  + add_local_market(m: LocalMarket)
+  + catch_by_species(market_code, species_code, quantity)
+  + update_species_prices_message()
 }
 
 class Species {
-  -name: str
-  -id: str
-}
-
-class Market {
-  -tick: Tick
-  -ports_dict: Dict[str, Port]
-  -species_dict: Dict[str, Species]
-  -currency: str
-  -measurement_unit: str
-  -global_market: GlobalMarket
-  +add_port(name: str, id: str)
-  +add_species(name: str, id: str)
-  +set_local_market_parameters(...)
-  +catch_by_species(...)
-  +calculate_species_price(): float
-  +update_species_prices_message()
-}
-
-class Port {
-  -name: str
-  -id: str
-  -local_market: LocalMarket
-  -global_market: GlobalMarket
-}
-
-class GlobalMarket {
-  -prices: Dict[str, float]
-  +set_price(id: str, price: float)
-  +get_price(id: str): float
+  - name: str
+  - code: str
+  - last_price: float
+  - last_quantity: float
+  - epsilon: float
+  + calculate_price(quantity: float): float
 }
 
 class LocalMarket {
-  -port_id: str
-  -parent_model: Market
-  -species_price_params: Dict
-  -monthly_catch: Dict[str, float]
-  +set_price_parameters(...)
-  +record_landing(...)
-  +calculate_price(...): float
-  +get_elasticity(...): float
+  - market_code: str
+  - lambda_mix: float
+  - theta_mix: float
+  - species_dict: Dict[str, Species]
+  - monthly_catch: Dict[str, float]
+  - local_prices: Dict[str, float]
+  - price_history: List
+  - global_market: GlobalMarket
+  + record_monthly_catch(species_code, quantity)
+  + calculate_local_price(species_code=None, other_market_avg=None)
+  + get_elasticity(species_code)
 }
 
-' Relationships
-Market --> Tick
-Market --> "0..*" Port
-Market --> "0..*" Species
-Market --> GlobalMarket
-Port --> LocalMarket
-Port --> GlobalMarket
-LocalMarket --> Market
-GlobalMarket --> "0..*" Species
-LocalMarket --> "0..*" Species
+class GlobalMarket {
+  - species_dict: Dict[str, Species]
+  - global_prices: Dict[str, float]
+  + compute_price(species_code, total_quantity)
+  + get_global_price(species_code)
+}
+
+class Tick {
+  - tick: int
+  - start_time: datetime
+  + increase_tick()
+  + get_tick()
+  + set_timestep(days)
+  + get_timestamp()
+  + reset()
+}
+
+MarketSystem "1" o-- "many" Species
+MarketSystem "1" o-- "many" LocalMarket
+MarketSystem "1" o-- "1" GlobalMarket
+LocalMarket "1" --> "1" GlobalMarket
+LocalMarket "1" --> "many" Species
+GlobalMarket "1" --> "many" Species
+MarketSystem "1" o-- "1" Tick
 
 @enduml
