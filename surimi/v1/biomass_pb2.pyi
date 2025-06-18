@@ -6,12 +6,12 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class BiomassGrid(_message.Message):
-    __slots__ = ("species_id", "biomass_cells")
-    SPECIES_ID_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("species_code", "biomass_cells")
+    SPECIES_CODE_FIELD_NUMBER: _ClassVar[int]
     BIOMASS_CELLS_FIELD_NUMBER: _ClassVar[int]
-    species_id: str
+    species_code: str
     biomass_cells: _containers.RepeatedCompositeFieldContainer[BiomassCell]
-    def __init__(self, species_id: _Optional[str] = ..., biomass_cells: _Optional[_Iterable[_Union[BiomassCell, _Mapping]]] = ...) -> None: ...
+    def __init__(self, species_code: _Optional[str] = ..., biomass_cells: _Optional[_Iterable[_Union[BiomassCell, _Mapping]]] = ...) -> None: ...
 
 class BiomassCell(_message.Message):
     __slots__ = ("longitude", "latitude", "biomass")

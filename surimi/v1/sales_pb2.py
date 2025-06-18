@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15surimi/v1/sales.proto\x12\tsurimi.v1\"m\n\x0cSalesSummary\x12\x11\n\tmarket_id\x18\x01 \x01(\t\x12\x18\n\x10measurement_unit\x18\x02 \x01(\t\x12\x10\n\x08\x63urrency\x18\x03 \x01(\t\x12\x1e\n\x05sales\x18\x04 \x03(\x0b\x32\x0f.surimi.v1.Sale\";\n\x04Sale\x12\x12\n\nspecies_id\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x01\x12\r\n\x05value\x18\x03 \x01(\x01\x42!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15surimi/v1/sales.proto\x12\tsurimi.v1\"o\n\x0cSalesSummary\x12\x13\n\x0bmarket_code\x18\x01 \x01(\t\x12\x18\n\x10measurement_unit\x18\x02 \x01(\t\x12\x10\n\x08\x63urrency\x18\x03 \x01(\t\x12\x1e\n\x05sales\x18\x04 \x03(\x0b\x32\x0f.surimi.v1.Sale\"=\n\x04Sale\x12\x14\n\x0cspecies_code\x18\x01 \x01(\t\x12\x10\n\x08quantity\x18\x02 \x01(\x01\x12\r\n\x05value\x18\x03 \x01(\x01\x42!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,7 +33,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
   _globals['_SALESSUMMARY']._serialized_start=36
-  _globals['_SALESSUMMARY']._serialized_end=145
-  _globals['_SALE']._serialized_start=147
-  _globals['_SALE']._serialized_end=206
+  _globals['_SALESSUMMARY']._serialized_end=147
+  _globals['_SALE']._serialized_start=149
+  _globals['_SALE']._serialized_end=210
 # @@protoc_insertion_point(module_scope)

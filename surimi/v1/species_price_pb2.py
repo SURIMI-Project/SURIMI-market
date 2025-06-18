@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dsurimi/v1/species_price.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9d\x01\n\x0cSpeciesPrice\x12\x12\n\nspecies_id\x18\x01 \x01(\t\x12\x0f\n\x07port_id\x18\x02 \x01(\t\x12\r\n\x05price\x18\x03 \x01(\x01\x12\x18\n\x10measurement_unit\x18\x04 \x01(\t\x12\x10\n\x08\x63urrency\x18\x05 \x01(\t\x12-\n\ttimestamp\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1dsurimi/v1/species_price.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa3\x01\n\x0cSpeciesPrice\x12\x14\n\x0cspecies_code\x18\x01 \x01(\t\x12\x13\n\x0bmarket_code\x18\x02 \x01(\t\x12\r\n\x05price\x18\x03 \x01(\x01\x12\x18\n\x10measurement_unit\x18\x04 \x01(\t\x12\x10\n\x08\x63urrency\x18\x05 \x01(\t\x12-\n\ttimestamp\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,5 +34,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
   _globals['_SPECIESPRICE']._serialized_start=78
-  _globals['_SPECIESPRICE']._serialized_end=235
+  _globals['_SPECIESPRICE']._serialized_end=241
 # @@protoc_insertion_point(module_scope)
