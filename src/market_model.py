@@ -12,6 +12,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pb")))
 
+# TODO: setup via calling Scenario configuaration (via S3 bucket)
 
 class Species:
     """

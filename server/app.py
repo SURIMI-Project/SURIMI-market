@@ -1,6 +1,5 @@
 import os
 import signal
-import threading
 from concurrent import futures
 
 import grpc
@@ -24,7 +23,7 @@ def serve():
     tracer = configure_oltp_grpc_tracing(endpoint=otel_exporter_otlp_endpoint)
     logger.info(f"OpenTelemetry tracing configured. Sending to: {otel_exporter_otlp_endpoint}")
 
-    logger.info("Starting gRPC server...")
+    logger.info("🟧 Starting gRPC server...")
 
     # Create the gRPC server with interceptors
     server = grpc.server(
@@ -45,16 +44,16 @@ def serve():
     server.add_insecure_port(f"{host}:{port}")
     server.start()
 
-    logger.info(f"✅ gRPC Server running on {host}:{port}")
+    logger.info(f"🟩 gRPC Server running on {host}:{port}")
 
     # Graceful shutdown on termination signal
-    def graceful_shutdown(signum, frame):
-        logger.info("🛑 Shutdown signal received. Stopping server...")
+    def shutdown(signum, frame):
+        logger.info("🟥 Shutdown signal received. Stopping server...")
         server.stop(grace=None)
         logger.info("Server stopped cleanly.")
 
-    signal.signal(signal.SIGINT, graceful_shutdown)
-    signal.signal(signal.SIGTERM, graceful_shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
 
     # Wait until server is terminated
     try:

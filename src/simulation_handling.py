@@ -1,8 +1,8 @@
-from src.market import MarketSystem, LocalMarket, Species
+from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import workflow_pb2, market_pb2
 import threading
 
-class Simulation:
+class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
         """
         Manages the simulation loop, using MarketSystem as the core.
@@ -36,6 +36,7 @@ class Simulation:
         return workflow_pb2.InitResponse()
 
     def simulate_step(self):
+        # TODO: This should be sending a blocking response to the controller if sales we not received.
         """
         Trigger a simulation step and respond to the controller.
         """
@@ -71,6 +72,8 @@ class Simulation:
         return self.latest_market_prices
 
     def update_sales(self):
+        # TODO: This should be receiving sales data from the controller twice (EWE and Poseidon).
+        #  Should be aggregate values until simulate Step is called.
         """
         Placeholder for external catch input. In real use, values will come from outside agents or models.
         """
