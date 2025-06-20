@@ -1,6 +1,7 @@
 from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import workflow_pb2, market_pb2
 import threading
+import json
 
 class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -16,15 +17,18 @@ class SimulationHandler:
         self.market = MarketSystem(currency="EUR", measurement_unit="kg")
 
         # Add species
-        self.market.add_species(Species("Bogue", "BOG"))
-        self.market.add_species(Species("Pilchard", "PIL"))
+        # self.market.add_species(Species("Bogue", "BOG"))
+        # self.market.add_species(Species("Pilchard", "PIL"))
 
         # Add local markets (using UN/LOCODE)
-        self.market.add_local_market(LocalMarket("ESARN", self.market.global_market))  # ARENYS DE MAR, Spain
-        self.market.add_local_market(LocalMarket("ESBLA", self.market.global_market))  # BLANES, Spain
+        # self.market.add_local_market(LocalMarket("ESARN", self.market.global_market))  # ARENYS DE MAR, Spain
+        # self.market.add_local_market(LocalMarket("ESBLA", self.market.global_market))  # BLANES, Spain
+
 
         self.update_event = threading.Event()
+
         self.latest_market_prices = None
+        # TODO: Initialize the market system with species and local markets
 
     def init_simulation(self):
         """
@@ -80,3 +84,18 @@ class SimulationHandler:
         print("-" * 60)
         print(f"[Simulation] ID: {self.simulation_id}, Sales have been received ... ")
         return market_pb2.UpdateSalesResponse()
+
+    def load_from_json(self, file_path: str):
+        """
+        Import Jason file to initialize the simulation with species and local markets.
+        """
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+
+        for s in data.get("species", []):
+            species = Species(species_name=s["name"], species_code=s["code"])
+            self.add_species(species)
+
+        for m in data.get("local_market", []):
+            market = LocalMarket(market_name=m["name"], market_code=m["code"], global_market=self.market.global_market)
+            self.add_local_market(market)

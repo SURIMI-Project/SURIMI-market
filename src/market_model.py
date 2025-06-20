@@ -184,7 +184,8 @@ class LocalMarket:
         lambda_mix (float): Influence of global price on local price [0, 1].
         theta_mix (float): Influence of neighboring markets on local price [0, 1].
     """
-    def __init__(self, market_code: str, global_market: object, lambda_mix=0.0, theta_mix=0.0):
+    def __init__(self, market_code: str, market_name: str ,global_market: object, lambda_mix=0.0, theta_mix=0.0):
+        self.market_name = market_name  # Name of the local market (e.g., "ARENYS DE MAR")
         self.market_code = market_code  # ISO country code + UN/LOCODE (e.g., "ITCIV")
         self.global_market = global_market
         self.lambda_mix = lambda_mix

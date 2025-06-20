@@ -1,0 +1,22 @@
+{
+    "species": [
+        {
+            "name": "Bogue",
+            "code": "BOG"
+        },
+        {
+            "name": "Pilchard",
+            "code": "PIL"
+        }
+    ],
+    "local_market": [
+         {
+            "name": "ARENYS DE MAR",
+            "code": "ESARN"
+        },
+        {
+            "name": "BLANES",
+            "code": "ESBLA"
+        }
+    ]
+}
