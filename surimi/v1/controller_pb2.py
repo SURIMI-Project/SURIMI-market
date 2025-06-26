@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1asurimi/v1/controller.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"t\n\x15InitSimulationRequest\x12\x13\n\x0bscenario_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tstep_size\x18\x03 \x01(\t\"/\n\x16InitSimulationResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"\x92\x01\n\x14RunSimulationRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tstep_size\x18\x03 \x01(\t\x12\x1b\n\x13simulation_duration\x18\x04 \x01(\t\"\x17\n\x15RunSimulationResponse2\xbe\x01\n\x11\x43ontrollerService\x12U\n\x0eInitSimulation\x12 .surimi.v1.InitSimulationRequest\x1a!.surimi.v1.InitSimulationResponse\x12R\n\rRunSimulation\x12\x1f.surimi.v1.RunSimulationRequest\x1a .surimi.v1.RunSimulationResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1asurimi/v1/controller.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8b\x01\n\x15InitSimulationRequest\x12\x13\n\x0bscenario_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tstep_size\x18\x03 \x01(\t\x12\x15\n\rsimulation_id\x18\x04 \x01(\t\"/\n\x16InitSimulationResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"\x92\x01\n\x14RunSimulationRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x11\n\tstep_size\x18\x03 \x01(\t\x12\x1b\n\x13simulation_duration\x18\x04 \x01(\t\".\n\x15RunSimulationResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t2\xbe\x01\n\x11\x43ontrollerService\x12U\n\x0eInitSimulation\x12 .surimi.v1.InitSimulationRequest\x1a!.surimi.v1.InitSimulationResponse\x12R\n\rRunSimulation\x12\x1f.surimi.v1.RunSimulationRequest\x1a .surimi.v1.RunSimulationResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,14 +33,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'surimi.v1.controller_pb2', 
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
-  _globals['_INITSIMULATIONREQUEST']._serialized_start=74
-  _globals['_INITSIMULATIONREQUEST']._serialized_end=190
-  _globals['_INITSIMULATIONRESPONSE']._serialized_start=192
-  _globals['_INITSIMULATIONRESPONSE']._serialized_end=239
-  _globals['_RUNSIMULATIONREQUEST']._serialized_start=242
-  _globals['_RUNSIMULATIONREQUEST']._serialized_end=388
-  _globals['_RUNSIMULATIONRESPONSE']._serialized_start=390
-  _globals['_RUNSIMULATIONRESPONSE']._serialized_end=413
-  _globals['_CONTROLLERSERVICE']._serialized_start=416
-  _globals['_CONTROLLERSERVICE']._serialized_end=606
+  _globals['_INITSIMULATIONREQUEST']._serialized_start=75
+  _globals['_INITSIMULATIONREQUEST']._serialized_end=214
+  _globals['_INITSIMULATIONRESPONSE']._serialized_start=216
+  _globals['_INITSIMULATIONRESPONSE']._serialized_end=263
+  _globals['_RUNSIMULATIONREQUEST']._serialized_start=266
+  _globals['_RUNSIMULATIONREQUEST']._serialized_end=412
+  _globals['_RUNSIMULATIONRESPONSE']._serialized_start=414
+  _globals['_RUNSIMULATIONRESPONSE']._serialized_end=460
+  _globals['_CONTROLLERSERVICE']._serialized_start=463
+  _globals['_CONTROLLERSERVICE']._serialized_end=653
 # @@protoc_insertion_point(module_scope)

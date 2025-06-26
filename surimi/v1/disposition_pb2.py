@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bsurimi/v1/disposition.proto\x12\tsurimi.v1\"q\n\x0f\x44ispositionGrid\x12\x11\n\tgear_code\x18\x01 \x01(\t\x12\x14\n\x0cspecies_code\x18\x02 \x01(\t\x12\x35\n\x11\x64isposition_cells\x18\x03 \x03(\x0b\x32\x1a.surimi.v1.DispositionCell\"y\n\x0f\x44ispositionCell\x12\x11\n\tlongitude\x18\x01 \x01(\x01\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x13\n\x0bgross_catch\x18\x03 \x01(\x01\x12\x15\n\rlive_discards\x18\x04 \x01(\x01\x12\x15\n\rdead_discards\x18\x05 \x01(\x01\x42!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bsurimi/v1/disposition.proto\x12\tsurimi.v1\"q\n\x0f\x44ispositionGrid\x12\x11\n\tgear_code\x18\x01 \x01(\t\x12\x14\n\x0cspecies_code\x18\x02 \x01(\t\x12\x35\n\x11\x64isposition_cells\x18\x03 \x03(\x0b\x32\x1a.surimi.v1.DispositionCell\"y\n\x0f\x44ispositionCell\x12\x11\n\tlongitude\x18\x01 \x01(\x01\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x13\n\x0bgross_catch\x18\x03 \x01(\x01\x12\x15\n\rlive_discards\x18\x04 \x01(\x01\x12\x15\n\rdead_discards\x18\x05 \x01(\x01\"j\n\x17\x43\x61tchDispositionSummary\x12\x18\n\x10measurement_unit\x18\x01 \x01(\t\x12\x35\n\x11\x64isposition_grids\x18\x02 \x03(\x0b\x32\x1a.surimi.v1.DispositionGridB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,4 +36,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_DISPOSITIONGRID']._serialized_end=155
   _globals['_DISPOSITIONCELL']._serialized_start=157
   _globals['_DISPOSITIONCELL']._serialized_end=278
+  _globals['_CATCHDISPOSITIONSUMMARY']._serialized_start=280
+  _globals['_CATCHDISPOSITIONSUMMARY']._serialized_end=386
 # @@protoc_insertion_point(module_scope)

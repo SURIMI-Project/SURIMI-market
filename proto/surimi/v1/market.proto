@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package surimi.v1;
+
+import "google/protobuf/timestamp.proto";
+import "surimi/v1/sales.proto";
+import "surimi/v1/species_price.proto";
+
+option csharp_namespace = "Grpc.Surimi";
+option java_package = "eu.project.surimi";
+
+message GetSpeciesPricesRequest {
+  string simulation_id = 1;
+}
+message GetSpeciesPricesResponse {
+  string simulation_id = 1;
+  repeated SpeciesPrice prices = 2;
+}
+
+message UpdateSpeciesPricesRequest {
+  string simulation_id = 1;
+  repeated SpeciesPrice prices = 2;
+}
+message UpdateSpeciesPricesResponse {
+  string simulation_id = 1;
+}
+
+message GetSalesRequest {
+  string simulation_id = 1;
+  google.protobuf.Timestamp start_date_time = 2;
+  google.protobuf.Timestamp end_date_time = 3;
+}
+
+message GetSalesResponse {
+  string simulation_id = 1;
+  repeated SalesSummary sales_summaries = 2;
+}
+
+message UpdateSalesRequest {
+  string simulation_id = 1;
+  google.protobuf.Timestamp start_date_time = 2;
+  google.protobuf.Timestamp end_date_time = 3;
+  repeated SalesSummary sales_summaries = 4;
+}
+
+message UpdateSalesResponse {
+  string simulation_id = 1;
+}
+
+service MarketService {
+  rpc GetSpeciesPrices(GetSpeciesPricesRequest) returns (GetSpeciesPricesResponse);
+  rpc UpdateSpeciesPrices(UpdateSpeciesPricesRequest) returns (UpdateSpeciesPricesResponse);
+  rpc GetSales(GetSalesRequest) returns (GetSalesResponse);
+  rpc UpdateSales(UpdateSalesRequest) returns (UpdateSalesResponse);
+}

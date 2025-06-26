@@ -28,3 +28,11 @@ class DispositionCell(_message.Message):
     live_discards: float
     dead_discards: float
     def __init__(self, longitude: _Optional[float] = ..., latitude: _Optional[float] = ..., gross_catch: _Optional[float] = ..., live_discards: _Optional[float] = ..., dead_discards: _Optional[float] = ...) -> None: ...
+
+class CatchDispositionSummary(_message.Message):
+    __slots__ = ("measurement_unit", "disposition_grids")
+    MEASUREMENT_UNIT_FIELD_NUMBER: _ClassVar[int]
+    DISPOSITION_GRIDS_FIELD_NUMBER: _ClassVar[int]
+    measurement_unit: str
+    disposition_grids: _containers.RepeatedCompositeFieldContainer[DispositionGrid]
+    def __init__(self, measurement_unit: _Optional[str] = ..., disposition_grids: _Optional[_Iterable[_Union[DispositionGrid, _Mapping]]] = ...) -> None: ...

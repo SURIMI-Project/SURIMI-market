@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/biomass.proto\x12\tsurimi.v1\"R\n\x0b\x42iomassGrid\x12\x14\n\x0cspecies_code\x18\x01 \x01(\t\x12-\n\rbiomass_cells\x18\x02 \x03(\x0b\x32\x16.surimi.v1.BiomassCell\"C\n\x0b\x42iomassCell\x12\x11\n\tlongitude\x18\x01 \x01(\x01\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x0f\n\x07\x62iomass\x18\x03 \x01(\x01\x42!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/biomass.proto\x12\tsurimi.v1\"R\n\x0b\x42iomassGrid\x12\x14\n\x0cspecies_code\x18\x01 \x01(\t\x12-\n\rbiomass_cells\x18\x02 \x03(\x0b\x32\x16.surimi.v1.BiomassCell\"C\n\x0b\x42iomassCell\x12\x11\n\tlongitude\x18\x01 \x01(\x01\x12\x10\n\x08latitude\x18\x02 \x01(\x01\x12\x0f\n\x07\x62iomass\x18\x03 \x01(\x01\"Y\n\x0e\x42iomassSummary\x12\x18\n\x10measurement_unit\x18\x01 \x01(\t\x12-\n\rbiomass_grids\x18\x02 \x03(\x0b\x32\x16.surimi.v1.BiomassGridB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,4 +36,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_BIOMASSGRID']._serialized_end=120
   _globals['_BIOMASSCELL']._serialized_start=122
   _globals['_BIOMASSCELL']._serialized_end=189
+  _globals['_BIOMASSSUMMARY']._serialized_start=191
+  _globals['_BIOMASSSUMMARY']._serialized_end=280
 # @@protoc_insertion_point(module_scope)

@@ -35,25 +35,25 @@ class WorkflowServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.Init = channel.unary_unary(
-                '/surimi.v1.WorkflowService/Init',
-                request_serializer=surimi_dot_v1_dot_workflow__pb2.InitRequest.SerializeToString,
-                response_deserializer=surimi_dot_v1_dot_workflow__pb2.InitResponse.FromString,
-                _registered_method=True)
-        self.UpdatePrices = channel.unary_unary(
-                '/surimi.v1.WorkflowService/UpdatePrices',
-                request_serializer=surimi_dot_v1_dot_workflow__pb2.UpdatePricesRequest.SerializeToString,
-                response_deserializer=surimi_dot_v1_dot_workflow__pb2.UpdatePricesResponse.FromString,
+        self.Initialise = channel.unary_unary(
+                '/surimi.v1.WorkflowService/Initialise',
+                request_serializer=surimi_dot_v1_dot_workflow__pb2.InitialiseRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_workflow__pb2.InitialiseResponse.FromString,
                 _registered_method=True)
         self.SimulateStep = channel.unary_unary(
                 '/surimi.v1.WorkflowService/SimulateStep',
                 request_serializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepRequest.SerializeToString,
                 response_deserializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepResponse.FromString,
                 _registered_method=True)
-        self.UpdateBiomass = channel.unary_unary(
-                '/surimi.v1.WorkflowService/UpdateBiomass',
-                request_serializer=surimi_dot_v1_dot_workflow__pb2.UpdateBiomassRequest.SerializeToString,
-                response_deserializer=surimi_dot_v1_dot_workflow__pb2.UpdateBiomassResponse.FromString,
+        self.Finalise = channel.unary_unary(
+                '/surimi.v1.WorkflowService/Finalise',
+                request_serializer=surimi_dot_v1_dot_workflow__pb2.FinaliseRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_workflow__pb2.FinaliseResponse.FromString,
+                _registered_method=True)
+        self.Cancel = channel.unary_unary(
+                '/surimi.v1.WorkflowService/Cancel',
+                request_serializer=surimi_dot_v1_dot_workflow__pb2.CancelRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_workflow__pb2.CancelResponse.FromString,
                 _registered_method=True)
 
 
@@ -61,13 +61,7 @@ class WorkflowServiceServicer(object):
     """The workflow service definition. All models should implement this interface
     """
 
-    def Init(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def UpdatePrices(self, request, context):
+    def Initialise(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -79,7 +73,13 @@ class WorkflowServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpdateBiomass(self, request, context):
+    def Finalise(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Cancel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -88,25 +88,25 @@ class WorkflowServiceServicer(object):
 
 def add_WorkflowServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Init': grpc.unary_unary_rpc_method_handler(
-                    servicer.Init,
-                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.InitRequest.FromString,
-                    response_serializer=surimi_dot_v1_dot_workflow__pb2.InitResponse.SerializeToString,
-            ),
-            'UpdatePrices': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpdatePrices,
-                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.UpdatePricesRequest.FromString,
-                    response_serializer=surimi_dot_v1_dot_workflow__pb2.UpdatePricesResponse.SerializeToString,
+            'Initialise': grpc.unary_unary_rpc_method_handler(
+                    servicer.Initialise,
+                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.InitialiseRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_workflow__pb2.InitialiseResponse.SerializeToString,
             ),
             'SimulateStep': grpc.unary_unary_rpc_method_handler(
                     servicer.SimulateStep,
                     request_deserializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepRequest.FromString,
                     response_serializer=surimi_dot_v1_dot_workflow__pb2.SimulateStepResponse.SerializeToString,
             ),
-            'UpdateBiomass': grpc.unary_unary_rpc_method_handler(
-                    servicer.UpdateBiomass,
-                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.UpdateBiomassRequest.FromString,
-                    response_serializer=surimi_dot_v1_dot_workflow__pb2.UpdateBiomassResponse.SerializeToString,
+            'Finalise': grpc.unary_unary_rpc_method_handler(
+                    servicer.Finalise,
+                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.FinaliseRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_workflow__pb2.FinaliseResponse.SerializeToString,
+            ),
+            'Cancel': grpc.unary_unary_rpc_method_handler(
+                    servicer.Cancel,
+                    request_deserializer=surimi_dot_v1_dot_workflow__pb2.CancelRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_workflow__pb2.CancelResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -121,7 +121,7 @@ class WorkflowService(object):
     """
 
     @staticmethod
-    def Init(request,
+    def Initialise(request,
             target,
             options=(),
             channel_credentials=None,
@@ -134,36 +134,9 @@ class WorkflowService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/surimi.v1.WorkflowService/Init',
-            surimi_dot_v1_dot_workflow__pb2.InitRequest.SerializeToString,
-            surimi_dot_v1_dot_workflow__pb2.InitResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def UpdatePrices(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/surimi.v1.WorkflowService/UpdatePrices',
-            surimi_dot_v1_dot_workflow__pb2.UpdatePricesRequest.SerializeToString,
-            surimi_dot_v1_dot_workflow__pb2.UpdatePricesResponse.FromString,
+            '/surimi.v1.WorkflowService/Initialise',
+            surimi_dot_v1_dot_workflow__pb2.InitialiseRequest.SerializeToString,
+            surimi_dot_v1_dot_workflow__pb2.InitialiseResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -202,7 +175,7 @@ class WorkflowService(object):
             _registered_method=True)
 
     @staticmethod
-    def UpdateBiomass(request,
+    def Finalise(request,
             target,
             options=(),
             channel_credentials=None,
@@ -215,9 +188,36 @@ class WorkflowService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/surimi.v1.WorkflowService/UpdateBiomass',
-            surimi_dot_v1_dot_workflow__pb2.UpdateBiomassRequest.SerializeToString,
-            surimi_dot_v1_dot_workflow__pb2.UpdateBiomassResponse.FromString,
+            '/surimi.v1.WorkflowService/Finalise',
+            surimi_dot_v1_dot_workflow__pb2.FinaliseRequest.SerializeToString,
+            surimi_dot_v1_dot_workflow__pb2.FinaliseResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Cancel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/surimi.v1.WorkflowService/Cancel',
+            surimi_dot_v1_dot_workflow__pb2.CancelRequest.SerializeToString,
+            surimi_dot_v1_dot_workflow__pb2.CancelResponse.FromString,
             options,
             channel_credentials,
             insecure,

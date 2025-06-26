@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package surimi.v1;
+
+option csharp_namespace = "Grpc.Surimi";
+option java_package = "eu.project.surimi";
+
+message CreateStockAssessmentRequest {
+  string simulation_id = 1;
+}
+message CreateStockAssessmentResponse {
+  string simulation_id = 1;
+}
+
+service StockAssessmentService {
+  rpc CreateStockAssessment(CreateStockAssessmentRequest) returns (CreateStockAssessmentResponse);
+}
