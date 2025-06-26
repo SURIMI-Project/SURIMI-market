@@ -34,28 +34,28 @@ class FisheryServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetSalesSummary = channel.unary_unary(
-                '/surimi.v1.FisheryService/GetSalesSummary',
-                request_serializer=surimi_dot_v1_dot_fishery__pb2.GetSalesSummaryRequest.SerializeToString,
-                response_deserializer=surimi_dot_v1_dot_fishery__pb2.GetSalesSummaryResponse.FromString,
+        self.GetCatchDisposition = channel.unary_unary(
+                '/surimi.v1.FisheryService/GetCatchDisposition',
+                request_serializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionResponse.FromString,
                 _registered_method=True)
-        self.GetCatchDispositionSummary = channel.unary_unary(
-                '/surimi.v1.FisheryService/GetCatchDispositionSummary',
-                request_serializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionSummaryRequest.SerializeToString,
-                response_deserializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionSummaryResponse.FromString,
+        self.UpdateCatchDisposition = channel.unary_unary(
+                '/surimi.v1.FisheryService/UpdateCatchDisposition',
+                request_serializer=surimi_dot_v1_dot_fishery__pb2.UpdateCatchDispositionRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_fishery__pb2.UpdateCatchDispositionResponse.FromString,
                 _registered_method=True)
 
 
 class FisheryServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def GetSalesSummary(self, request, context):
+    def GetCatchDisposition(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetCatchDispositionSummary(self, request, context):
+    def UpdateCatchDisposition(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -64,15 +64,15 @@ class FisheryServiceServicer(object):
 
 def add_FisheryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetSalesSummary': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetSalesSummary,
-                    request_deserializer=surimi_dot_v1_dot_fishery__pb2.GetSalesSummaryRequest.FromString,
-                    response_serializer=surimi_dot_v1_dot_fishery__pb2.GetSalesSummaryResponse.SerializeToString,
+            'GetCatchDisposition': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCatchDisposition,
+                    request_deserializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionResponse.SerializeToString,
             ),
-            'GetCatchDispositionSummary': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetCatchDispositionSummary,
-                    request_deserializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionSummaryRequest.FromString,
-                    response_serializer=surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionSummaryResponse.SerializeToString,
+            'UpdateCatchDisposition': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateCatchDisposition,
+                    request_deserializer=surimi_dot_v1_dot_fishery__pb2.UpdateCatchDispositionRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_fishery__pb2.UpdateCatchDispositionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -86,7 +86,7 @@ class FisheryService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def GetSalesSummary(request,
+    def GetCatchDisposition(request,
             target,
             options=(),
             channel_credentials=None,
@@ -99,9 +99,9 @@ class FisheryService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/surimi.v1.FisheryService/GetSalesSummary',
-            surimi_dot_v1_dot_fishery__pb2.GetSalesSummaryRequest.SerializeToString,
-            surimi_dot_v1_dot_fishery__pb2.GetSalesSummaryResponse.FromString,
+            '/surimi.v1.FisheryService/GetCatchDisposition',
+            surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionRequest.SerializeToString,
+            surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -113,7 +113,7 @@ class FisheryService(object):
             _registered_method=True)
 
     @staticmethod
-    def GetCatchDispositionSummary(request,
+    def UpdateCatchDisposition(request,
             target,
             options=(),
             channel_credentials=None,
@@ -126,9 +126,9 @@ class FisheryService(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/surimi.v1.FisheryService/GetCatchDispositionSummary',
-            surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionSummaryRequest.SerializeToString,
-            surimi_dot_v1_dot_fishery__pb2.GetCatchDispositionSummaryResponse.FromString,
+            '/surimi.v1.FisheryService/UpdateCatchDisposition',
+            surimi_dot_v1_dot_fishery__pb2.UpdateCatchDispositionRequest.SerializeToString,
+            surimi_dot_v1_dot_fishery__pb2.UpdateCatchDispositionResponse.FromString,
             options,
             channel_credentials,
             insecure,

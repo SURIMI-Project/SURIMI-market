@@ -8,9 +8,9 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
         self.tracer = tracer  # Store the tracer instance
 
-    def Init(self, request, context):
-        with self.tracer.start_as_current_span("WorkflowService.Init") as span:
-            print("[Server] Init...")
+    def Initialise(self, request, context):
+        with self.tracer.start_as_current_span("WorkflowService.Initialise") as span:
+            print("[Server] Initialise...")
             if request.simulation_id in self.simulation_dictionary.keys():
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Simulation Id already exists.")
 
@@ -32,5 +32,23 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
 
             return current_simulation.simulate_step()
 
+    def Finalise(self, request, context):
+        with self.tracer.start_as_current_span("WorkflowService.Finalise") as span:
+            print(f"[Server] Finalise {request.simulation_id}.")
+            if not request.simulation_id in self.simulation_dictionary.keys():
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Simulation Id does not exists.")
 
+            current_simulation = self.simulation_dictionary[request.simulation_id]
+            return current_simulation.finalise_simulation()
+
+    def Cancel(self, request, context):
+        with self.tracer.start_as_current_span("WorkflowService.Cancel") as span:
+            print(f"[Server] Cancel {request.simulation_id}.")
+            if not request.simulation_id in self.simulation_dictionary.keys():
+                context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Simulation Id does not exists.")
+
+            current_simulation = self.simulation_dictionary[request.simulation_id]
+            return workflow_pb2.CancelResponse(
+                simulation_id=current_simulation.simulation_id
+            )
 

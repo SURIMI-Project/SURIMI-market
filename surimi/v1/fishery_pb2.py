@@ -24,10 +24,9 @@ _sym_db = _symbol_database.Default()
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from surimi.v1 import disposition_pb2 as surimi_dot_v1_dot_disposition__pb2
-from surimi.v1 import sales_pb2 as surimi_dot_v1_dot_sales__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/fishery.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bsurimi/v1/disposition.proto\x1a\x15surimi/v1/sales.proto\"\x97\x01\n\x16GetSalesSummaryRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_date_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"K\n\x17GetSalesSummaryResponse\x12\x30\n\x0fsales_summaries\x18\x01 \x03(\x0b\x32\x17.surimi.v1.SalesSummary\"\xa2\x01\n!GetCatchDispositionSummaryRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_date_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"u\n\"GetCatchDispositionSummaryResponse\x12\x18\n\x10measurement_unit\x18\x01 \x01(\t\x12\x35\n\x11\x64isposition_grids\x18\x02 \x03(\x0b\x32\x1a.surimi.v1.DispositionGrid2\xe5\x01\n\x0e\x46isheryService\x12X\n\x0fGetSalesSummary\x12!.surimi.v1.GetSalesSummaryRequest\x1a\".surimi.v1.GetSalesSummaryResponse\x12y\n\x1aGetCatchDispositionSummary\x12,.surimi.v1.GetCatchDispositionSummaryRequest\x1a-.surimi.v1.GetCatchDispositionSummaryResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/fishery.proto\x12\tsurimi.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bsurimi/v1/disposition.proto\"\x9b\x01\n\x1aGetCatchDispositionRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x33\n\x0fstart_date_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x31\n\rend_date_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"{\n\x1bGetCatchDispositionResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x45\n\x19\x63\x61tch_disposition_summary\x18\x02 \x01(\x0b\x32\".surimi.v1.CatchDispositionSummary\"}\n\x1dUpdateCatchDispositionRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x45\n\x19\x63\x61tch_disposition_summary\x18\x02 \x01(\x0b\x32\".surimi.v1.CatchDispositionSummary\"7\n\x1eUpdateCatchDispositionResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t2\xe5\x01\n\x0e\x46isheryService\x12\x64\n\x13GetCatchDisposition\x12%.surimi.v1.GetCatchDispositionRequest\x1a&.surimi.v1.GetCatchDispositionResponse\x12m\n\x16UpdateCatchDisposition\x12(.surimi.v1.UpdateCatchDispositionRequest\x1a).surimi.v1.UpdateCatchDispositionResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,14 +34,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'surimi.v1.fishery_pb2', _gl
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
-  _globals['_GETSALESSUMMARYREQUEST']._serialized_start=124
-  _globals['_GETSALESSUMMARYREQUEST']._serialized_end=275
-  _globals['_GETSALESSUMMARYRESPONSE']._serialized_start=277
-  _globals['_GETSALESSUMMARYRESPONSE']._serialized_end=352
-  _globals['_GETCATCHDISPOSITIONSUMMARYREQUEST']._serialized_start=355
-  _globals['_GETCATCHDISPOSITIONSUMMARYREQUEST']._serialized_end=517
-  _globals['_GETCATCHDISPOSITIONSUMMARYRESPONSE']._serialized_start=519
-  _globals['_GETCATCHDISPOSITIONSUMMARYRESPONSE']._serialized_end=636
-  _globals['_FISHERYSERVICE']._serialized_start=639
-  _globals['_FISHERYSERVICE']._serialized_end=868
+  _globals['_GETCATCHDISPOSITIONREQUEST']._serialized_start=101
+  _globals['_GETCATCHDISPOSITIONREQUEST']._serialized_end=256
+  _globals['_GETCATCHDISPOSITIONRESPONSE']._serialized_start=258
+  _globals['_GETCATCHDISPOSITIONRESPONSE']._serialized_end=381
+  _globals['_UPDATECATCHDISPOSITIONREQUEST']._serialized_start=383
+  _globals['_UPDATECATCHDISPOSITIONREQUEST']._serialized_end=508
+  _globals['_UPDATECATCHDISPOSITIONRESPONSE']._serialized_start=510
+  _globals['_UPDATECATCHDISPOSITIONRESPONSE']._serialized_end=565
+  _globals['_FISHERYSERVICE']._serialized_start=568
+  _globals['_FISHERYSERVICE']._serialized_end=797
 # @@protoc_insertion_point(module_scope)

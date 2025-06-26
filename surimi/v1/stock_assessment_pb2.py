@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n surimi/v1/stock_assessment.proto\x12\tsurimi.v1\"5\n\x1c\x43reateStockAssessmentRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"\x1f\n\x1d\x43reateStockAssessmentResponse2\x84\x01\n\x16StockAssessmentService\x12j\n\x15\x43reateStockAssessment\x12\'.surimi.v1.CreateStockAssessmentRequest\x1a(.surimi.v1.CreateStockAssessmentResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n surimi/v1/stock_assessment.proto\x12\tsurimi.v1\"5\n\x1c\x43reateStockAssessmentRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"6\n\x1d\x43reateStockAssessmentResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t2\x84\x01\n\x16StockAssessmentService\x12j\n\x15\x43reateStockAssessment\x12\'.surimi.v1.CreateStockAssessmentRequest\x1a(.surimi.v1.CreateStockAssessmentResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,7 +35,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CREATESTOCKASSESSMENTREQUEST']._serialized_start=47
   _globals['_CREATESTOCKASSESSMENTREQUEST']._serialized_end=100
   _globals['_CREATESTOCKASSESSMENTRESPONSE']._serialized_start=102
-  _globals['_CREATESTOCKASSESSMENTRESPONSE']._serialized_end=133
-  _globals['_STOCKASSESSMENTSERVICE']._serialized_start=136
-  _globals['_STOCKASSESSMENTSERVICE']._serialized_end=268
+  _globals['_CREATESTOCKASSESSMENTRESPONSE']._serialized_end=156
+  _globals['_STOCKASSESSMENTSERVICE']._serialized_start=159
+  _globals['_STOCKASSESSMENTSERVICE']._serialized_end=291
 # @@protoc_insertion_point(module_scope)

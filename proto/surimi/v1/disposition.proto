@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package surimi.v1;
+
+option csharp_namespace = "Grpc.Surimi";
+option java_package = "eu.project.surimi";
+
+message DispositionGrid {
+  string gear_code = 1; // max 3 chars code. PS, TBB etc. see https://openknowledge.fao.org/handle/20.500.14283/cb4966en
+  string species_code = 2; // 3-alpha code of https://www.fao.org/fishery/en/collection/asfis
+  repeated DispositionCell disposition_cells = 3;
+}
+
+message DispositionCell {// center of the cell
+  double longitude = 1;
+  double latitude = 2;
+  double gross_catch = 3; // every fish that is caught, before discarding
+  double live_discards = 4; // live discards, e.g. fish that are thrown back alive
+  double dead_discards = 5; // dead discards, e.g. fish that are thrown back dead
+}
+
+message CatchDispositionSummary {
+  string measurement_unit = 1; // https://ucum.org/ucum
+  repeated DispositionGrid disposition_grids = 2;
+}

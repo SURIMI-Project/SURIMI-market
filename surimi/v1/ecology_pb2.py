@@ -23,10 +23,9 @@ _sym_db = _symbol_database.Default()
 
 
 from surimi.v1 import biomass_pb2 as surimi_dot_v1_dot_biomass__pb2
-from surimi.v1 import disposition_pb2 as surimi_dot_v1_dot_disposition__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/ecology.proto\x12\tsurimi.v1\x1a\x17surimi/v1/biomass.proto\x1a\x1bsurimi/v1/disposition.proto\"*\n\x11GetBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"]\n\x12GetBiomassResponse\x12\x18\n\x10measurement_unit\x18\x01 \x01(\t\x12-\n\rbiomass_grids\x18\x02 \x03(\x0b\x32\x16.surimi.v1.BiomassGrid\"\x8e\x01\n$UpdateCatchDispositionSummaryRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x18\n\x10measurement_unit\x18\x02 \x01(\t\x12\x35\n\x11\x64isposition_grids\x18\x03 \x03(\x0b\x32\x1a.surimi.v1.DispositionGrid\"\'\n%UpdateCatchDispositionSummaryResponse2\xe0\x01\n\x0e\x45\x63ologyService\x12I\n\nGetBiomass\x12\x1c.surimi.v1.GetBiomassRequest\x1a\x1d.surimi.v1.GetBiomassResponse\x12\x82\x01\n\x1dUpdateCatchDispositionSummary\x12/.surimi.v1.UpdateCatchDispositionSummaryRequest\x1a\x30.surimi.v1.UpdateCatchDispositionSummaryResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/ecology.proto\x12\tsurimi.v1\x1a\x17surimi/v1/biomass.proto\"*\n\x11GetBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"_\n\x12GetBiomassResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x32\n\x0f\x62iomass_summary\x18\x02 \x01(\x0b\x32\x19.surimi.v1.BiomassSummary\"a\n\x14UpdateBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x32\n\x0f\x62iomass_summary\x18\x02 \x01(\x0b\x32\x19.surimi.v1.BiomassSummary\".\n\x15UpdateBiomassResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t2\xaf\x01\n\x0e\x45\x63ologyService\x12I\n\nGetBiomass\x12\x1c.surimi.v1.GetBiomassRequest\x1a\x1d.surimi.v1.GetBiomassResponse\x12R\n\rUpdateBiomass\x12\x1f.surimi.v1.UpdateBiomassRequest\x1a .surimi.v1.UpdateBiomassResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,14 +33,14 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'surimi.v1.ecology_pb2', _gl
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\021eu.project.surimi\252\002\013Grpc.Surimi'
-  _globals['_GETBIOMASSREQUEST']._serialized_start=92
-  _globals['_GETBIOMASSREQUEST']._serialized_end=134
-  _globals['_GETBIOMASSRESPONSE']._serialized_start=136
-  _globals['_GETBIOMASSRESPONSE']._serialized_end=229
-  _globals['_UPDATECATCHDISPOSITIONSUMMARYREQUEST']._serialized_start=232
-  _globals['_UPDATECATCHDISPOSITIONSUMMARYREQUEST']._serialized_end=374
-  _globals['_UPDATECATCHDISPOSITIONSUMMARYRESPONSE']._serialized_start=376
-  _globals['_UPDATECATCHDISPOSITIONSUMMARYRESPONSE']._serialized_end=415
-  _globals['_ECOLOGYSERVICE']._serialized_start=418
-  _globals['_ECOLOGYSERVICE']._serialized_end=642
+  _globals['_GETBIOMASSREQUEST']._serialized_start=63
+  _globals['_GETBIOMASSREQUEST']._serialized_end=105
+  _globals['_GETBIOMASSRESPONSE']._serialized_start=107
+  _globals['_GETBIOMASSRESPONSE']._serialized_end=202
+  _globals['_UPDATEBIOMASSREQUEST']._serialized_start=204
+  _globals['_UPDATEBIOMASSREQUEST']._serialized_end=301
+  _globals['_UPDATEBIOMASSRESPONSE']._serialized_start=303
+  _globals['_UPDATEBIOMASSRESPONSE']._serialized_end=349
+  _globals['_ECOLOGYSERVICE']._serialized_start=352
+  _globals['_ECOLOGYSERVICE']._serialized_end=527
 # @@protoc_insertion_point(module_scope)

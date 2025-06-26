@@ -15,10 +15,44 @@ class GetSpeciesPricesRequest(_message.Message):
     def __init__(self, simulation_id: _Optional[str] = ...) -> None: ...
 
 class GetSpeciesPricesResponse(_message.Message):
-    __slots__ = ("prices",)
+    __slots__ = ("simulation_id", "prices")
+    SIMULATION_ID_FIELD_NUMBER: _ClassVar[int]
     PRICES_FIELD_NUMBER: _ClassVar[int]
+    simulation_id: str
     prices: _containers.RepeatedCompositeFieldContainer[_species_price_pb2.SpeciesPrice]
-    def __init__(self, prices: _Optional[_Iterable[_Union[_species_price_pb2.SpeciesPrice, _Mapping]]] = ...) -> None: ...
+    def __init__(self, simulation_id: _Optional[str] = ..., prices: _Optional[_Iterable[_Union[_species_price_pb2.SpeciesPrice, _Mapping]]] = ...) -> None: ...
+
+class UpdateSpeciesPricesRequest(_message.Message):
+    __slots__ = ("simulation_id", "prices")
+    SIMULATION_ID_FIELD_NUMBER: _ClassVar[int]
+    PRICES_FIELD_NUMBER: _ClassVar[int]
+    simulation_id: str
+    prices: _containers.RepeatedCompositeFieldContainer[_species_price_pb2.SpeciesPrice]
+    def __init__(self, simulation_id: _Optional[str] = ..., prices: _Optional[_Iterable[_Union[_species_price_pb2.SpeciesPrice, _Mapping]]] = ...) -> None: ...
+
+class UpdateSpeciesPricesResponse(_message.Message):
+    __slots__ = ("simulation_id",)
+    SIMULATION_ID_FIELD_NUMBER: _ClassVar[int]
+    simulation_id: str
+    def __init__(self, simulation_id: _Optional[str] = ...) -> None: ...
+
+class GetSalesRequest(_message.Message):
+    __slots__ = ("simulation_id", "start_date_time", "end_date_time")
+    SIMULATION_ID_FIELD_NUMBER: _ClassVar[int]
+    START_DATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_DATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    simulation_id: str
+    start_date_time: _timestamp_pb2.Timestamp
+    end_date_time: _timestamp_pb2.Timestamp
+    def __init__(self, simulation_id: _Optional[str] = ..., start_date_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_date_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class GetSalesResponse(_message.Message):
+    __slots__ = ("simulation_id", "sales_summaries")
+    SIMULATION_ID_FIELD_NUMBER: _ClassVar[int]
+    SALES_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
+    simulation_id: str
+    sales_summaries: _containers.RepeatedCompositeFieldContainer[_sales_pb2.SalesSummary]
+    def __init__(self, simulation_id: _Optional[str] = ..., sales_summaries: _Optional[_Iterable[_Union[_sales_pb2.SalesSummary, _Mapping]]] = ...) -> None: ...
 
 class UpdateSalesRequest(_message.Message):
     __slots__ = ("simulation_id", "start_date_time", "end_date_time", "sales_summaries")
@@ -33,5 +67,7 @@ class UpdateSalesRequest(_message.Message):
     def __init__(self, simulation_id: _Optional[str] = ..., start_date_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_date_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., sales_summaries: _Optional[_Iterable[_Union[_sales_pb2.SalesSummary, _Mapping]]] = ...) -> None: ...
 
 class UpdateSalesResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("simulation_id",)
+    SIMULATION_ID_FIELD_NUMBER: _ClassVar[int]
+    simulation_id: str
+    def __init__(self, simulation_id: _Optional[str] = ...) -> None: ...

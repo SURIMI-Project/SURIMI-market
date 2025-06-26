@@ -39,6 +39,16 @@ class MarketServiceStub(object):
                 request_serializer=surimi_dot_v1_dot_market__pb2.GetSpeciesPricesRequest.SerializeToString,
                 response_deserializer=surimi_dot_v1_dot_market__pb2.GetSpeciesPricesResponse.FromString,
                 _registered_method=True)
+        self.UpdateSpeciesPrices = channel.unary_unary(
+                '/surimi.v1.MarketService/UpdateSpeciesPrices',
+                request_serializer=surimi_dot_v1_dot_market__pb2.UpdateSpeciesPricesRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_market__pb2.UpdateSpeciesPricesResponse.FromString,
+                _registered_method=True)
+        self.GetSales = channel.unary_unary(
+                '/surimi.v1.MarketService/GetSales',
+                request_serializer=surimi_dot_v1_dot_market__pb2.GetSalesRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_market__pb2.GetSalesResponse.FromString,
+                _registered_method=True)
         self.UpdateSales = channel.unary_unary(
                 '/surimi.v1.MarketService/UpdateSales',
                 request_serializer=surimi_dot_v1_dot_market__pb2.UpdateSalesRequest.SerializeToString,
@@ -50,6 +60,18 @@ class MarketServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetSpeciesPrices(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateSpeciesPrices(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSales(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -68,6 +90,16 @@ def add_MarketServiceServicer_to_server(servicer, server):
                     servicer.GetSpeciesPrices,
                     request_deserializer=surimi_dot_v1_dot_market__pb2.GetSpeciesPricesRequest.FromString,
                     response_serializer=surimi_dot_v1_dot_market__pb2.GetSpeciesPricesResponse.SerializeToString,
+            ),
+            'UpdateSpeciesPrices': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateSpeciesPrices,
+                    request_deserializer=surimi_dot_v1_dot_market__pb2.UpdateSpeciesPricesRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_market__pb2.UpdateSpeciesPricesResponse.SerializeToString,
+            ),
+            'GetSales': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSales,
+                    request_deserializer=surimi_dot_v1_dot_market__pb2.GetSalesRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_market__pb2.GetSalesResponse.SerializeToString,
             ),
             'UpdateSales': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateSales,
@@ -102,6 +134,60 @@ class MarketService(object):
             '/surimi.v1.MarketService/GetSpeciesPrices',
             surimi_dot_v1_dot_market__pb2.GetSpeciesPricesRequest.SerializeToString,
             surimi_dot_v1_dot_market__pb2.GetSpeciesPricesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateSpeciesPrices(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/surimi.v1.MarketService/UpdateSpeciesPrices',
+            surimi_dot_v1_dot_market__pb2.UpdateSpeciesPricesRequest.SerializeToString,
+            surimi_dot_v1_dot_market__pb2.UpdateSpeciesPricesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSales(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/surimi.v1.MarketService/GetSales',
+            surimi_dot_v1_dot_market__pb2.GetSalesRequest.SerializeToString,
+            surimi_dot_v1_dot_market__pb2.GetSalesResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -22,3 +22,11 @@ class BiomassCell(_message.Message):
     latitude: float
     biomass: float
     def __init__(self, longitude: _Optional[float] = ..., latitude: _Optional[float] = ..., biomass: _Optional[float] = ...) -> None: ...
+
+class BiomassSummary(_message.Message):
+    __slots__ = ("measurement_unit", "biomass_grids")
+    MEASUREMENT_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BIOMASS_GRIDS_FIELD_NUMBER: _ClassVar[int]
+    measurement_unit: str
+    biomass_grids: _containers.RepeatedCompositeFieldContainer[BiomassGrid]
+    def __init__(self, measurement_unit: _Optional[str] = ..., biomass_grids: _Optional[_Iterable[_Union[BiomassGrid, _Mapping]]] = ...) -> None: ...

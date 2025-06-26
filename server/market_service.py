@@ -1,6 +1,6 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
-from surimi.v1 import market_pb2, market_pb2_grpc, species_price_pb2
+from surimi.v1 import market_pb2, market_pb2_grpc, species_price_pb2, workflow_pb2
 
 class MarketService(market_pb2_grpc.MarketServiceServicer):
     def __init__(self, tracer, simulation_dictionary):
@@ -14,7 +14,9 @@ class MarketService(market_pb2_grpc.MarketServiceServicer):
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "SimulationId does not exist.")
 
             current_simulation = self.simulation_dictionary[request.simulation_id]
-            return current_simulation.update_prices()
+            return market_pb2.GetSpeciesPricesResponse(
+                simulation_id=current_simulation.simulation_id
+            )
 
     def UpdateSales(self, request, context):
         with self.tracer.start_as_current_span("MarketService.UpdateSales") as span:

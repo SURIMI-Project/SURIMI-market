@@ -5,6 +5,16 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class Sale(_message.Message):
+    __slots__ = ("species_code", "quantity", "value")
+    SPECIES_CODE_FIELD_NUMBER: _ClassVar[int]
+    QUANTITY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    species_code: str
+    quantity: float
+    value: float
+    def __init__(self, species_code: _Optional[str] = ..., quantity: _Optional[float] = ..., value: _Optional[float] = ...) -> None: ...
+
 class SalesSummary(_message.Message):
     __slots__ = ("market_code", "measurement_unit", "currency", "sales")
     MARKET_CODE_FIELD_NUMBER: _ClassVar[int]
@@ -16,13 +26,3 @@ class SalesSummary(_message.Message):
     currency: str
     sales: _containers.RepeatedCompositeFieldContainer[Sale]
     def __init__(self, market_code: _Optional[str] = ..., measurement_unit: _Optional[str] = ..., currency: _Optional[str] = ..., sales: _Optional[_Iterable[_Union[Sale, _Mapping]]] = ...) -> None: ...
-
-class Sale(_message.Message):
-    __slots__ = ("species_code", "quantity", "value")
-    SPECIES_CODE_FIELD_NUMBER: _ClassVar[int]
-    QUANTITY_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    species_code: str
-    quantity: float
-    value: float
-    def __init__(self, species_code: _Optional[str] = ..., quantity: _Optional[float] = ..., value: _Optional[float] = ...) -> None: ...

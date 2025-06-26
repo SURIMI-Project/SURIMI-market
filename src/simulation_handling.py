@@ -37,7 +37,17 @@ class SimulationHandler:
         print("-" * 60)
         self.market.tick.increase_tick()
         print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been initialized ... ")
-        return workflow_pb2.InitResponse()
+        return workflow_pb2.InitialiseResponse(
+            simulation_id=self.simulation_id
+        )
+
+    def finalise_simulation(self):
+        """
+        Trigger simulation finalisation and responds to controller.
+        """
+        return workflow_pb2.FinaliseResponse(
+            simulation_id=self.simulation_id
+        )
 
     def simulate_step(self):
         # TODO: This should be sending a blocking response to the controller if sales we not received.
@@ -64,7 +74,9 @@ class SimulationHandler:
         for m in self.market.local_markets.values():
             m.calculate_local_price(other_market_avg=avg_prices)
 
-        return workflow_pb2.SimulateStepResponse()
+        return workflow_pb2.SimulateStepResponse(
+            simulation_id=self.simulation_id
+        )
 
     def update_prices(self):
         """
@@ -83,7 +95,9 @@ class SimulationHandler:
         """
         print("-" * 60)
         print(f"[Simulation] ID: {self.simulation_id}, Sales have been received ... ")
-        return market_pb2.UpdateSalesResponse()
+        return market_pb2.UpdateSalesResponse(
+            simulation_id=self.simulation_id
+        )
 
     def load_from_json(self, file_path: str):
         """
