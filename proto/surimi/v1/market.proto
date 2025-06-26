@@ -12,6 +12,7 @@ option java_package = "eu.project.surimi";
 message GetSpeciesPricesRequest {
   string simulation_id = 1;
 }
+
 message GetSpeciesPricesResponse {
   string simulation_id = 1;
   repeated SpeciesPrice prices = 2;
@@ -21,6 +22,7 @@ message UpdateSpeciesPricesRequest {
   string simulation_id = 1;
   repeated SpeciesPrice prices = 2;
 }
+
 message UpdateSpeciesPricesResponse {
   string simulation_id = 1;
 }

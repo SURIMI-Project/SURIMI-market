@@ -83,7 +83,7 @@ class SimulationHandler:
         Send current prices to the controller.
         """
         print("-" * 60)
-        self.latest_market_prices = self.market.update_species_prices_message()
+        self.latest_market_prices = self.market.get_species_prices_message()
         print(f"[Simulation] ID: {self.simulation_id}, Prices have been sent ... ")
         return self.latest_market_prices
 

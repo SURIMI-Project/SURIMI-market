@@ -127,7 +127,7 @@ class MarketSystem:
     def catch_by_species(self, market_code: str, species_code: str, quantity: float):
         self.local_markets[market_code].record_monthly_catch(species_code, quantity)
 
-    def update_species_prices_message(self):
+    def get_species_prices_message(self):
         """
         Generates an update message containing pricing details for all species at all ports.
         """

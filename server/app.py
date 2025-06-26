@@ -46,7 +46,7 @@ def serve():
 
     logger.info(f"🟩 gRPC Server running on {host}:{port}")
 
-    # Graceful shutdown on termination signal
+    # Shutdown on termination signal
     def shutdown(signum, frame):
         logger.info("🟥 Shutdown signal received. Stopping server...")
         server.stop(grace=None)
