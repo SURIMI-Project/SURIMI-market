@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package surimi.v1;
+
+import "google/protobuf/timestamp.proto";
+import "surimi/v1/disposition.proto";
+
+option csharp_namespace = "Grpc.Surimi";
+option java_package = "eu.project.surimi";
+
+message GetCatchDispositionRequest {
+  string simulation_id = 1;
+  google.protobuf.Timestamp start_date_time = 2;
+  google.protobuf.Timestamp end_date_time = 3;
+}
+
+message GetCatchDispositionResponse {
+  string simulation_id = 1;
+  CatchDispositionSummary catch_disposition_summary = 2;
+}
+
+message UpdateCatchDispositionRequest {
+  string simulation_id = 1;
+  CatchDispositionSummary catch_disposition_summary = 2;
+}
+
+message UpdateCatchDispositionResponse {
+  string simulation_id = 1;
+}
+
+service FisheryService {
+  rpc GetCatchDisposition(GetCatchDispositionRequest) returns (GetCatchDispositionResponse);
+  rpc UpdateCatchDisposition(UpdateCatchDispositionRequest) returns (UpdateCatchDispositionResponse);
+}

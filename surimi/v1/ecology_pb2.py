@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from surimi.v1 import biomass_pb2 as surimi_dot_v1_dot_biomass__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/ecology.proto\x12\tsurimi.v1\x1a\x17surimi/v1/biomass.proto\"*\n\x11GetBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"]\n\x12GetBiomassResponse\x12\x18\n\x10measurement_unit\x18\x01 \x01(\t\x12-\n\rbiomass_grids\x18\x02 \x03(\x0b\x32\x16.surimi.v1.BiomassGrid2[\n\x0e\x45\x63ologyService\x12I\n\nGetBiomass\x12\x1c.surimi.v1.GetBiomassRequest\x1a\x1d.surimi.v1.GetBiomassResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17surimi/v1/ecology.proto\x12\tsurimi.v1\x1a\x17surimi/v1/biomass.proto\"*\n\x11GetBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\"_\n\x12GetBiomassResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x32\n\x0f\x62iomass_summary\x18\x02 \x01(\x0b\x32\x19.surimi.v1.BiomassSummary\"a\n\x14UpdateBiomassRequest\x12\x15\n\rsimulation_id\x18\x01 \x01(\t\x12\x32\n\x0f\x62iomass_summary\x18\x02 \x01(\x0b\x32\x19.surimi.v1.BiomassSummary\".\n\x15UpdateBiomassResponse\x12\x15\n\rsimulation_id\x18\x01 \x01(\t2\xaf\x01\n\x0e\x45\x63ologyService\x12I\n\nGetBiomass\x12\x1c.surimi.v1.GetBiomassRequest\x1a\x1d.surimi.v1.GetBiomassResponse\x12R\n\rUpdateBiomass\x12\x1f.surimi.v1.UpdateBiomassRequest\x1a .surimi.v1.UpdateBiomassResponseB!\n\x11\x65u.project.surimi\xaa\x02\x0bGrpc.Surimib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,7 +36,11 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETBIOMASSREQUEST']._serialized_start=63
   _globals['_GETBIOMASSREQUEST']._serialized_end=105
   _globals['_GETBIOMASSRESPONSE']._serialized_start=107
-  _globals['_GETBIOMASSRESPONSE']._serialized_end=200
-  _globals['_ECOLOGYSERVICE']._serialized_start=202
-  _globals['_ECOLOGYSERVICE']._serialized_end=293
+  _globals['_GETBIOMASSRESPONSE']._serialized_end=202
+  _globals['_UPDATEBIOMASSREQUEST']._serialized_start=204
+  _globals['_UPDATEBIOMASSREQUEST']._serialized_end=301
+  _globals['_UPDATEBIOMASSRESPONSE']._serialized_start=303
+  _globals['_UPDATEBIOMASSRESPONSE']._serialized_end=349
+  _globals['_ECOLOGYSERVICE']._serialized_start=352
+  _globals['_ECOLOGYSERVICE']._serialized_end=527
 # @@protoc_insertion_point(module_scope)

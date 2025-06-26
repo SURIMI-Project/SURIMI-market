@@ -39,12 +39,23 @@ class EcologyServiceStub(object):
                 request_serializer=surimi_dot_v1_dot_ecology__pb2.GetBiomassRequest.SerializeToString,
                 response_deserializer=surimi_dot_v1_dot_ecology__pb2.GetBiomassResponse.FromString,
                 _registered_method=True)
+        self.UpdateBiomass = channel.unary_unary(
+                '/surimi.v1.EcologyService/UpdateBiomass',
+                request_serializer=surimi_dot_v1_dot_ecology__pb2.UpdateBiomassRequest.SerializeToString,
+                response_deserializer=surimi_dot_v1_dot_ecology__pb2.UpdateBiomassResponse.FromString,
+                _registered_method=True)
 
 
 class EcologyServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetBiomass(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateBiomass(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -57,6 +68,11 @@ def add_EcologyServiceServicer_to_server(servicer, server):
                     servicer.GetBiomass,
                     request_deserializer=surimi_dot_v1_dot_ecology__pb2.GetBiomassRequest.FromString,
                     response_serializer=surimi_dot_v1_dot_ecology__pb2.GetBiomassResponse.SerializeToString,
+            ),
+            'UpdateBiomass': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateBiomass,
+                    request_deserializer=surimi_dot_v1_dot_ecology__pb2.UpdateBiomassRequest.FromString,
+                    response_serializer=surimi_dot_v1_dot_ecology__pb2.UpdateBiomassResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -86,6 +102,33 @@ class EcologyService(object):
             '/surimi.v1.EcologyService/GetBiomass',
             surimi_dot_v1_dot_ecology__pb2.GetBiomassRequest.SerializeToString,
             surimi_dot_v1_dot_ecology__pb2.GetBiomassResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateBiomass(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/surimi.v1.EcologyService/UpdateBiomass',
+            surimi_dot_v1_dot_ecology__pb2.UpdateBiomassRequest.SerializeToString,
+            surimi_dot_v1_dot_ecology__pb2.UpdateBiomassResponse.FromString,
             options,
             channel_credentials,
             insecure,

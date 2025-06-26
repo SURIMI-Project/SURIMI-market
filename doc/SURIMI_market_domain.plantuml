@@ -1,45 +1,64 @@
-@startuml Domain Model
+@startuml MarketSystemDomain
 
-title SURIMI Market Domain Model
-
-class "Market" as Market{
-    -name: String
-    -Stock[] stockList
-    +ActionLog : ActionLog
-    __
-    +calculate_market_value(): float
+class MarketSystem {
+  - currency: str
+  - measurement_unit: str
+  - species_dict: Dict[str, Species]
+  - local_markets: Dict[str, LocalMarket]
+  - global_market: GlobalMarket
+  - tick: Tick
+  + add_species(s: Species)
+  + add_local_market(m: LocalMarket)
+  + catch_by_species(market_code, species_code, quantity)
+  + update_species_prices_message()
 }
 
-class "ActionLog" as ActionLog{
-   -ActionLogEntry[] action_history
-   __
-   +add_action_log_entry(tick, type, T)
-   +plot_data()
+class Species {
+  - name: str
+  - code: str
+  - last_price: float
+  - last_quantity: float
+  - epsilon: float
+  + calculate_price(quantity: float): float
 }
 
-class "ActionLogEntry" as ActionLogEntry {
-   -tick: int
-   -type: String
-   -T : payload
+class LocalMarket {
+  - market_code: str
+  - lambda_mix: float
+  - theta_mix: float
+  - species_dict: Dict[str, Species]
+  - monthly_catch: Dict[str, float]
+  - local_prices: Dict[str, float]
+  - price_history: List
+  - global_market: GlobalMarket
+  + record_monthly_catch(species_code, quantity)
+  + calculate_local_price(species_code=None, other_market_avg=None)
+  + get_elasticity(species_code)
 }
 
-class "Stock" as Stock {
-   - name: int
-   - type: String
-   - stock: int
+class GlobalMarket {
+  - species_dict: Dict[str, Species]
+  - global_prices: Dict[str, float]
+  + compute_price(species_code, total_quantity)
+  + get_global_price(species_code)
 }
 
-Market "1" o-- "1" ActionLog : "has"
-Market "1" *-- "*" Stock : "has"
-ActionLog --> ActionLogEntry : "use"
+class Tick {
+  - tick: int
+  - start_time: datetime
+  + increase_tick()
+  + get_tick()
+  + set_timestep(days)
+  + get_timestamp()
+  + reset()
+}
+
+MarketSystem "1" o-- "many" Species
+MarketSystem "1" o-- "many" LocalMarket
+MarketSystem "1" o-- "1" GlobalMarket
+LocalMarket "1" --> "1" GlobalMarket
+LocalMarket "1" --> "many" Species
+GlobalMarket "1" --> "many" Species
+MarketSystem "1" o-- "1" Tick
+
 @enduml
-
-
-/'
-Extension	<|--	Specialization of a class in a hierarchy
-Implementation	<|..	Realization of an interface by a class
-Composition	*--	The part cannot exist without the whole
-Aggregation	o--	The part can exist independently of the whole
-Dependency	-->	The object uses another object
-Dependency	..>	A weaker form of dependency
-'/
