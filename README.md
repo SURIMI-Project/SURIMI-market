@@ -2,25 +2,58 @@
 This is the Market repo.
 It holds the source code of the SURIMI Market model
 
-## 'proto' submodule
-The Git Repo of the SURIMI-market contains a submodule with the protobuf Git repo.
-When the SURIMI-market repo is cloned, the submodule is not automatically cloned. So the 'proto' subdirectory remains empty.
+## Contents:
+- [gRPC interface in BSR](#grpc-interface-in-buf-schemaregistry)
+- [Create a docker image](#create-a-docker-image)
+- [SURIMI](#surimi)
+  - [Market Model](#market-model)
+    - [Object Graph](#object-graph)
+    - [Notation](#notation)
+    - [Hypothesis](#hypothesis)
+  - [Links](#links)
 
-You can checkout the 'proto' submodule with the command:
+## gRPC interface in Buf Schema Registry
+The gRPC interface is descibed by  protobuf files that are stored in https://github.com/Official-EwE/SURIMI-protocol
+So there are no proto files in the project!
+
+The proto files are also stored in  https://buf.build/surimi/surimi-protocol
+
+## Watch out! Check that you are using the SDK version v1.70.1!!
+You have to use version "v1.10.1" of the grpc/python SDK.
+More recent versions give trouble with the protobuf version in combination with Open Telemetry. But only when you create a docker image from it.
+
+To use the interface in this Python project you have to use the generated proxy files. These files are imported as a "pip" package.
+
+When you want to install a new version of the gRPC interface you go to https://buf.build/surimi/surimi-protocol/sdks/main:grpc/python?version=v1.70.1
+Copy the line, but without the "python3 -m " part and run in in a terminal.
+
+
+For example
 ```bash
-C:\Users\<user>\source\repos\SURIMI-market> git submodule update --init --recursive
+PS C:\Users\Rik\source\repos\SURIMI-market> pip install surimi-surimi-protocol-grpc-python==1.70.1.1.20250626155734+d9c7c394022e --extra-index-url https://buf.build/gen/python
 ```
 
-After that, the 'proto' subdirectory will be filled with the contents of the SURIMI-protocol Git repo.
+The layout of the version number is explained in https://buf.build/docs/bsr/generated-sdks/python/?h=python#full-syntax
 
-## How to re-generate the python proxy files from the protobuf files
 
-In the subdirectory \surimi\v1\ a collection of python files exist. These files are generated from the protobuf files of the proto submodule. Follow the procedure below to re-generate them when the protobuf files change.
+Remember to also update the requirements file.txt.
+
+## Create a docker image
+
+Before creating a docker image, check that the correct version of the gRPC interface is added to the requirements.txt file.
+
+Below are the commands to build, push and run the docker image.
+
 ```bash
-C:\Users\<user>\source\repos\SURIMI-market> python -m grpc_tools.protoc -Iproto --python_out=. --grpc_python_out=. --pyi_out=. proto/surimi/v1/*.proto
+PS C:\Users\Rik\source\repos\SURIMI-market> docker build -f Dockerfile . -t rikkert242/market:latest
+
+PS C:\Users\Rik\source\repos\SURIMI-market> docker push rikkert242/market:latest
+
+PS C:\Users\Rik\source\repos\SURIMI-market> docker run -p 5001:5001 rikkert242/market:latest
+2025-06-27 09:55:56,457 - INFO - OpenTelemetry tracing configured. Sending to: http://localhost:18889
+2025-06-27 09:55:56,458 - INFO - 🟧 Starting gRPC server...
+2025-06-27 09:55:56,466 - INFO - 🟩 gRPC Server running on [::]:5001
 ```
-
-
 
 
 # SURIMI
