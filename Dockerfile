@@ -19,7 +19,7 @@ ENV PYTHONPATH=/app
 # Expose server port
 EXPOSE 5001
 
-ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:18889
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ENV OTEL_SERVICE_NAME=market
 
 # Runthe server 
