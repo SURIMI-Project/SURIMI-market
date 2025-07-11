@@ -25,7 +25,7 @@ More recent versions give trouble with the protobuf version in combination with 
 To use the interface in this Python project you have to use the generated proxy files. These files are imported as a "pip" package.
 
 When you want to install a new version of the gRPC interface you go to https://buf.build/surimi/surimi-protocol/sdks/main:grpc/python?version=v1.70.1
-Copy the line, but without the "python3 -m " part and run in in a terminal.
+Copy the line, but without the "python3 -m " part and run in a terminal.
 
 
 For example
@@ -54,7 +54,6 @@ PS C:\Users\Rik\source\repos\SURIMI-market> docker run -p 5001:5001 rikkert242/m
 2025-06-27 09:55:56,458 - INFO - 🟧 Starting gRPC server...
 2025-06-27 09:55:56,466 - INFO - 🟩 gRPC Server running on [::]:5001
 ```
-
 
 # SURIMI
 
@@ -100,9 +99,28 @@ Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
 - The local market have an elasticity of *ϵ* = 1 / ln( *p* / *d* )
 
 
-
 ## Links
 
 - [Project website](www.surimi-project.eu)
 - [Twitter](https://x.com/surimi_project)
 - [LinkedIn](https://www.linkedin.com/company/surimi-project/)
+
+## Notes from Ernesto
+
+log(p) = elasticity*log(q) + C
+log(p) = alpha*log(catch_local) + beta * log(catch_total) + C
+
+alpha =0, beta = 0
+
+P = MC (perfect competition)
+- price received is the cost of  catching one more ton of fish
+- if poseidon is running with free entry (= people can enter the market)
+
+- Global price is fixed at the moment, if I want to connect them , price global should be a function of all the catches, 
+- Be aware that prices can jump up if working with averaging (dampening)
+- Check data for how prices develop over seasons (also check for demand), 
+
+- Attention --> pricing might be affected by processing (tons of fish after skinning etc.), there is not a 1 to 1 from bought to sold
+  - there are tables from the european union on this, something. Check if there is paper Brian reed powers (ask nick)
+ 
+## 
