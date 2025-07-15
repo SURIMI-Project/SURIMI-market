@@ -51,6 +51,6 @@ class ExceptionMetadataInterceptor(ServerInterceptor):
             status = grpc.StatusCode.INTERNAL
 #            context = grpc.ServicerContext()
             context.set_trailing_metadata(metadata)
-            raise GrpcException(status, e.message)  # unfortunately the message is empty.. not what is passed to context.abort.. weird...
-
+            msg = getattr(e, "message", None) or str(e) or "no message"
+            raise GrpcException(status, msg)
 

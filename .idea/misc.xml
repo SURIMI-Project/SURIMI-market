@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.11 (PhyHumat2)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="SURIMI-market" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="SURIMI-market-rik" project-jdk-type="Python SDK" />
 </project>

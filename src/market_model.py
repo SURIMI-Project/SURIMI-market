@@ -7,7 +7,7 @@ import random
 from collections import defaultdict
 from typing import Dict, Tuple
 
-from surimi.v1 import species_price_pb2, market_pb2
+from surimi.v1 import species_price_pb2, market_pb2, species_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pb")))
@@ -128,6 +128,7 @@ class MarketSystem:
     def catch_by_species(self, market_code: str, species_code: str, quantity: float):
         self.local_markets[market_code].record_monthly_catch(species_code, quantity)
 
+
     def get_species_prices_message(self):
         """
         Generates an update message containing pricing details for all species at all ports.
@@ -139,7 +140,9 @@ class MarketSystem:
         for species in self.species_dict.values():
             for market in self.local_markets.values():
                 message = species_price_pb2.SpeciesPrice(
-                    species_code=species.code,
+                    species=species_pb2.Species(
+                        species_code=species.code
+                    ),
                     market_code=market.market_code,
                     price=market.local_prices.get(species.code),
                     measurement_unit=self.measurement_unit,
@@ -151,6 +154,7 @@ class MarketSystem:
                       f"{message.currency}/{message.measurement_unit} - {message.timestamp} ")
 
         return market_pb2.GetSpeciesPricesResponse(prices=messages)
+
 
 
 class GlobalMarket:
