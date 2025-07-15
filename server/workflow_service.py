@@ -17,8 +17,6 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.simulation_id} already exists.")
 
         new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.start_date_time, request.step_size)
-        # Todo: This needs to be done via selection from controller. Do we need to change proto message?
-        new_simulation.load_data_from_folder("../data/input")  # Load species, ports, prices
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
         print(f"[Server] Simulation {request.simulation_id} started.")

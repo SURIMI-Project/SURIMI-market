@@ -33,7 +33,9 @@ class SimulationHandler:
         Trigger simulation initialization and respond to controller.
         """
         print("-" * 60)
-        self.market.tick.increase_tick()
+        # Todo: This needs to be done via selection from controller. Do we need to change proto message?
+        self.load_data_from_folder("../data/input")  # Load species, ports, prices
+
         print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been initialized ... ")
         return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
@@ -43,47 +45,26 @@ class SimulationHandler:
         """
         return workflow_pb2.FinaliseResponse(simulation_id=self.simulation_id)
 
-    def simulate_step(self):
+    def simulate_step(self, catches=None):
         # TODO: This should be sending a blocking response to the controller if sales we not received.
+
         """
-        Trigger a simulation step and respond to the controller.
-        Loads historical prices for the current day if available, otherwise computes dynamic prices.
+        Trigger a simulation step:
+        - Run one monthly update in MarketSystem
+        - Respond with a SimulateStepResponse
         """
         print("-" * 60)
-        self.market.tick.increase_tick()
+
+        # Default: no new catches
+        if catches is None:
+            catches = []
+
+        # Run the actual market step
+        self.market.step(catches)
+
         tick = self.market.tick.get_tick()
-        current_date = self.market.tick.get_timestamp()[:10]  # 'YYYY-MM-DD'
-
-        print(f"[Simulation] ID: {self.simulation_id}, Day {tick} ({current_date}) has been triggered ... ")
-
-        # Step 1: Set local market prices from historical data if available
-        for market in self.market.local_markets.values():
-            for species_code in self.market.species_dict:
-                price_key = (species_code, current_date)
-                if hasattr(market, "price_time_series") and price_key in market.price_time_series:
-                    market.local_prices[species_code] = market.price_time_series[price_key]
-                else:
-                    # Fallback to last known price
-                    market.local_prices[species_code] = self.market.species_dict[species_code].last_price
-
-        # Step 2: Compute global prices based on total reported catch
-        for species_code in self.market.species_dict:
-            total_quantity = sum(
-                m.monthly_catch.get(species_code, 0) for m in self.market.local_markets.values()
-            )
-            self.market.global_market.compute_price(species_code, total_quantity)
-
-        # Step 3: Compute inter-market average prices (used in local price adjustment)
-        avg_prices = {
-            s.code: sum(
-                m.local_prices.get(s.code, s.last_price) for m in self.market.local_markets.values()
-            ) / len(self.market.local_markets)
-            for s in self.market.species_dict.values()
-        }
-
-        # Step 4: Update local market prices dynamically using inter-market averages
-        for market in self.market.local_markets.values():
-            market.calculate_local_price(other_market_avg=avg_prices)
+        current_date = self.market.tick.get_timestamp()[:10]
+        print(f"[Simulation] ID: {self.simulation_id}, Month {tick} ({current_date}) has been triggered ... ")
 
         return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
