@@ -177,14 +177,21 @@ class MarketSystem:
         """
         One monthly update step:
         1) Record catches
-        2) Update local prices (per market/species)
-        3) Compute global average prices
-        4) Advance simulation tick
+        2) Update local prices
+        3) Save history (prices + catches) and clear monthly catches
+        4) Compute global prices
+        5) Advance simulation tick
         """
         self._record_catches(catches)
         self._update_local_prices()
+        self._update_local_history()
         self._compute_global_prices()
-        self.tick.increase_tick() # Move simulation forward one tick (month).
+        self.tick.increase_tick()
+
+        # Reset monthly_catch after snapshotting (moved here)
+        for market in self.local_markets.values():
+            market.monthly_catch.clear()
+
 
     def _record_catches(self, catches: list):
         """
@@ -196,42 +203,75 @@ class MarketSystem:
 
     def _update_local_prices(self):
         """
-        Update per-market prices using Elser adjustment based on last tick.
-        Also snapshot local price history for each market.
+        Update per-market prices using Elser adjustment based on current catches.
         """
-        current_tick = self.tick.get_tick()
         for m_code, market in self.local_markets.items():
             for s_code, qty in market.monthly_catch.items():
                 last_price, last_qty = market.get_last_state(s_code)
                 epsilon = self.species_dict[s_code].epsilon
 
-                # Elser price adjustment for THIS market
                 new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
-
-                # Save updated price state for next tick
                 market.set_new_state(s_code, new_price, qty)
 
-            # Snapshot local prices for history
-            market.price_history.append((current_tick, market.local_prices.copy()))
+    def _update_local_history(self):
+        """
+        After updating prices, snapshot both prices and catches
+        for each local market at the current tick,
+        then clear monthly_catch for the next month.
+        """
+        current_tick = self.tick.get_tick()
+        for market in self.local_markets.values():
+            # Save both prices & catches for this tick
+            market.price_history.append(
+                (
+                    current_tick,
+                    {
+                        "prices": market.local_prices.copy(),
+                        "catches": market.monthly_catch.copy()
+                    }
+                )
+            )
+
+            #Reset catches after snapshotting
+            market.monthly_catch.clear()
 
     def _compute_global_prices(self):
         """
-        Compute global average prices across all local markets and snapshot history.
+        Compute global average prices and total catches across all local markets
+        and snapshot into global history.
         """
         current_tick = self.tick.get_tick()
+
         global_prices = {}
+        global_catches = {}
+
         for s_code in self.species_dict.keys():
-            prices = [
-                m.local_prices[s_code]
-                for m in self.local_markets.values()
-                if s_code in m.local_prices
-            ]
+            prices = []
+            total_catch = 0.0
+
+            for m in self.local_markets.values():
+                if s_code in m.local_prices:
+                    prices.append(m.local_prices[s_code])
+                total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0) if m.price_history else 0.0
+
             if prices:
                 global_prices[s_code] = sum(prices) / len(prices)
+            if total_catch > 0:
+                global_catches[s_code] = total_catch
 
-        # Save global snapshot
+        # Save current global prices
         self.global_market.global_prices = global_prices
-        self.global_market.global_price_history.append((current_tick, global_prices.copy()))
+
+        # Save both avg prices & total catches for this tick
+        self.global_market.global_price_history.append(
+            (
+                current_tick,
+                {
+                    "avg_prices": global_prices.copy(),
+                    "total_catches": global_catches.copy()
+                }
+            )
+        )
 
     def get_species_prices_message(self):
         """

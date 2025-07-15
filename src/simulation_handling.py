@@ -46,28 +46,33 @@ class SimulationHandler:
         return workflow_pb2.FinaliseResponse(simulation_id=self.simulation_id)
 
     def simulate_step(self, catches=None):
-        # TODO: This should be sending a blocking response to the controller if sales we not received.
-
         """
         Trigger a simulation step and respond to the controller.
         Uses MarketSystem.step() to update all prices and advance time.
+        Optionally overrides local prices with historical values if available.
         """
         print("-" * 60)
 
-        # Default: no new catches
         if catches is None:
             catches = []
 
-        # Run the actual monthly market update
+        # Current tick/time
+        tick = self.market.tick.get_tick()
+        current_date = self.market.tick.get_timestamp()[:10]
+
+        # Inject historical prices before the monthly update
+        for market in self.market.local_markets.values():
+            for species_code in self.market.species_dict:
+                price_key = (species_code, current_date)
+                if hasattr(market, "price_time_series") and price_key in market.price_time_series:
+                    market.local_prices[species_code] = market.price_time_series[price_key]
+
+        #  run the monthly dynamic update
         self.market.step(catches)
 
-        # Get the current tick and timestamp from this MarketSystem's clock
-        tick = self.market.tick.get_tick()
-        current_date = self.market.tick.get_timestamp()[:10]  # 'YYYY-MM-DD'
-
         print(f"[Simulation] ID: {self.simulation_id}, Month {tick} ({current_date}) has been triggered ... ")
-
         return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
+
 
     def update_prices(self):
         """
