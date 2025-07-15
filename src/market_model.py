@@ -5,7 +5,7 @@ import datetime
 import random
 
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, Tuple
 
 from surimi.v1 import species_price_pb2, market_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -118,11 +118,12 @@ class MarketSystem:
 
     def add_species_to_local_market(self, market_code: str, species_code: str):
         """
-        Adds a new species to the system.
+        Adds a single species to a given local market, if not already present.
         """
         local_market = self.local_markets[market_code]
-        local_market.species_dict = self.species_dict.copy()
-        # TODO: This seems to be very inefficient. Think how to think it up so that all markets have all species.
+        species = self.species_dict.get(species_code)
+        if species and species_code not in local_market.species_dict:
+            local_market.species_dict[species_code] = species
 
     def catch_by_species(self, market_code: str, species_code: str, quantity: float):
         self.local_markets[market_code].record_monthly_catch(species_code, quantity)
@@ -184,16 +185,22 @@ class LocalMarket:
         lambda_mix (float): Influence of global price on local price [0, 1].
         theta_mix (float): Influence of neighboring markets on local price [0, 1].
     """
-    def __init__(self, market_code: str, market_name: str ,global_market: object, lambda_mix=0.0, theta_mix=0.0):
-        self.market_name = market_name  # Name of the local market (e.g., "ARENYS DE MAR")
-        self.market_code = market_code  # ISO country code + UN/LOCODE (e.g., "ITCIV")
+    def __init__(self, market_code: str, global_market: object,
+                 name: str = None, lon: float = None, lat: float = None,
+                 lambda_mix=0.0, theta_mix=0.0):
+        self.market_code = market_code
+        self.market_name = name
+        self.lon = lon
+        self.lat = lat
         self.global_market = global_market
         self.lambda_mix = lambda_mix
         self.theta_mix = theta_mix
+
         self.species_dict = global_market.species_dict.copy()
         self.monthly_catch = defaultdict(float)
         self.local_prices: Dict[str, float] = {}
         self.price_history = []
+        self.price_time_series: Dict[Tuple[str, str], float] = {}
 
     def record_monthly_catch(self, species_code: str, quantity: float):
         self.monthly_catch[species_code] = quantity
@@ -234,6 +241,15 @@ class LocalMarket:
 
         self.price_history.append((len(self.price_history), self.local_prices.copy()))
         return prices
+
+    def set_price_from_history(self, date_str: str):
+        """
+        Inject historical prices for the given date into local_prices if available.
+        """
+        for species_code in self.species_dict:
+            key = (species_code, date_str)
+            if key in self.price_time_series:
+                self.local_prices[species_code] = self.price_time_series[key]
 
     def get_elasticity(self, species_code: str) -> float:
         p = self.global_market.get_global_price(species_code)

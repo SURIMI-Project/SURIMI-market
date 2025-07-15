@@ -14,12 +14,14 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
             if request.simulation_id in self.simulation_dictionary.keys():
                 context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Simulation Id already exists.")
 
-            new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.start_date_time, request.step_size)
-            self.simulation_dictionary[request.simulation_id] = new_simulation
-            print(f"[Server] Simulation {request.simulation_id} started.")
+        new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.start_date_time, request.step_size)
+        # Todo: This needs to be done via selection from controller. Do we need to change proto message?
+        new_simulation.load_data_from_folder("../data/input")  # Load species, ports, prices
 
-            # return workflow_pb2.InitResponse()
-            return new_simulation.init_simulation()
+        self.simulation_dictionary[request.simulation_id] = new_simulation
+        print(f"[Server] Simulation {request.simulation_id} started.")
+
+        return new_simulation.init_simulation()
 
 
     def SimulateStep(self, request, context):
