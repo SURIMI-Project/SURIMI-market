@@ -1,9 +1,10 @@
-from src.market_model import MarketSystem, LocalMarket, Species
-from surimi.v1 import workflow_pb2, market_pb2
-
 import threading
 import csv
 import os
+
+from src.market_model import MarketSystem, LocalMarket, Species
+from surimi.v1 import workflow_pb2, market_pb2
+
 
 class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -31,12 +32,15 @@ class SimulationHandler:
     def init_simulation(self):
         """
         Trigger simulation initialization and respond to controller.
+        Loads initialization data (species, ports, historical prices)
+        and sets baseline prices for each market.
         """
-        print("-" * 60)
         # Todo: This needs to be done via selection from controller. Do we need to change proto message?
-        self.load_data_from_folder("../data/input")  # Load species, ports, prices
+        print("-" * 60)
+        # Load all baseline data (species, ports, historical prices)
+        self.load_initialization_data("../data/input")
 
-        print(f"[Simulation] ID: {self.simulation_id}, Month {self.market.tick.get_tick()} has been initialized ... ")
+        print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
         return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
     def finalise_simulation(self):
@@ -45,34 +49,24 @@ class SimulationHandler:
         """
         return workflow_pb2.FinaliseResponse(simulation_id=self.simulation_id)
 
-    def simulate_step(self, catches=None):
+    def simulate_step(self):
         """
         Trigger a simulation step and respond to the controller.
-        Uses MarketSystem.step() to update all prices and advance time.
-        Optionally overrides local prices with historical values if available.
         """
         print("-" * 60)
-
-        if catches is None:
-            catches = []
-
-        # Current tick/time
+        self.market.tick.increase_tick()
         tick = self.market.tick.get_tick()
         current_date = self.market.tick.get_timestamp()[:10]
 
-        # Inject historical prices before the monthly update
-        for market in self.market.local_markets.values():
-            for species_code in self.market.species_dict:
-                price_key = (species_code, current_date)
-                if hasattr(market, "price_time_series") and price_key in market.price_time_series:
-                    market.local_prices[species_code] = market.price_time_series[price_key]
+        print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) triggered ...")
 
-        #  run the monthly dynamic update
-        self.market.step(catches)
+        # Example: here you might inject sales/catches before calling step()
+        # For now, no extra catch injection here
 
-        print(f"[Simulation] ID: {self.simulation_id}, Month {tick} ({current_date}) has been triggered ... ")
+        # Perform one monthly simulation step
+        self.market.step([])
+
         return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
-
 
     def update_prices(self):
         """
@@ -80,17 +74,17 @@ class SimulationHandler:
         """
         print("-" * 60)
         self.latest_market_prices = self.market.get_species_prices_message()
-        print(f"[Simulation] ID: {self.simulation_id}, Prices have been sent ... ")
+        print(f"[Simulation] ID: {self.simulation_id}, Prices sent ...")
         return self.latest_market_prices
 
     def update_sales(self):
         # TODO: This should be receiving sales data from the controller twice (EWE and Poseidon).
         #  Should be aggregate values until simulate Step is called.
         """
-        Placeholder for external catch input. In real use, values will come from outside agents or models.
+        Placeholder for external catch input (future extension).
         """
         print("-" * 60)
-        print(f"[Simulation] ID: {self.simulation_id}, Sales have been received ... ")
+        print(f"[Simulation] ID: {self.simulation_id}, Sales received ...")
         return market_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
     def load_species_from_csv(self, filepath: str):
@@ -148,22 +142,16 @@ class SimulationHandler:
 
                 market = self.local_market_dict.get(market_code)
                 if not market:
-                    print(f"⚠️ Market '{market_code}' not found. Skipping.")
+                    print(f"⚠️ Market '{market_code}' not found. Skipping price row.")
                     continue
 
-                if not hasattr(market, "price_time_series"):
-                    market.price_time_series = {}
-
+                # Save into the market's price_time_series
                 market.price_time_series[(species_code, date)] = price
 
-    def load_data_from_folder(self, folder_path="data/input"):
+    def load_initialization_data(self, folder_path="data/input"):
         """
-        Loads all required simulation input data (species, ports, prices) from the given folder.
-
-        Expects:
-        - species.csv
-        - ports.csv
-        - prices.csv
+        Loads all initial simulation input (species, ports, prices),
+        then initializes baseline prices using Option B (CSV → global avg → fallback).
         """
         folder_path = os.path.abspath(folder_path)
 
@@ -188,3 +176,6 @@ class SimulationHandler:
             self.load_prices_from_csv(prices_path)
         else:
             print(f"ℹ️ prices.csv not found — skipping price injection")
+
+        # After loading CSV data, initialize baseline prices
+        self.market._initialize_baseline_prices_from_csv()

@@ -13,10 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../p
 # TODO: setup via calling Scenario configuaration (via S3 bucket)
 
 class Tick:
-    """
-    A per-MarketSystem time tracker.
-    Each MarketSystem gets its own Tick instance.
-    """
+    """A per-MarketSystem time tracker."""
     def __init__(self, step_days=30):
         self.tick = 0
         self.start_time = datetime.datetime.utcnow()
@@ -61,7 +58,7 @@ class GlobalMarket:
     def __init__(self, species_dict):
         self.species_dict = species_dict
         self.global_prices: Dict[str, float] = {}
-        self.global_price_history = []  # stores (tick, {species_code: price,...})
+        self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
     def get_global_price(self, species_code: str) -> float:
         return self.global_prices.get(species_code, 0.0)
@@ -79,6 +76,7 @@ class LocalMarket:
         lambda_mix (float): Influence of global price on local price [0, 1].
         theta_mix (float): Influence of neighboring markets on local price [0, 1].
     """
+    # Todo: Think about what todo with market influence (lambda_mix, theta_mix)
     def __init__(self, market_code: str, global_market: object,
                  name: str = None, lon: float = None, lat: float = None,
                  lambda_mix=0.0, theta_mix=0.0):
@@ -94,18 +92,21 @@ class LocalMarket:
         self.monthly_catch = defaultdict(float)
         self.local_prices: Dict[str, float] = {}
 
-        # Per-species price memory for Elser price adjustment
+        # Price memory for Elser adjustment
         self.price_state: Dict[str, Tuple[float, float]] = {}  # species_code -> (last_price, last_quantity)
 
-        # For history
-        self.price_history = []  # [(tick, {species: price, ...})]
+        # History
+        self.price_history = []  # [(tick, {"prices": {...}, "catches": {...}})]
+
+        # Holds historical CSV prices: (species_code, date) -> price
+        self.price_time_series = {}
 
     def record_monthly_catch(self, species_code: str, quantity: float):
         self.monthly_catch[species_code] += quantity
 
     def get_last_state(self, s_code: str) -> Tuple[float, float]:
         """
-        If no price state yet, fall back to initial price from CSV and dummy qty=1.
+        If no price state yet, fallback to initial price from CSV/global avg and qty=1.
         """
         if s_code not in self.price_state:
             init_price = self.local_prices.get(s_code, 1.0)
@@ -120,20 +121,14 @@ class LocalMarket:
         self.local_prices[s_code] = price
 
     def calculate_local_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
-        """
-        KEPT for potential lambda/theta mixing, but Elser updates are now done centrally.
-        """
+        """Lambda/theta mixing if needed (not used in baseline init)."""
         prices = {}
         species_to_process = [species_code] if species_code else list(self.species_dict.keys())
-
         for code in species_to_process:
-            # Just use the current stored local price (no Elser recalculation here)
             p_local = self.local_prices.get(code, 0.0)
-
             if self.lambda_mix > 0:
                 p_global = self.global_market.get_global_price(code)
                 p_local = (1 - self.lambda_mix) * p_local + self.lambda_mix * p_global
-
             if other_market_avg and self.theta_mix > 0:
                 p_other = other_market_avg.get(code, p_local)
                 p_local = (1 - self.theta_mix) * p_local + self.theta_mix * p_other
@@ -141,7 +136,7 @@ class LocalMarket:
             self.local_prices[code] = p_local
             prices[code] = p_local
 
-        self.price_history.append((len(self.price_history), self.local_prices.copy()))
+        self.price_history.append((len(self.price_history), {"prices": self.local_prices.copy()}))
         return prices
 
 
@@ -151,7 +146,7 @@ class MarketSystem:
     Combines multiple LocalMarkets and a GlobalMarket for multi-level pricing.
     """
     def __init__(self, currency: str, measurement_unit: str):
-        self.tick = Tick(step_days=30)  # each MarketSystem has its own timeline
+        self.tick = Tick(step_days=30)
         self.currency = currency
         self.measurement_unit = measurement_unit
         self.species_dict: Dict[str, Species] = {}
@@ -163,12 +158,6 @@ class MarketSystem:
 
     def add_local_market(self, market: object):
         self.local_markets[market.market_code] = market
-
-    def add_species_to_local_market(self, market_code: str, species_code: str):
-        local_market = self.local_markets[market_code]
-        species = self.species_dict.get(species_code)
-        if species and species_code not in local_market.species_dict:
-            local_market.species_dict[species_code] = species
 
     def catch_by_species(self, market_code: str, species_code: str, quantity: float):
         self.local_markets[market_code].record_monthly_catch(species_code, quantity)
@@ -188,11 +177,6 @@ class MarketSystem:
         self._compute_global_prices()
         self.tick.increase_tick()
 
-        # Reset monthly_catch after snapshotting (moved here)
-        for market in self.local_markets.values():
-            market.monthly_catch.clear()
-
-
     def _record_catches(self, catches: list):
         """
         Record monthly catches from a list of tuples: (market_code, species_code, qty)
@@ -209,7 +193,6 @@ class MarketSystem:
             for s_code, qty in market.monthly_catch.items():
                 last_price, last_qty = market.get_last_state(s_code)
                 epsilon = self.species_dict[s_code].epsilon
-
                 new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
                 market.set_new_state(s_code, new_price, qty)
 
@@ -241,7 +224,6 @@ class MarketSystem:
         and snapshot into global history.
         """
         current_tick = self.tick.get_tick()
-
         global_prices = {}
         global_catches = {}
 
@@ -252,7 +234,8 @@ class MarketSystem:
             for m in self.local_markets.values():
                 if s_code in m.local_prices:
                     prices.append(m.local_prices[s_code])
-                total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0) if m.price_history else 0.0
+                if m.price_history:
+                    total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0)
 
             if prices:
                 global_prices[s_code] = sum(prices) / len(prices)
@@ -264,14 +247,50 @@ class MarketSystem:
 
         # Save both avg prices & total catches for this tick
         self.global_market.global_price_history.append(
-            (
-                current_tick,
-                {
-                    "avg_prices": global_prices.copy(),
-                    "total_catches": global_catches.copy()
-                }
-            )
+            (current_tick, {
+                "avg_prices": global_prices.copy(),
+                "total_catches": global_catches.copy()
+            })
         )
+
+    def _initialize_baseline_prices_from_csv(self):
+        """
+        Fill local markets with earliest CSV price if available,
+        then compute a global baseline and fill missing markets/species.
+        """
+        print("🔄 Initializing baseline prices from earliest CSV data...")
+
+        # Phase 1: fill from CSV if available
+        for market in self.local_markets.values():
+            earliest_per_species = {}
+            if hasattr(market, "price_time_series") and market.price_time_series:
+                for (species_code, date), price in market.price_time_series.items():
+                    if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
+                        earliest_per_species[species_code] = (date, price)
+
+            for s_code in self.species_dict.keys():
+                if s_code in earliest_per_species:
+                    _, price = earliest_per_species[s_code]
+                    market.local_prices[s_code] = price
+                    # print(f"✅ Baseline CSV for {market.market_code}/{s_code}: {price} EUR/kg")
+
+        # Phase 2: compute global baseline avg
+        print("📊 Computing initial GLOBAL baseline from filled local markets...")
+        self._compute_global_prices()
+
+        # Phase 3: fill missing using global avg
+        for market in self.local_markets.values():
+            for s_code in self.species_dict.keys():
+                if s_code not in market.local_prices or market.local_prices[s_code] == 0:
+                    global_fallback = self.global_market.get_global_price(s_code)
+                    if global_fallback > 0:
+                        market.local_prices[s_code] = global_fallback
+                        #print(f"➡️ Fallback {market.market_code}/{s_code} using GLOBAL avg {global_fallback:.2f} EUR/kg")
+                    else:
+                        market.local_prices[s_code] = 1.0
+                        print(f"⚠️ No CSV/global price for {market.market_code}/{s_code}, default 1.0 EUR/kg")
+
+        print("✅ Baseline initialization complete!")
 
     def get_species_prices_message(self):
         """
@@ -283,18 +302,16 @@ class MarketSystem:
 
         for species in self.species_dict.values():
             for market in self.local_markets.values():
+                price = market.local_prices.get(species.code, 1.0)  # safe fallback
                 message = species_price_pb2.SpeciesPrice(
-                    species=species_pb2.Species(
-                        species_code=species.code
-                    ),
+                    species=species_pb2.Species(species_code=species.code),
                     market_code=market.market_code,
-                    price=market.local_prices.get(species.code),
+                    price=price,
                     measurement_unit=self.measurement_unit,
                     currency=self.currency,
                     timestamp=timestamp
                 )
                 messages.append(message)
-                print(f"[Market] Generated update: {species.code} at {market.market_code} - {message.price} "
-                      f"{message.currency}/{message.measurement_unit} - {message.timestamp} ")
+                print(f"[Market] {species.code}@{market.market_code} -> {price:.2f} {self.currency}/{self.measurement_unit}")
 
         return market_pb2.GetSpeciesPricesResponse(prices=messages)
