@@ -1,4 +1,5 @@
 from src.market_model import MarketSystem, LocalMarket, Species
+
 from surimi.v1 import workflow_pb2, market_pb2
 import threading
 import json
