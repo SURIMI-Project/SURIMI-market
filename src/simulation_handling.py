@@ -36,7 +36,7 @@ class SimulationHandler:
         # Todo: This needs to be done via selection from controller. Do we need to change proto message?
         self.load_data_from_folder("../data/input")  # Load species, ports, prices
 
-        print(f"[Simulation] ID: {self.simulation_id}, Day {self.market.tick.get_tick()} has been initialized ... ")
+        print(f"[Simulation] ID: {self.simulation_id}, Month {self.market.tick.get_tick()} has been initialized ... ")
         return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
     def finalise_simulation(self):
@@ -49,9 +49,8 @@ class SimulationHandler:
         # TODO: This should be sending a blocking response to the controller if sales we not received.
 
         """
-        Trigger a simulation step:
-        - Run one monthly update in MarketSystem
-        - Respond with a SimulateStepResponse
+        Trigger a simulation step and respond to the controller.
+        Uses MarketSystem.step() to update all prices and advance time.
         """
         print("-" * 60)
 
@@ -59,11 +58,13 @@ class SimulationHandler:
         if catches is None:
             catches = []
 
-        # Run the actual market step
+        # Run the actual monthly market update
         self.market.step(catches)
 
+        # Get the current tick and timestamp from this MarketSystem's clock
         tick = self.market.tick.get_tick()
-        current_date = self.market.tick.get_timestamp()[:10]
+        current_date = self.market.tick.get_timestamp()[:10]  # 'YYYY-MM-DD'
+
         print(f"[Simulation] ID: {self.simulation_id}, Month {tick} ({current_date}) has been triggered ... ")
 
         return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
