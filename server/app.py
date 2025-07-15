@@ -5,12 +5,15 @@ from concurrent import futures
 import grpc
 
 from otlp_tracing import configure_oltp_grpc_tracing
+from logging_config import configure_logging
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
 from server.market_service import MarketService
 from server.workflow_service import WorkflowService
 from surimi.v1 import market_pb2_grpc, workflow_pb2_grpc
 
 def serve():
+    # Configure structured logging
+    logger = configure_logging()
 
     # Simulation storage shared across services
     simulation_dictionary = {}
@@ -18,9 +21,9 @@ def serve():
     # Configure OpenTelemetry tracing
     otel_exporter_otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
     tracer = configure_oltp_grpc_tracing(endpoint=otel_exporter_otlp_endpoint)
-    print(f"OpenTelemetry tracing configured. Sending to: {otel_exporter_otlp_endpoint}")
+    logger.info(f"OpenTelemetry tracing configured. Sending to: {otel_exporter_otlp_endpoint}")
 
-    print("🟧 Starting gRPC server...")
+    logger.info("🟧 Starting gRPC server...")
 
     # Create the gRPC server with interceptors
     server = grpc.server(
@@ -41,13 +44,13 @@ def serve():
     server.add_insecure_port(f"{host}:{port}")
     server.start()
 
-    print(f"🟩 gRPC Server running on {host}:{port}")
+    logger.info(f"🟩 gRPC Server running on {host}:{port}")
 
     # Shutdown on termination signal
     def shutdown(signum, frame):
-        print("🟥 Shutdown signal received. Stopping server...")
+        logger.info("🟥 Shutdown signal received. Stopping server...")
         server.stop(grace=None)
-        print("Server stopped cleanly.")
+        logger.info("Server stopped cleanly.")
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
@@ -56,7 +59,7 @@ def serve():
     try:
         server.wait_for_termination()
     except Exception as e:
-         print(f"🟥 Unexpected error during server execution {str(e)}")
+        logger.exception("Unexpected error during server execution", exc_info=e)
 
 if __name__ == "__main__":
     serve()
