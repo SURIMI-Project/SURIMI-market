@@ -54,17 +54,12 @@ class SimulationHandler:
         Trigger a simulation step and respond to the controller.
         """
         print("-" * 60)
-        self.market.tick.increase_tick()
-        tick = self.market.tick.get_tick()
-        current_date = self.market.tick.get_timestamp()[:10]
-
-        print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) triggered ...")
-
-        # Example: here you might inject sales/catches before calling step()
-        # For now, no extra catch injection here
 
         # Perform one monthly simulation step
         self.market.step([])
+        tick = self.market.tick.get_tick()
+        current_date = self.market.tick.get_timestamp()[:10]
+        print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) triggered ...")
 
         return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
