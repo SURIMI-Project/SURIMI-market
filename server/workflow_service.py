@@ -19,15 +19,15 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.start_date_time, request.step_size)
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
-        print(f"[Server] Simulation {request.simulation_id} started.")
+        print(f"[Server] Simulation ID: {request.simulation_id} started.")
 
         return new_simulation.init_simulation()
 
     def SimulateStep(self, request, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
-        print(f"[Server] SimulateStep of Simulation if {request.simulation_id}.")
+        print(f"[Server] SimulateStep of Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
-            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exists.")
+            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
 
@@ -35,20 +35,23 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
 
     def Finalise(self, request, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
-        print(f"[Server] Finalise {request.simulation_id}.")
+        print(f"[Server] Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
-            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exists.")
+            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
         return current_simulation.finalise_simulation()
 
     def Cancel(self, request, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
-        print(f"[Server] Cancel {request.simulation_id}.")
+        print(f"[Server] Cancel Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
-            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exists.")
+            log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
+        # just remove the id form self.simulation_dictionary
+        del self.simulation_dictionary[request.simulation_id]
+
         return workflow_pb2.CancelResponse(
             simulation_id=current_simulation.simulation_id
         )
