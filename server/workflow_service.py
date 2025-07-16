@@ -49,6 +49,9 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
+        # just remove the id form self.simulation_dictionary
+        del self.simulation_dictionary[request.simulation_id]
+
         return workflow_pb2.CancelResponse(
             simulation_id=current_simulation.simulation_id
         )
