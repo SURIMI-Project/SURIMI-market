@@ -1,6 +1,9 @@
 # Use the official Python image from DockerHub
 FROM python:3.12-slim
 
+# Upgrade system packages to address vulnerabilities
+RUN apt-get update && apt-get upgrade -y && apt-get clean
+
 # Set the working directory inside the container
 WORKDIR /app
 
