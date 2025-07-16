@@ -39,7 +39,7 @@ class SimulationHandler:
         # Todo: This needs to be done via selection from controller. Do we need to change proto message?
         print("-" * 60)
         # Load all baseline config (species, ports, historical prices)
-        self.load_initialization_data("../config")
+        self.load_initialization_data("config")
 
         print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
         return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
@@ -144,7 +144,7 @@ class SimulationHandler:
                 # Save into the market's price_time_series
                 market.price_time_series[(species_code, date)] = price
 
-    def load_initialization_data(self, folder_path="config/input"):
+    def load_initialization_data(self, folder_path="config"):
         """
         Loads all initial simulation input (species, ports, prices),
         then initializes baseline prices using Option B (CSV → global avg → fallback).
