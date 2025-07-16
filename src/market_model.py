@@ -258,7 +258,7 @@ class MarketSystem:
         Fill local markets with earliest CSV price if available,
         then compute a global baseline and fill missing markets/species.
         """
-        print("🔄 Initializing baseline prices from earliest CSV data...")
+        print("🔄 Initializing baseline prices from earliest CSV config...")
 
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():

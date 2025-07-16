@@ -32,13 +32,13 @@ class SimulationHandler:
     def init_simulation(self):
         """
         Trigger simulation initialization and respond to controller.
-        Loads initialization data (species, ports, historical prices)
+        Loads initialization config (species, ports, historical prices)
         and sets baseline prices for each market.
         """
         # Todo: This needs to be done via selection from controller. Do we need to change proto message?
         print("-" * 60)
-        # Load all baseline data (species, ports, historical prices)
-        self.load_initialization_data("../data/input")
+        # Load all baseline config (species, ports, historical prices)
+        self.load_initialization_data("../config")
 
         print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
         return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
@@ -78,7 +78,7 @@ class SimulationHandler:
         return self.latest_market_prices
 
     def update_sales(self):
-        # TODO: This should be receiving sales data from the controller twice (EWE and Poseidon).
+        # TODO: This should be receiving sales config from the controller twice (EWE and Poseidon).
         #  Should be aggregate values until simulate Step is called.
         """
         Placeholder for external catch input (future extension).
@@ -148,7 +148,7 @@ class SimulationHandler:
                 # Save into the market's price_time_series
                 market.price_time_series[(species_code, date)] = price
 
-    def load_initialization_data(self, folder_path="data/input"):
+    def load_initialization_data(self, folder_path="config/input"):
         """
         Loads all initial simulation input (species, ports, prices),
         then initializes baseline prices using Option B (CSV → global avg → fallback).
@@ -177,5 +177,5 @@ class SimulationHandler:
         else:
             print(f"ℹ️ prices.csv not found — skipping price injection")
 
-        # After loading CSV data, initialize baseline prices
+        # After loading CSV config, initialize baseline prices
         self.market._initialize_baseline_prices_from_csv()
