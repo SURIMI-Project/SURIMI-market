@@ -53,7 +53,7 @@ class Species:
 class GlobalMarket:
     """
     Represents the global market context, computing global species prices
-    as an average of local prices.
+    as an average of valid local prices.
     """
     def __init__(self, species_dict):
         self.species_dict = species_dict
@@ -61,7 +61,7 @@ class GlobalMarket:
         self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
     def get_global_price(self, species_code: str) -> float:
-        return self.global_prices.get(species_code, 0.0)
+        return self.global_prices.get(species_code, None)
 
 
 class LocalMarket:
@@ -90,7 +90,7 @@ class LocalMarket:
 
         self.species_dict = global_market.species_dict  # shared reference
         self.monthly_catch = defaultdict(float)
-        self.local_prices: Dict[str, float] = {}
+        self.local_prices: Dict[str, float] = {}  # species_code -> price or None
 
         # Price memory for Elser adjustment
         self.price_state: Dict[str, Tuple[float, float]] = {}  # species_code -> (last_price, last_quantity)
@@ -106,7 +106,7 @@ class LocalMarket:
 
     def get_last_state(self, s_code: str) -> Tuple[float, float]:
         """
-        If no price state yet, fallback to initial price from CSV/global avg and qty=1.
+        If no price state yet, fallback to initial price if available, otherwise 1.0 qty=1.
         """
         if s_code not in self.price_state:
             init_price = self.local_prices.get(s_code, 1.0)
@@ -121,17 +121,26 @@ class LocalMarket:
         self.local_prices[s_code] = price
 
     def calculate_local_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
-        """Lambda/theta mixing if needed (not used in baseline init)."""
+        """
+        Lambda/theta mixing if needed (not used in baseline init).
+        Only applies if global/neighbor prices are valid (not None).
+        """
         prices = {}
         species_to_process = [species_code] if species_code else list(self.species_dict.keys())
         for code in species_to_process:
-            p_local = self.local_prices.get(code, 0.0)
+            p_local = self.local_prices.get(code)
+            if p_local is None:
+                continue  # skip missing prices entirely
+
             if self.lambda_mix > 0:
                 p_global = self.global_market.get_global_price(code)
-                p_local = (1 - self.lambda_mix) * p_local + self.lambda_mix * p_global
+                if p_global is not None and p_global > 0:
+                    p_local = (1 - self.lambda_mix) * p_local + self.lambda_mix * p_global
+
             if other_market_avg and self.theta_mix > 0:
                 p_other = other_market_avg.get(code, p_local)
-                p_local = (1 - self.theta_mix) * p_local + self.theta_mix * p_other
+                if p_other is not None and p_other > 0:
+                    p_local = (1 - self.theta_mix) * p_local + self.theta_mix * p_other
 
             self.local_prices[code] = p_local
             prices[code] = p_local
@@ -220,25 +229,37 @@ class MarketSystem:
 
     def _compute_global_prices(self):
         """
-        Compute global average prices and total catches across all local markets
-        and snapshot into global history.
+        Compute global average prices and total catches across all local markets.
+        - Ignores markets with None or zero prices.
+        - If no valid local prices exist, global price = None.
+        Prints a summary of valid vs missing global prices.
         """
         current_tick = self.tick.get_tick()
         global_prices = {}
         global_catches = {}
 
+        valid_global_count = 0
+        missing_global_count = 0
+
         for s_code in self.species_dict.keys():
-            prices = []
+            valid_prices = []
             total_catch = 0.0
 
             for m in self.local_markets.values():
-                if s_code in m.local_prices:
-                    prices.append(m.local_prices[s_code])
+                price = m.local_prices.get(s_code)
+                if price is not None and price > 0:
+                    valid_prices.append(price)
+
                 if m.price_history:
                     total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0)
 
-            if prices:
-                global_prices[s_code] = sum(prices) / len(prices)
+            if valid_prices:
+                global_prices[s_code] = sum(valid_prices) / len(valid_prices)
+                valid_global_count += 1
+            else:
+                global_prices[s_code] = None
+                missing_global_count += 1
+
             if total_catch > 0:
                 global_catches[s_code] = total_catch
 
@@ -253,65 +274,101 @@ class MarketSystem:
             })
         )
 
+        # Print summary for debugging
+        # total_species = len(self.species_dict)
+        # print("\n===== GLOBAL PRICE SUMMARY =====")
+        # print(f"Tick {current_tick}")
+        # print(f"Total species: {total_species}")
+        # print(f" Valid global prices:   {valid_global_count}")
+        # print(f" Missing global prices: {missing_global_count}")
+        # print("==============================\n")
+
     def _initialize_baseline_prices_from_csv(self):
         """
         Fill local markets with earliest CSV price if available,
-        then compute a global baseline and fill missing markets/species.
+        then compute a global baseline and fill only truly missing prices
+        using global avg (never 0.0).
         """
         print("🔄 Initializing baseline prices from earliest CSV config...")
 
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
             earliest_per_species = {}
+
+            # Collect earliest CSV price per species
             if hasattr(market, "price_time_series") and market.price_time_series:
                 for (species_code, date), price in market.price_time_series.items():
                     if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
                         earliest_per_species[species_code] = (date, price)
 
+            # Set baseline only if CSV data >0
             for s_code in self.species_dict.keys():
                 if s_code in earliest_per_species:
                     _, price = earliest_per_species[s_code]
-                    market.local_prices[s_code] = price
-                    # print(f"✅ Baseline CSV for {market.market_code}/{s_code}: {price} EUR/kg")
+                    if price > 0:
+                        market.local_prices[s_code] = price
+                    else:
+                        print(f"⚠️ CSV price is zero for {market.market_code}/{s_code}, ignoring.")
 
-        # Phase 2: compute global baseline avg
-        print("📊 Computing initial GLOBAL baseline from filled local markets...")
+        # Compute initial GLOBAL baseline
+        print("📊 Computing initial GLOBAL baseline from valid local markets...")
         self._compute_global_prices()
 
-        # Phase 3: fill missing using global avg
+        # Fill missing markets with valid global avg if available
         for market in self.local_markets.values():
             for s_code in self.species_dict.keys():
-                if s_code not in market.local_prices or market.local_prices[s_code] == 0:
+                if s_code not in market.local_prices:  # only fill if missing
                     global_fallback = self.global_market.get_global_price(s_code)
-                    if global_fallback > 0:
+                    if global_fallback is not None and global_fallback > 0:
                         market.local_prices[s_code] = global_fallback
-                        #print(f"➡️ Fallback {market.market_code}/{s_code} using GLOBAL avg {global_fallback:.2f} EUR/kg")
                     else:
-                        market.local_prices[s_code] = 1.0
-                        print(f"⚠️ No CSV/global price for {market.market_code}/{s_code}, default 1.0 EUR/kg")
+                        print(f"⚠️ No CSV/global price for {market.market_code}/{s_code}, leaving as missing (None).")
 
         print("✅ Baseline initialization complete!")
 
     def get_species_prices_message(self):
         """
         Generates an update message containing pricing details for all species at all ports.
+        Only includes markets/species with valid prices (skips None).
+        Prints a summary of valid vs missing.
         """
         messages = []
         timestamp = Timestamp()
         timestamp.FromJsonString(self.tick.get_timestamp())
 
+        total_species = 0
+        valid_count = 0
+        missing_count = 0
+
         for species in self.species_dict.values():
+            total_species += 1
             for market in self.local_markets.values():
-                price = market.local_prices.get(species.code, 1.0)  # safe fallback
-                message = species_price_pb2.SpeciesPrice(
-                    species=species_pb2.Species(species_code=species.code),
-                    market_code=market.market_code,
-                    price=price,
-                    measurement_unit=self.measurement_unit,
-                    currency=self.currency,
-                    timestamp=timestamp
-                )
-                messages.append(message)
-                print(f"[Market] {species.code}@{market.market_code} -> {price:.2f} {self.currency}/{self.measurement_unit}")
+                price = market.local_prices.get(species.code)
+
+                if price is not None:
+                    valid_count += 1
+                    message = species_price_pb2.SpeciesPrice(
+                        species=species_pb2.Species(species_code=species.code),
+                        market_code=market.market_code,
+                        price=price,
+                        measurement_unit=self.measurement_unit,
+                        currency=self.currency,
+                        timestamp=timestamp
+                    )
+                    messages.append(message)
+                    # print(f"[Market] {species.code}@{market.market_code} -> {price:.2f} {self.currency}/{self.measurement_unit}")
+                else:
+                    missing_count += 1
+                    print(f"[Market] {species.code}@{market.market_code} has no valid price → skipped")
+
+        total_markets = len(self.local_markets)
+        total_combinations = total_species * total_markets
+        print("\n===== PRICE SUMMARY =====")
+        print(f"Total species: {total_species}")
+        print(f"Total markets: {total_markets}")
+        print(f"Total species-market combinations: {total_combinations}")
+        print(f"✅ Valid prices:   {valid_count}")
+        print(f"⚠️  Missing prices: {missing_count}")
+        print("=========================\n")
 
         return market_pb2.GetSpeciesPricesResponse(prices=messages)
