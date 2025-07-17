@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 import os
 import math
 import datetime
@@ -8,9 +9,17 @@ from typing import Dict, Tuple
 from surimi.v1 import species_price_pb2, market_pb2, species_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pb")))
+# Define repo root & setup import/export paths
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR / "pb"))
 
-# TODO: setup via calling Scenario configuaration (via S3 bucket)
+# Optional debug flag
+DEBUG = False
+
+# Helper for consistent validity checks
+def _is_valid_price(price: float | None) -> bool:
+    return price is not None and price > 0
+
 
 class Tick:
     """A per-MarketSystem time tracker."""
@@ -57,11 +66,11 @@ class GlobalMarket:
     """
     def __init__(self, species_dict):
         self.species_dict = species_dict
-        self.global_prices: Dict[str, float] = {}
+        self.global_prices: Dict[str, float | None] = {}
         self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
-    def get_global_price(self, species_code: str) -> float:
-        return self.global_prices.get(species_code, None)
+    def get_global_price(self, species_code: str) -> float | None:
+        return self.global_prices.get(species_code)
 
 
 class LocalMarket:
@@ -90,7 +99,7 @@ class LocalMarket:
 
         self.species_dict = global_market.species_dict  # shared reference
         self.monthly_catch = defaultdict(float)
-        self.local_prices: Dict[str, float] = {}  # species_code -> price or None
+        self.local_prices: Dict[str, float | None] = {}  # species_code -> price or None
 
         # Price memory for Elser adjustment
         self.price_state: Dict[str, Tuple[float, float]] = {}  # species_code -> (last_price, last_quantity)
@@ -114,9 +123,7 @@ class LocalMarket:
         return self.price_state[s_code]
 
     def set_new_state(self, s_code: str, price: float, qty: float):
-        """
-        Save updated price state for next tick.
-        """
+        """Save updated price state for next tick."""
         self.price_state[s_code] = (price, qty)
         self.local_prices[s_code] = price
 
@@ -134,12 +141,12 @@ class LocalMarket:
 
             if self.lambda_mix > 0:
                 p_global = self.global_market.get_global_price(code)
-                if p_global is not None and p_global > 0:
+                if _is_valid_price(p_global):
                     p_local = (1 - self.lambda_mix) * p_local + self.lambda_mix * p_global
 
             if other_market_avg and self.theta_mix > 0:
                 p_other = other_market_avg.get(code, p_local)
-                if p_other is not None and p_other > 0:
+                if _is_valid_price(p_other):
                     p_local = (1 - self.theta_mix) * p_local + self.theta_mix * p_other
 
             self.local_prices[code] = p_local
@@ -187,17 +194,13 @@ class MarketSystem:
         self.tick.increase_tick()
 
     def _record_catches(self, catches: list):
-        """
-        Record monthly catches from a list of tuples: (market_code, species_code, qty)
-        """
+        """Record monthly catches from a list of tuples: (market_code, species_code, qty)"""
         for m_code, s_code, qty in catches:
             if m_code in self.local_markets:
                 self.local_markets[m_code].record_monthly_catch(s_code, qty)
 
     def _update_local_prices(self):
-        """
-        Update per-market prices using Elser adjustment based on current catches.
-        """
+        """Update per-market prices using Elser adjustment based on current catches."""
         for m_code, market in self.local_markets.items():
             for s_code, qty in market.monthly_catch.items():
                 last_price, last_qty = market.get_last_state(s_code)
@@ -223,16 +226,14 @@ class MarketSystem:
                     }
                 )
             )
-
-            #Reset catches after snapshotting
+            # Reset catches after snapshotting
             market.monthly_catch.clear()
 
     def _compute_global_prices(self):
         """
         Compute global average prices and total catches across all local markets.
-        - Ignores markets with None or zero prices.
+        - Ignores markets with missing prices (None).
         - If no valid local prices exist, global price = None.
-        Prints a summary of valid vs missing global prices.
         """
         current_tick = self.tick.get_tick()
         global_prices = {}
@@ -247,7 +248,7 @@ class MarketSystem:
 
             for m in self.local_markets.values():
                 price = m.local_prices.get(s_code)
-                if price is not None and price > 0:
+                if _is_valid_price(price):
                     valid_prices.append(price)
 
                 if m.price_history:
@@ -274,20 +275,14 @@ class MarketSystem:
             })
         )
 
-        # Print summary for debugging
-        # total_species = len(self.species_dict)
-        # print("\n===== GLOBAL PRICE SUMMARY =====")
-        # print(f"Tick {current_tick}")
-        # print(f"Total species: {total_species}")
-        # print(f" Valid global prices:   {valid_global_count}")
-        # print(f" Missing global prices: {missing_global_count}")
-        # print("==============================\n")
+        if DEBUG:
+            print(f"[DEBUG] Global prices tick={current_tick}, valid={valid_global_count}, missing={missing_global_count}")
 
     def _initialize_baseline_prices_from_csv(self):
         """
         Fill local markets with earliest CSV price if available,
         then compute a global baseline and fill only truly missing prices
-        using global avg (never 0.0).
+        using global avg (never fake 0.0).
         """
         print("🔄 Initializing baseline prices from earliest CSV config...")
 
@@ -305,21 +300,21 @@ class MarketSystem:
             for s_code in self.species_dict.keys():
                 if s_code in earliest_per_species:
                     _, price = earliest_per_species[s_code]
-                    if price > 0:
+                    if _is_valid_price(price):
                         market.local_prices[s_code] = price
                     else:
-                        print(f"⚠️ CSV price is zero for {market.market_code}/{s_code}, ignoring.")
+                        print(f"⚠️ CSV price is invalid for {market.market_code}/{s_code}, ignoring.")
 
         # Compute initial GLOBAL baseline
         print("📊 Computing initial GLOBAL baseline from valid local markets...")
         self._compute_global_prices()
 
-        # Fill missing markets with valid global avg if available
+        # Phase 3: fill missing using valid global avg
         for market in self.local_markets.values():
             for s_code in self.species_dict.keys():
                 if s_code not in market.local_prices:  # only fill if missing
                     global_fallback = self.global_market.get_global_price(s_code)
-                    if global_fallback is not None and global_fallback > 0:
+                    if _is_valid_price(global_fallback):
                         market.local_prices[s_code] = global_fallback
                     else:
                         print(f"⚠️ No CSV/global price for {market.market_code}/{s_code}, leaving as missing (None).")
@@ -336,12 +331,11 @@ class MarketSystem:
         timestamp = Timestamp()
         timestamp.FromJsonString(self.tick.get_timestamp())
 
-        total_species = 0
+        total_species = len(self.species_dict)
         valid_count = 0
         missing_count = 0
 
         for species in self.species_dict.values():
-            total_species += 1
             for market in self.local_markets.values():
                 price = market.local_prices.get(species.code)
 
@@ -356,17 +350,17 @@ class MarketSystem:
                         timestamp=timestamp
                     )
                     messages.append(message)
-                    # print(f"[Market] {species.code}@{market.market_code} -> {price:.2f} {self.currency}/{self.measurement_unit}")
                 else:
                     missing_count += 1
-                    print(f"[Market] {species.code}@{market.market_code} has no valid price → skipped")
+                    if DEBUG:
+                        print(f"[DEBUG] {species.code}@{market.market_code} has no valid price → skipped")
 
         total_markets = len(self.local_markets)
         total_combinations = total_species * total_markets
         print("\n===== PRICE SUMMARY =====")
         print(f"Total species: {total_species}")
         print(f"Total markets: {total_markets}")
-        print(f"Total species-market combinations: {total_combinations}")
+        print(f"Total combinations: {total_combinations}")
         print(f"✅ Valid prices:   {valid_count}")
         print(f"⚠️  Missing prices: {missing_count}")
         print("=========================\n")
@@ -376,36 +370,34 @@ class MarketSystem:
     def export_results(self, simulation_id: str, folder_path: str):
         """
         Export final simulation results to:
-        simulations/<simulation_id>/global_prices.csv
-        simulations/<simulation_id>/local_prices.csv
+        <BASE_DIR>/<folder_path>/<simulation_id>/global_prices.csv
         """
-        output_folder = os.path.join(folder_path, simulation_id)
-        os.makedirs(output_folder, exist_ok=True)
+        output_folder = BASE_DIR / folder_path / simulation_id
+        output_folder.mkdir(parents=True, exist_ok=True)
 
         # 1) Export GLOBAL prices
-        global_path = os.path.join(output_folder, "global_prices.csv")
-        with open(global_path, "w", newline="") as f:
+        global_path = output_folder / "global_prices.csv"
+        with global_path.open("w", newline="") as f:
             f.write("tick,species,avg_price,total_catch\n")
-            for tick, data in self.global_market.global_price_history:
+            for tick_id, data in self.global_market.global_price_history:
                 avg_prices = data["avg_prices"]
                 total_catches = data["total_catches"]
                 for s_code, avg_price in avg_prices.items():
                     total_catch = total_catches.get(s_code, 0.0)
                     avg_price_str = "" if avg_price is None else f"{avg_price:.4f}"
-                    f.write(f"{tick},{s_code},{avg_price_str},{total_catch:.4f}\n")
+                    f.write(f"{tick_id},{s_code},{avg_price_str},{total_catch:.4f}\n")
 
         # 2) Export LOCAL market history
-        local_path = os.path.join(output_folder, "local_prices.csv")
-        with open(local_path, "w", newline="") as f:
+        local_path = output_folder / "local_prices.csv"
+        with local_path.open("w", newline="") as f:
             f.write("tick,market,species,price,catch\n")
             for m_code, market in self.local_markets.items():
-                for tick, snapshot in market.price_history:
+                for tick_id, snapshot in market.price_history:
                     prices = snapshot["prices"]
                     catches = snapshot["catches"]
                     for s_code, price in prices.items():
                         catch_val = catches.get(s_code, 0.0)
                         price_str = "" if price is None else f"{price:.4f}"
-                        f.write(f"{tick},{m_code},{s_code},{price_str},{catch_val:.4f}\n")
+                        f.write(f"{tick_id},{m_code},{s_code},{price_str},{catch_val:.4f}\n")
 
-        print(f"✅ Export complete for simulation {simulation_id}:")
-
+        print(f"✅ Export complete for simulation {simulation_id}")
