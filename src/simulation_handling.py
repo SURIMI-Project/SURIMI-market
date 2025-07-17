@@ -44,11 +44,19 @@ class SimulationHandler:
         print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
         return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
-    def finalise_simulation(self):
+    def finalise_simulation(self, folder_path="simulations"):
         """
         Trigger simulation finalisation and respond to controller.
+        Writes results into simulations/<simulation_id>.
         """
+        print(f"[Simulation] Finalising {self.simulation_id}...")
+
+        # Export results after final tick
+        self.market.export_results(self.simulation_id, folder_path)
+
+        print(f"[Simulation] Results saved in simulations/{self.simulation_id}")
         return workflow_pb2.FinaliseResponse(simulation_id=self.simulation_id)
+
 
     def simulate_step(self):
         """

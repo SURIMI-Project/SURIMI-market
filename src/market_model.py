@@ -372,3 +372,40 @@ class MarketSystem:
         print("=========================\n")
 
         return market_pb2.GetSpeciesPricesResponse(prices=messages)
+
+    def export_results(self, simulation_id: str, folder_path: str):
+        """
+        Export final simulation results to:
+        simulations/<simulation_id>/global_prices.csv
+        simulations/<simulation_id>/local_prices.csv
+        """
+        output_folder = os.path.join(folder_path, simulation_id)
+        os.makedirs(output_folder, exist_ok=True)
+
+        # 1) Export GLOBAL prices
+        global_path = os.path.join(output_folder, "global_prices.csv")
+        with open(global_path, "w", newline="") as f:
+            f.write("tick,species,avg_price,total_catch\n")
+            for tick, data in self.global_market.global_price_history:
+                avg_prices = data["avg_prices"]
+                total_catches = data["total_catches"]
+                for s_code, avg_price in avg_prices.items():
+                    total_catch = total_catches.get(s_code, 0.0)
+                    avg_price_str = "" if avg_price is None else f"{avg_price:.4f}"
+                    f.write(f"{tick},{s_code},{avg_price_str},{total_catch:.4f}\n")
+
+        # 2) Export LOCAL market history
+        local_path = os.path.join(output_folder, "local_prices.csv")
+        with open(local_path, "w", newline="") as f:
+            f.write("tick,market,species,price,catch\n")
+            for m_code, market in self.local_markets.items():
+                for tick, snapshot in market.price_history:
+                    prices = snapshot["prices"]
+                    catches = snapshot["catches"]
+                    for s_code, price in prices.items():
+                        catch_val = catches.get(s_code, 0.0)
+                        price_str = "" if price is None else f"{price:.4f}"
+                        f.write(f"{tick},{m_code},{s_code},{price_str},{catch_val:.4f}\n")
+
+        print(f"✅ Export complete for simulation {simulation_id}:")
+
