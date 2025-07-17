@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 import os
 import math
 import datetime
@@ -8,7 +9,9 @@ from typing import Dict, Tuple
 from surimi.v1 import species_price_pb2, market_pb2, species_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pb")))
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pb"))) # for import
+sys.path.insert(0, str(BASE_DIR / "pb")) # for export
 
 # TODO: setup via calling Scenario configuaration (via S3 bucket)
 
@@ -376,15 +379,15 @@ class MarketSystem:
     def export_results(self, simulation_id: str, folder_path: str):
         """
         Export final simulation results to:
-        simulations/<simulation_id>/global_prices.csv
-        simulations/<simulation_id>/local_prices.csv
+        <BASE_DIR>/<folder_path>/<simulation_id>/global_prices.csv
         """
-        output_folder = os.path.join(folder_path, simulation_id)
-        os.makedirs(output_folder, exist_ok=True)
+        # ✅ Build output folder inside BASE_DIR
+        output_folder = BASE_DIR / folder_path / simulation_id
+        output_folder.mkdir(parents=True, exist_ok=True)
 
         # 1) Export GLOBAL prices
-        global_path = os.path.join(output_folder, "global_prices.csv")
-        with open(global_path, "w", newline="") as f:
+        global_path = output_folder / "global_prices.csv"
+        with global_path.open("w", newline="") as f:
             f.write("tick,species,avg_price,total_catch\n")
             for tick, data in self.global_market.global_price_history:
                 avg_prices = data["avg_prices"]
@@ -395,8 +398,8 @@ class MarketSystem:
                     f.write(f"{tick},{s_code},{avg_price_str},{total_catch:.4f}\n")
 
         # 2) Export LOCAL market history
-        local_path = os.path.join(output_folder, "local_prices.csv")
-        with open(local_path, "w", newline="") as f:
+        local_path = output_folder / "local_prices.csv"
+        with local_path.open("w", newline="") as f:
             f.write("tick,market,species,price,catch\n")
             for m_code, market in self.local_markets.items():
                 for tick, snapshot in market.price_history:
