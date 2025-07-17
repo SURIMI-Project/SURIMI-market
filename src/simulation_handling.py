@@ -1,4 +1,6 @@
+import fnmatch
 from pathlib import Path
+import shutil
 import threading
 import csv
 import os
@@ -36,6 +38,16 @@ class SimulationHandler:
         Loads initialization config (species, ports, historical prices)
         and sets baseline prices for each market.
         """
+
+        # Create simulation directory if it does not exist, and copy config files into it
+        simulation_dir = Path(__file__).parent.parent / "simulations" / self.simulation_id
+        simulation_dir.mkdir(parents=True, exist_ok=True)
+        config_src = Path("config")
+        config_dst = simulation_dir / "config"
+        if config_dst.exists():
+            shutil.rmtree(config_dst)
+        shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
+
         # Todo: This needs to be done via selection from controller. Do we need to change proto message?
         print("-" * 60)
         # Load all baseline config (species, ports, historical prices)
@@ -184,3 +196,7 @@ class SimulationHandler:
 
         # After loading CSV config, initialize baseline prices
         self.market._initialize_baseline_prices_from_csv()
+
+# Function to ignore non-CSV files when copying config. Like .gitkeep files
+def ignore_non_csv(dir, files):
+    return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}

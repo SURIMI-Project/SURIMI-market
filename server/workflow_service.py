@@ -1,6 +1,8 @@
+from pathlib import Path
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from surimi.v1 import workflow_pb2, workflow_pb2_grpc
+from server.s3_storage import S3_Storage
 from src.simulation_handling import SimulationHandler
 from opentelemetry import trace
 from common_functions import log_and_abort
@@ -21,6 +23,8 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         self.simulation_dictionary[request.simulation_id] = new_simulation
         print(f"[Server] Simulation ID: {request.simulation_id} started.")
 
+        S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
+
         return new_simulation.init_simulation()
 
     def SimulateStep(self, request, context):
@@ -40,7 +44,12 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        return current_simulation.finalise_simulation()
+        message = current_simulation.finalise_simulation()
+
+        simulation_dir = Path(__file__).parent.parent / "simulations" / request.simulation_id
+        S3_Storage.UploadFilesToS3(str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
+
+        return message
 
     def Cancel(self, request, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
