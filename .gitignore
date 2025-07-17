@@ -6,6 +6,7 @@ server/__pycache__/
 *$py.class
 .venv
 .idea/
+simulations/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
