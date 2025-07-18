@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "pb"))
 
 # Debug flag
-DEBUG = False
+DEBUG = True
 
 # Helper for consistent validity checks
 def _is_valid_price(price: float | None) -> bool:

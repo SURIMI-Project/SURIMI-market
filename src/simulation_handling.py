@@ -119,7 +119,7 @@ class SimulationHandler:
 
         new_entries = 0
 
-        # ✅ Loop over sales_summaries in the proto message
+        # Loop over sales_summaries in the proto message
         for summary in request.sales_summaries:
             market_code = summary.market_code
 
@@ -129,7 +129,7 @@ class SimulationHandler:
                 # optional debug:
                 gear_code = sale.fleet_segment.gear_code
 
-                # ✅ Aggregate for this tick (ignore gear for now)
+                # Aggregate for this tick (ignore gear for now)
                 key = (market_code, species_code)
                 self.pending_catch_dict[key] += quantity
                 new_entries += 1
