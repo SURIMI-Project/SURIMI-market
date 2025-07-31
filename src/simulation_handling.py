@@ -4,10 +4,11 @@ import shutil
 import threading
 import csv
 import os
-import sys
+from collections import defaultdict
 
 from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import workflow_pb2, market_pb2
+
 
 class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -32,6 +33,10 @@ class SimulationHandler:
         # Cached message for latest prices
         self.latest_market_prices = None
 
+        # Aggregated catches for the current tick
+        # key = (market_code, species_code) -> total quantity
+        self.pending_catch_dict = defaultdict(float)
+
     def init_simulation(self):
         """
         Trigger simulation initialization and respond to controller.
@@ -48,7 +53,6 @@ class SimulationHandler:
             shutil.rmtree(config_dst)
         shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
-        # Todo: This needs to be done via selection from controller. Do we need to change proto message?
         print("-" * 60)
         # Load all baseline config (species, ports, historical prices)
         self.load_initialization_data("config")
@@ -69,18 +73,30 @@ class SimulationHandler:
         print(f"[Simulation] Results saved in simulations/{self.simulation_id}")
         return workflow_pb2.FinaliseResponse(simulation_id=self.simulation_id)
 
-
     def simulate_step(self):
         """
-        Trigger a simulation step and respond to the controller.
+        Trigger a simulation step.
+        Uses all buffered sales for this tick.
         """
         print("-" * 60)
+        print(f"[Simulation] ID: {self.simulation_id}, Simulate step triggered ...")
 
-        # Perform one monthly simulation step
-        self.market.step([])
+        # Convert aggregated dict to list of tuples for MarketSystem
+        catches = [(m, s, qty) for (m, s), qty in self.pending_catch_dict.items()]
+
+        # Process in MarketSystem (this updates local/global prices)
+        self.market.step(catches)
+
+        # Debug summary
+        total_qty = sum(qty for _, _, qty in catches)
+        print(f"   Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
+
+        # Clear buffer after step for next tick
+        self.pending_catch_dict.clear()
+
         tick = self.market.tick.get_tick()
         current_date = self.market.tick.get_timestamp()[:10]
-        print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) triggered ...")
+        print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) completed.")
 
         return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
@@ -93,14 +109,37 @@ class SimulationHandler:
         print(f"[Simulation] ID: {self.simulation_id}, Prices sent ...")
         return self.latest_market_prices
 
-    def update_sales(self):
-        # TODO: This should be receiving sales config from the controller twice (EWE and Poseidon).
-        #  Should be aggregate values until simulate Step is called.
+    def update_sales(self, request):
         """
-        Placeholder for external catch input (future extension).
+        Receives external sales (catches) from controller.
+        Aggregates them into pending_catch_dict for this tick.
         """
         print("-" * 60)
-        print(f"[Simulation] ID: {self.simulation_id}, Sales received ...")
+        print(f"[Simulation] ID: {self.simulation_id}, Sales update received ...")
+
+        new_entries = 0
+
+        # Loop over sales_summaries in the proto message
+        for summary in request.sales_summaries:
+            market_code = summary.market_code
+
+            for sale in summary.sales:
+                species_code = sale.species.species_code
+                quantity = sale.quantity
+                # optional debug:
+                gear_code = sale.fleet_segment.gear_code
+
+                # Aggregate for this tick (ignore gear for now)
+                key = (market_code, species_code)
+                self.pending_catch_dict[key] += quantity
+                new_entries += 1
+
+                # Debug print
+                print(f"   → Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg")
+
+        print(f"   → Processed {new_entries} sales.")
+        print(f"   → Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
+
         return market_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
     def load_species_from_csv(self, filepath: str):

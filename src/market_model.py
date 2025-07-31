@@ -13,8 +13,8 @@ from google.protobuf.timestamp_pb2 import Timestamp
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "pb"))
 
-# Optional debug flag
-DEBUG = True
+# Debug flag
+DEBUG = False
 
 # Helper for consistent validity checks
 def _is_valid_price(price: float | None) -> bool:
@@ -187,11 +187,29 @@ class MarketSystem:
         4) Compute global prices
         5) Advance simulation tick
         """
+        if DEBUG:
+            print("🔄 MarketSystem STEP triggered")
+            if catches:
+                print(f"   Incoming catches: {len(catches)} entries")
+                for m, s, q in catches:
+                    print(f"     - Market={m}, Species={s}, Qty={q:.2f} kg")
+            else:
+                print("   ⚠️ No catches provided this tick (prices will remain unchanged).")
+
         self._record_catches(catches)
+
+        if DEBUG:
+            print("   Updating local prices based on new catches...")
         self._update_local_prices()
         self._update_local_history()
+
+        if DEBUG:
+            print("   Computing global prices...")
         self._compute_global_prices()
         self.tick.increase_tick()
+
+        if DEBUG:
+            print("✅ MarketSystem STEP completed\n")
 
     def _record_catches(self, catches: list):
         """Record monthly catches from a list of tuples: (market_code, species_code, qty)"""
@@ -276,13 +294,19 @@ class MarketSystem:
         )
 
         if DEBUG:
-            print(f"[DEBUG] Global prices tick={current_tick}, valid={valid_global_count}, missing={missing_global_count}")
+            print(f"   Global price summary (tick={current_tick}):")
+            print(f"     Valid global prices:   {valid_global_count}")
+            print(f"     Missing global prices: {missing_global_count}")
+            for s, p in global_prices.items():
+                if p is not None:
+                    print(f"       → {s}: {p:.2f} EUR/kg")
+                else:
+                    print(f"       → {s}: None (no valid local prices)")
 
     def _initialize_baseline_prices_from_csv(self):
         """
         Fill local markets with earliest CSV price if available,
-        then compute a global baseline and fill only truly missing prices
-        using global avg (never fake 0.0).
+        then compute a global baseline and fill only truly missing prices.
         """
         print("🔄 Initializing baseline prices from earliest CSV config...")
 
@@ -312,7 +336,7 @@ class MarketSystem:
         # Phase 3: fill missing using valid global avg
         for market in self.local_markets.values():
             for s_code in self.species_dict.keys():
-                if s_code not in market.local_prices:  # only fill if missing
+                if s_code not in market.local_prices:
                     global_fallback = self.global_market.get_global_price(s_code)
                     if _is_valid_price(global_fallback):
                         market.local_prices[s_code] = global_fallback
@@ -325,7 +349,6 @@ class MarketSystem:
         """
         Generates an update message containing pricing details for all species at all ports.
         Only includes markets/species with valid prices (skips None).
-        Prints a summary of valid vs missing.
         """
         messages = []
         timestamp = Timestamp()
