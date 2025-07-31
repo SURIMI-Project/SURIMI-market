@@ -47,7 +47,7 @@ class SimulationHandler:
         # Create simulation directory if it does not exist, and copy config files into it
         simulation_dir = Path(__file__).parent.parent / "simulations" / self.simulation_id
         simulation_dir.mkdir(parents=True, exist_ok=True)
-        config_src = Path("config")
+        config_src = Path(__file__).parent.parent / "config"
         config_dst = simulation_dir / "config"
         if config_dst.exists():
             shutil.rmtree(config_dst)
