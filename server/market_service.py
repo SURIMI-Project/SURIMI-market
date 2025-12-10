@@ -1,10 +1,10 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
-from surimi.v1 import market_pb2_grpc
+from surimi.v1 import market_service_pb2_grpc
 from opentelemetry import trace
 from common_functions import log_and_abort
 
-class MarketService(market_pb2_grpc.MarketServiceServicer):
+class MarketService(market_service_pb2_grpc.MarketServiceServicer):
     def __init__(self, tracer, simulation_dictionary):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
         self.tracer = tracer  # Store the tracer instance

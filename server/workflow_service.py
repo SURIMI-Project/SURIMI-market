@@ -1,13 +1,13 @@
 from pathlib import Path
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
-from surimi.v1 import workflow_pb2, workflow_pb2_grpc
+from surimi.v1 import workflow_service_pb2, workflow_service_pb2_grpc
 from server.s3_storage import S3_Storage
 from src.simulation_handling import SimulationHandler
 from opentelemetry import trace
 from common_functions import log_and_abort
 
-class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
+class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
     def __init__(self, tracer, simulation_dictionary):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
         self.tracer = tracer  # Store the tracer instance
@@ -18,7 +18,11 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         if request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.simulation_id} already exists.")
 
-        new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.start_date_time, request.step_size)
+        # TODO: validate if the contract in request.simulation is valid
+        # e.g. check if market codes and species codes exist in files etc.
+        # If you don't throw an error here, the server will crash later when trying to access unknown data.
+
+        new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.simulation.start_date_time, request.simulation.time_step)
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
         print(f"[Server] Simulation ID: {request.simulation_id} started.")
@@ -61,7 +65,7 @@ class WorkflowService(workflow_pb2_grpc.WorkflowServiceServicer):
         # just remove the id form self.simulation_dictionary
         del self.simulation_dictionary[request.simulation_id]
 
-        return workflow_pb2.CancelResponse(
+        return workflow_service_pb2.CancelResponse(
             simulation_id=current_simulation.simulation_id
         )
 
