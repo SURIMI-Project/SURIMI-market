@@ -7,7 +7,7 @@ import os
 from collections import defaultdict
 
 from src.market_model import MarketSystem, LocalMarket, Species
-from surimi.v1 import workflow_pb2, market_pb2
+from surimi.v1 import workflow_service_pb2, market_service_pb2
 
 
 class SimulationHandler:
@@ -21,7 +21,7 @@ class SimulationHandler:
         self.step_size = step_size
 
         # Initialize market system with default currency and measurement unit
-        self.market = MarketSystem(currency="EUR", measurement_unit="kg")
+        self.market = MarketSystem(currency="EUR")
 
         # Internal dictionaries for quick reference
         self.species_dict = {}
@@ -58,7 +58,7 @@ class SimulationHandler:
         self.load_initialization_data("config")
 
         print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
-        return workflow_pb2.InitialiseResponse(simulation_id=self.simulation_id)
+        return workflow_service_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
     def finalise_simulation(self, folder_path="simulations"):
         """
@@ -71,7 +71,7 @@ class SimulationHandler:
         self.market.export_results(self.simulation_id, folder_path)
 
         print(f"[Simulation] Results saved in simulations/{self.simulation_id}")
-        return workflow_pb2.FinaliseResponse(simulation_id=self.simulation_id)
+        return workflow_service_pb2.FinaliseResponse(simulation_id=self.simulation_id)
 
     def simulate_step(self):
         """
@@ -98,7 +98,7 @@ class SimulationHandler:
         current_date = self.market.tick.get_timestamp()[:10]
         print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) completed.")
 
-        return workflow_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
+        return workflow_service_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
     def update_prices(self):
         """
@@ -140,7 +140,7 @@ class SimulationHandler:
         print(f"   → Processed {new_entries} sales.")
         print(f"   → Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
-        return market_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
+        return market_service_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
     def load_species_from_csv(self, filepath: str):
         """

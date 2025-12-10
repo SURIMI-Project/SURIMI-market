@@ -6,7 +6,7 @@ import datetime
 from collections import defaultdict
 from typing import Dict, Tuple
 
-from surimi.v1 import species_price_pb2, market_pb2, species_pb2
+from surimi.v1 import species_price_pb2, market_service_pb2, species_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
 # Define repo root & setup import/export paths
@@ -161,10 +161,9 @@ class MarketSystem:
     Represents the overall simulation environment for dynamic fish markets.
     Combines multiple LocalMarkets and a GlobalMarket for multi-level pricing.
     """
-    def __init__(self, currency: str, measurement_unit: str):
+    def __init__(self, currency: str):
         self.tick = Tick(step_days=30)
         self.currency = currency
-        self.measurement_unit = measurement_unit
         self.species_dict: Dict[str, Species] = {}
         self.local_markets: Dict[str, LocalMarket] = {}
         self.global_market = GlobalMarket(self.species_dict)
@@ -368,7 +367,6 @@ class MarketSystem:
                         species=species_pb2.Species(species_code=species.code),
                         market_code=market.market_code,
                         price=price,
-                        measurement_unit=self.measurement_unit,
                         currency=self.currency,
                         timestamp=timestamp
                     )
@@ -388,7 +386,7 @@ class MarketSystem:
         print(f"⚠️  Missing prices: {missing_count}")
         print("=========================\n")
 
-        return market_pb2.GetSpeciesPricesResponse(prices=messages)
+        return market_service_pb2.GetSpeciesPricesResponse(prices=messages)
 
     def export_results(self, simulation_id: str, folder_path: str):
         """
