@@ -1,57 +1,66 @@
 species_code,species_name
-HKE,European hake
-MUT,Red mullet
-MUR,Surmullet
-MUX,Surmullets(=Red mullets) NEI
-MGA,Golden grey mullet
-MLR,Thicklip grey mullet
-MUF,Flathead grey mullet
-BSS,European seabass
-CBM,Brown meagre
-BGR,Bastard grunt
-BOG,Bogue
-DEC,Common dentex
-ANN,Annular seabream
-SBZ,Zebra seabream
-SHR,Sharpsnout seabream
-SWA,White seabream
-CTB,Common two-banded seabream
-SBS,Saddled seabream
-SBA,Axillary seabream
-SBR,Blackspot seabream
-PAC,Common pandora
-SLM,Salema
-SBG,Gilthead seabream
-BPI,Blotched picarel
-BRB,Black seabream
-JOD,John dory
-RSE,Red scorpionfish
-ANK,Blackbellied angler
-ANE,European anchovy
-PIL,European pilchard(=Sardine)
-SAA,Round sardinella
-BLT,Bullet tuna
-LTA,Little tunny(=Atl.black skipj)
-SKJ,Skipjack tuna
-BON,Atlantic bonito
-ALB,Albacore
-SWO,Swordfish
-BLU,Bluefish
-VMA,Atlantic chub mackerel
-MAS,Pacific chub mackerel
-MAC,Atlantic mackerel
-YRS,European barracuda
-HMY,False scad
-LEE,Leerfish
-AMB,Greater amberjack
-POP,Pompano
-HMM,Mediterranean horse mackerel
-JAA,Blue jack mackerel
-HOM,Atlantic horse mackerel
-DOL,Common dolphinfish
-GAR,Garfish
-SKA,Raja rays NEI
-CTC,Common cuttlefish
-SQR,European squid
-SQM,Broadtail shortfin squid
-SQE,European flying squid
+ALB,Thunnus alalunga
+ANE,Engraulis encrasicolus
+ANE,Engraulis encrasicolus
+ANK,Lophius budegassa
+ARA,Aristeus antennatus
+BFT,Thunnus thynnus
+BIB,Trisopterus luscus
+BLL,Scophthalmus rhombus
+BOG,Boops boops
+BON,Sarda sarda
+BOY,Bolinus brandaris
+BRF,Helicolenus dactylopterus
+BSH,Prionace glauca
+CIL,Citharus linguatula
+COE,Conger conger
+EOI,Eledone cirrhosa
+FAM,Pasiphaea multidentata
+GLI,Glossanodon leioglossus
+GRQ,Geryon longipes
+HKE,Merluccius merluccius
+HKE,Merluccius merluccius
+HMM,Trachurus mediterraneus
+HOM,Trachurus trachurus
+HQB,Histioteuthis bonnellii
+IOD,Liocarcinus depurator
+JAA,Trachurus picturatus
+JDP,Dasyatis pastinaca
+JRS,Raja asterias
+LDB,Lepidorhombus boscii
+LDV,Lepidotrigla cavillone
+LKO,Plesionika heterocarpus
+LKT,Plesionika martia
+MAC,Scomber scombrus
+MAZ,Scomber colias
+MON,Lophius piscatorius
+MTS,Squilla mantis
+MUT,Mullus barbatus
+MUT,Mullus barbatus
+NEP,Nephrops norvegicus
+OCC,Octopus vulgaris
+OLV,Paromola cuvieri
+OQT,Octopus salutii
+OUL,Alloteuthis subulata
+OUM,Alloteuthis media
+PAC,Pagellus erythrinus
+PIL,Sardina pilchardus
+PIL,Sardina pilchardus
+POD,Trisopterus minutus
+RJC,Raja clavata
+SAA,Sardinella aurita
+SBA,Pagellus acarne
+SCK,Dalatias licha
+SFS,Lepidopus caudatus
+SHO,Galeus melastomus
+SKM,Solenocera membranacea
+SLM,Sarpa salpa
+SPC,Spicara smaris
+SPF,Spicara flexuosa
+SQE,Todarodes sagittatus
+SQM,Illex coindetii
+SRJ,Serranus hepatus
+SWO,Xiphias gladius
+SYC,Scyliorhinus canicula
+TSU,Trachyrincus scabrus
+WHB,Micromesistius poutassou
