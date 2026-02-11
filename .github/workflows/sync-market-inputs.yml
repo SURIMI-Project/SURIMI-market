@@ -21,6 +21,7 @@ jobs:
           repository: Official-EwE/SURIMI-western_med
           path: surimi-western-med
           token: ${{ secrets.GITHUB_TOKEN }}
+          lfs: true  # Enable Git LFS file downloads
 
       - name: Download to temp and compare by checksum
         shell: bash
