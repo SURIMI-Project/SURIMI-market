@@ -1,106 +1,93 @@
-name: Scheduled sync of SURIMI input CSVs (with checksum detection)
+name: Sync SURIMI inputs
 
 on:
+  # Nightly schedule (GitHub uses UTC).
+  # 02:00 UTC ≈ 03:00 CET (winter) and 04:00 CEST (summer).
   schedule:
-    - cron: "0 3 * * *"   # daily at 03:00 UTC
-  workflow_dispatch:       # allow manual run
+    - cron: "0 2 * * *"
+  # Allow manual runs
+  workflow_dispatch:
+
+# Needed to push commits to SURIMI-market
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-surimi-inputs
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout SURIMI-market
+      - name: Checkout target repo (SURIMI-market)
         uses: actions/checkout@v4
         with:
-          path: surimi-market
+          fetch-depth: 0
 
-      - name: Checkout SURIMI-western_med
+      - name: Checkout source repo (SURIMI-western_med) with LFS (sparse)
         uses: actions/checkout@v4
         with:
           repository: Official-EwE/SURIMI-western_med
-          path: surimi-western-med
-          token: ${{ secrets.GITHUB_TOKEN }}
-          lfs: true  # Enable Git LFS file downloads
+          path: source
+          # Only fetch the folder we need
+          sparse-checkout: |
+            SURIMI-market_inputs
+          sparse-checkout-cone: true
+          # Ensure LFS files are real, not pointers
+          lfs: true
+          fetch-depth: 1
+          # Token must have read access to the source repo
+          token: ${{ secrets.SURIMI_SYNC_CSVS_TOKEN }}
 
-      - name: Download to temp and compare by checksum
+      - name: Copy files if changed
+        id: sync
         shell: bash
-        working-directory: surimi-market
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
 
-          mkdir -p config
-          tmpdir="$(mktemp -d)"
+          src_dir="source/SURIMI-market_inputs"
+          dest_dir="config"
+          mkdir -p "$dest_dir"
 
-          declare -a FILES=("ports.csv" "prices.csv" "species.csv")
-          SOURCE_DIR="../surimi-western-med/SURIMI-market_inputs"
+          # Files we want to sync
+          files=( "ports.csv" "prices.csv" "species.csv" )
 
-          changes=0
+          changed=0
+          for f in "${files[@]}"; do
+            src="${src_dir}/${f}"
+            dest="${dest_dir}/${f}"
 
-          for file in "${FILES[@]}"; do
-            src_file="${SOURCE_DIR}/${file}"
-            tmp_file="${tmpdir}/${file}"
-            dest_file="config/${file}"
-
-            echo "Copying ${file} from ${SOURCE_DIR}..."
-            
-            # Check if source file exists
-            if [[ ! -f "${src_file}" ]]; then
-              echo "Error: Source file ${src_file} not found!"
+            if [[ ! -f "$src" ]]; then
+              echo "ERROR: Source file not found: $src"
               exit 1
             fi
 
-            # Copy to temp file first
-            cp -f "${src_file}" "${tmp_file}"
-
-            # Compute SHA-256 for new and existing file (if any)
-            new_sha="$(sha256sum "${tmp_file}" | awk '{print $1}')"
-            if [[ -f "${dest_file}" ]]; then
-              old_sha="$(sha256sum "${dest_file}" | awk '{print $1}')"
-            else
-              old_sha="(none)"
+            if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
+              echo "No change in $f"
+              continue
             fi
 
-            if [[ "${old_sha}" != "${new_sha}" ]]; then
-              echo "Change detected for ${file}: ${old_sha} -> ${new_sha}"
-              mv -f "${tmp_file}" "${dest_file}"
-              changes=1
-            else
-              echo "No change for ${file}"
-            fi
+            echo "Updating $f"
+            # Copy with safe permissions
+            install -m 0644 "$src" "$dest"
+            git add "$dest"
+            changed=1
           done
 
-          # Optional: write an aggregate checksum file for visibility (not required)
-          if [[ $changes -eq 1 ]]; then
-            echo "Recomputing aggregate checksum for config files..."
-            (cd config && sha256sum "${FILES[@]}" | sort -k2 > checksums.sha256)
-          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
 
-          # Clean up temp
-          rm -rf "${tmpdir}"
-
-          # Mark a file change deliberately only if any file changed
-          if [[ $changes -eq 0 ]]; then
-            echo "No file changes detected."
-          fi
-
-      - name: Commit and push only if there are changes
+      - name: Commit and push (only if changes)
+        if: steps.sync.outputs.changed == '1'
         shell: bash
-        working-directory: surimi-market
         run: |
           set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: sync from SURIMI-western_med (ports.csv, prices.csv, species.csv)"
+          git push
 
-          if git status --porcelain | grep -qE '^( M|A |D |R |?? )'; then
-            git config user.name "github-actions"
-            git config user.email "actions@github.com"
-
-            git add config
-            git commit -m "Scheduled sync: update CSVs with checksum detection"
-            git push
-            echo "Changes committed and pushed."
-          else
-            echo "No changes to commit."
-          fi
+      - name: No changes
+        if: steps.sync.outputs.changed != '1'
+        run: echo "No changes detected. Nothing to commit."
