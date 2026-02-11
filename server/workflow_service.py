@@ -12,7 +12,7 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
         self.tracer = tracer  # Store the tracer instance
 
-    def Initialise(self, request, context):
+    def Initialise(self, request : workflow_service_pb2.InitialiseRequest, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print("[Server] Initialise...")
         if request.simulation_id in self.simulation_dictionary.keys():
@@ -29,9 +29,9 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
 
         S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
 
-        return new_simulation.init_simulation()
+        return new_simulation.init_simulation(request.simulation)
 
-    def SimulateStep(self, request, context):
+    def SimulateStep(self, request : workflow_service_pb2.SimulateStepRequest, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print(f"[Server] SimulateStep of Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
@@ -41,7 +41,7 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
 
         return current_simulation.simulate_step()
 
-    def Finalise(self, request, context):
+    def Finalise(self, request : workflow_service_pb2.FinaliseRequest, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print(f"[Server] Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
@@ -55,7 +55,7 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
 
         return message
 
-    def Cancel(self, request, context):
+    def Cancel(self, request : workflow_service_pb2.CancelRequest, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print(f"[Server] Cancel Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
