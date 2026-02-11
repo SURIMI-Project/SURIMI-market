@@ -55,6 +55,22 @@ PS C:\Users\Rik\source\repos\SURIMI-market> docker run -p 5001:5001 rikkert242/m
 2025-06-27 09:55:56,466 - INFO - 🟩 gRPC Server running on [::]:5001
 ```
 
+## Config files Synchronisation from the SURIMI-western_med repo
+There are 3 config files:
+- ports.csv
+- prices.csv
+- species.csv
+
+They are copied
+- From https://github.com/Official-EwE/SURIMI-western_med/tree/main/SURIMI-market_inputs 
+- To https://github.com/Official-EwE/SURIMI-market/tree/main/config
+
+This is done by a Github Action: sync-market-inputs.yml
+It runs every night and if the files in the source have changed, it will copy them to the target.
+It uses a Personal Access Token (PAT) with the name: SURIMI_SYNC_CSVS_TOKEN
+This token expires at 12-02-2027
+
+
 # SURIMI
 
 
