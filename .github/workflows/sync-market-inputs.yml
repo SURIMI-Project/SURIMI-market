@@ -34,7 +34,7 @@ jobs:
           # Only fetch the folder we need
           sparse-checkout: |
             SURIMI-market_inputs
-          sparse-checkout-cone: true
+          sparse-checkout-cone-mode: true
           # Ensure LFS files are real, not pointers
           lfs: true
           fetch-depth: 1
