@@ -15,9 +15,16 @@ jobs:
 
       - name: List files in source folder
         run: |
-          curl -sS \
-            https://api.github.com/repos/Official-EwE/SURIMI-western_med/contents/SURIMI-market_inputs \
-            | jq -r '.[] | .name'
+          echo "Requesting directory listing..."
+          response=$(curl -sS -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/Official-EwE/SURIMI-western_med/contents/SURIMI-market_inputs)
+
+          echo "Raw API response:"
+          echo "$response"
+
+          echo "Parsed filenames:"
+          echo "$response" | jq -r '.[].name'
+      
 
       - name: Download to temp and compare by checksum
         shell: bash
