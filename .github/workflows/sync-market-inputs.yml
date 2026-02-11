@@ -1,34 +1,85 @@
-name: Sync SURIMI input CSVs
+name: Scheduled sync of SURIMI input CSVs (with checksum detection)
 
 on:
-  repository_dispatch:
-    types: [sync_surimi_inputs]
+  schedule:
+    - cron: "0 3 * * *"   # daily at 03:00 UTC
+  workflow_dispatch:       # allow manual run
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout target repo (SURIMI-market)
+      - name: Checkout SURIMI-market
         uses: actions/checkout@v4
 
-      - name: Download specific CSV files
+      - name: Download to temp and compare by checksum
+        shell: bash
         run: |
+          set -euo pipefail
+          shopt -s nullglob
+
           mkdir -p config
+          tmpdir="$(mktemp -d)"
 
           declare -a FILES=("ports.csv" "prices.csv" "species.csv")
+          SRC_BASE="https://raw.githubusercontent.com/Official-EwE/SURIMI-western_med/main/SURIMI-market_inputs"
+
+          changes=0
 
           for file in "${FILES[@]}"; do
-            curl -L \
-              -o config/$file \
-              https://raw.githubusercontent.com/Official-EwE/SURIMI-western_med/main/SURIMI-market_inputs/$file
+            src_url="${SRC_BASE}/${file}"
+            tmp_file="${tmpdir}/${file}"
+            dest_file="config/${file}"
+
+            echo "Fetching ${src_url} ..."
+            # -L follows redirects; --fail makes curl non-zero on 404/5xx; --show-error for logs
+            curl -sS -L --fail -o "${tmp_file}" "${src_url}"
+
+            # Compute SHA-256 for new and existing file (if any)
+            new_sha="$(sha256sum "${tmp_file}" | awk '{print $1}')"
+            if [[ -f "${dest_file}" ]]; then
+              old_sha="$(sha256sum "${dest_file}" | awk '{print $1}')"
+            else
+              old_sha="(none)"
+            fi
+
+            if [[ "${old_sha}" != "${new_sha}" ]]; then
+              echo "Change detected for ${file}: ${old_sha} -> ${new_sha}"
+              mv -f "${tmp_file}" "${dest_file}"
+              changes=1
+            else
+              echo "No change for ${file}"
+            fi
           done
 
-      - name: Commit and push updates
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          # Optional: write an aggregate checksum file for visibility (not required)
+          if [[ $changes -eq 1 ]]; then
+            echo "Recomputing aggregate checksum for config files..."
+            (cd config && sha256sum "${FILES[@]}" | sort -k2 > checksums.sha256)
+          fi
 
-          git add config
-          git commit -m "Sync selected SURIMI input CSVs from SURIMI-western_med" || echo "No changes to commit"
-          git push
+          # Clean up temp
+          rm -rf "${tmpdir}"
+
+          # Mark a file change deliberately only if any file changed
+          if [[ $changes -eq 0 ]]; then
+            echo "No file changes detected."
+          fi
+
+      - name: Commit and push only if there are changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git status --porcelain | grep -qE '^( M|A |D |R |?? )'; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+
+            git add config
+            git commit -m "Scheduled sync: update CSVs with checksum detection"
+            git push
+            echo "Changes committed and pushed."
+          else
+            echo "No changes to commit."
+          fi
