@@ -1,0 +1,34 @@
+name: Sync SURIMI input CSVs
+
+on:
+  repository_dispatch:
+    types: [sync_surimi_inputs]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout target repo (SURIMI-market)
+        uses: actions/checkout@v4
+
+      - name: Download specific CSV files
+        run: |
+          mkdir -p config
+
+          declare -a FILES=("ports.csv" "prices.csv" "species.csv")
+
+          for file in "${FILES[@]}"; do
+            curl -L \
+              -o config/$file \
+              https://raw.githubusercontent.com/Official-EwE/SURIMI-western_med/main/SURIMI-market_inputs/$file
+          done
+
+      - name: Commit and push updates
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git add config
+          git commit -m "Sync selected SURIMI input CSVs from SURIMI-western_med" || echo "No changes to commit"
+          git push
