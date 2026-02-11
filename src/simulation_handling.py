@@ -7,7 +7,7 @@ import os
 from collections import defaultdict
 
 from src.market_model import MarketSystem, LocalMarket, Species
-from surimi.v1 import workflow_service_pb2, market_service_pb2
+from surimi.v1 import workflow_service_pb2, market_service_pb2, simulation_pb2
 
 
 class SimulationHandler:
@@ -37,7 +37,7 @@ class SimulationHandler:
         # key = (market_code, species_code) -> total quantity
         self.pending_catch_dict = defaultdict(float)
 
-    def init_simulation(self):
+    def init_simulation(self, simulation : simulation_pb2.Simulation):
         """
         Trigger simulation initialization and respond to controller.
         Loads initialization config (species, ports, historical prices)
@@ -57,6 +57,15 @@ class SimulationHandler:
         # Load all baseline config (species, ports, historical prices)
         self.load_initialization_data("config")
 
+        # Validate that all species in simulation are loaded
+        missing_species = []
+        for species in simulation.items.species:
+            if species.species_code not in self.species_dict:
+                missing_species.append(species.species_code)
+        
+        if missing_species:
+            raise ValueError(f"Species codes from simulation contract not found in loaded species configuration: {missing_species}")
+        
         print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
         return workflow_service_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
