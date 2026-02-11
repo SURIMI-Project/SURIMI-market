@@ -12,9 +12,19 @@ jobs:
     steps:
       - name: Checkout SURIMI-market
         uses: actions/checkout@v4
+        with:
+          path: surimi-market
+
+      - name: Checkout SURIMI-western_med
+        uses: actions/checkout@v4
+        with:
+          repository: Official-EwE/SURIMI-western_med
+          path: surimi-western-med
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download to temp and compare by checksum
         shell: bash
+        working-directory: surimi-market
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -25,24 +35,25 @@ jobs:
           tmpdir="$(mktemp -d)"
 
           declare -a FILES=("ports.csv" "prices.csv" "species.csv")
-          REPO="Official-EwE/SURIMI-western_med"
-          BRANCH="main"
-          PATH_PREFIX="SURIMI-market_inputs"
+          SOURCE_DIR="../surimi-western-med/SURIMI-market_inputs"
 
           changes=0
 
           for file in "${FILES[@]}"; do
+            src_file="${SOURCE_DIR}/${file}"
             tmp_file="${tmpdir}/${file}"
             dest_file="config/${file}"
 
-            echo "Fetching ${file} from ${REPO}..."
+            echo "Copying ${file} from ${SOURCE_DIR}..."
             
-            # Use GitHub API to get raw content with authentication
-            curl -sS -L --fail --show-error \
-              -H "Accept: application/vnd.github.v3.raw" \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              -o "${tmp_file}" \
-              "https://api.github.com/repos/${REPO}/contents/${PATH_PREFIX}/${file}?ref=${BRANCH}"
+            # Check if source file exists
+            if [[ ! -f "${src_file}" ]]; then
+              echo "Error: Source file ${src_file} not found!"
+              exit 1
+            fi
+
+            # Copy to temp file first
+            cp -f "${src_file}" "${tmp_file}"
 
             # Compute SHA-256 for new and existing file (if any)
             new_sha="$(sha256sum "${tmp_file}" | awk '{print $1}')"
@@ -77,6 +88,7 @@ jobs:
 
       - name: Commit and push only if there are changes
         shell: bash
+        working-directory: surimi-market
         run: |
           set -euo pipefail
 
