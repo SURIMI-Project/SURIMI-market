@@ -23,7 +23,7 @@ jobs:
           tmpdir="$(mktemp -d)"
 
           declare -a FILES=("ports.csv" "prices.csv" "species.csv")
-          SRC_BASE="https://raw.githubusercontent.com/Official-EwE/SURIMI-western_med/main/SURIMI-market_inputs"
+          SRC_BASE="https://github.com/Official-EwE/SURIMI-western_med/blob/main/SURIMI-market_inputs"
 
           changes=0
 
