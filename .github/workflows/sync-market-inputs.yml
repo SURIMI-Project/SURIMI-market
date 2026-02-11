@@ -13,21 +13,10 @@ jobs:
       - name: Checkout SURIMI-market
         uses: actions/checkout@v4
 
-      - name: List files in source folder
-        run: |
-          echo "Requesting directory listing..."
-          response=$(curl -sS -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/Official-EwE/SURIMI-western_med/contents/SURIMI-market_inputs)
-
-          echo "Raw API response:"
-          echo "$response"
-
-          echo "Parsed filenames:"
-          echo "$response" | jq -r '.[].name'
-      
-
       - name: Download to temp and compare by checksum
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -36,18 +25,24 @@ jobs:
           tmpdir="$(mktemp -d)"
 
           declare -a FILES=("ports.csv" "prices.csv" "species.csv")
-          SRC_BASE="https://github.com/Official-EwE/SURIMI-western_med/blob/main/SURIMI-market_inputs"
+          REPO="Official-EwE/SURIMI-western_med"
+          BRANCH="main"
+          PATH_PREFIX="SURIMI-market_inputs"
 
           changes=0
 
           for file in "${FILES[@]}"; do
-            src_url="${SRC_BASE}/${file}"
             tmp_file="${tmpdir}/${file}"
             dest_file="config/${file}"
 
-            echo "Fetching ${src_url} ..."
-            # -L follows redirects; --fail makes curl non-zero on 404/5xx; --show-error for logs
-            curl -sS -L --fail -o "${tmp_file}" "${src_url}"
+            echo "Fetching ${file} from ${REPO}..."
+            
+            # Use GitHub API to get raw content with authentication
+            curl -sS -L --fail --show-error \
+              -H "Accept: application/vnd.github.v3.raw" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -o "${tmp_file}" \
+              "https://api.github.com/repos/${REPO}/contents/${PATH_PREFIX}/${file}?ref=${BRANCH}"
 
             # Compute SHA-256 for new and existing file (if any)
             new_sha="$(sha256sum "${tmp_file}" | awk '{print $1}')"
