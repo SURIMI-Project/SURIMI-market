@@ -13,6 +13,12 @@ jobs:
       - name: Checkout SURIMI-market
         uses: actions/checkout@v4
 
+      - name: List files in source folder
+        run: |
+          curl -sS \
+            https://api.github.com/repos/Official-EwE/SURIMI-western_med/contents/SURIMI-market_inputs \
+            | jq -r '.[] | .name'
+
       - name: Download to temp and compare by checksum
         shell: bash
         run: |
