@@ -1,18 +1,23 @@
 import os
 import signal
-from concurrent import futures
-
 import grpc
 
+from concurrent import futures
 from otlp_tracing import configure_oltp_grpc_tracing
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
 from server.market_service import MarketService
 from server.workflow_service import WorkflowService
 from surimi.v1 import market_service_pb2_grpc, workflow_service_pb2_grpc
+from vault_service import VaultService
+from dotenv import load_dotenv
 
 def serve():
+    load_dotenv()  # Load environment variables from .env file
+
     # Simulation storage shared across services
     simulation_dictionary = {}
+
+    VaultService.LoadVaultSecretsInEnvironmentVariables()  # Load secrets from Vault into environment variables
 
     # Configure OpenTelemetry tracing
     otel_exporter_otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
