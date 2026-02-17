@@ -212,18 +212,28 @@ class MarketSystem:
 
     def _record_catches(self, catches: list):
         """Record monthly catches from a list of tuples: (market_code, species_code, qty)"""
+        print("   Record monthly catches from a list of tuples: (market_code, species_code, qty)")
         for m_code, s_code, qty in catches:
             if m_code in self.local_markets:
-                self.local_markets[m_code].record_monthly_catch(s_code, qty)
+                try:
+                    self.local_markets[m_code].record_monthly_catch(s_code, qty)
+                except Exception as e:
+                    if DEBUG:
+                        print(f"   ⚠️ Error recording catch for market={m_code}, species={s_code}: {e}")
 
     def _update_local_prices(self):
         """Update per-market prices using Elser adjustment based on current catches."""
+        print("   Update local prices using Elser adjustment based on current catches...")
         for m_code, market in self.local_markets.items():
             for s_code, qty in market.monthly_catch.items():
-                last_price, last_qty = market.get_last_state(s_code)
-                epsilon = self.species_dict[s_code].epsilon
-                new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
-                market.set_new_state(s_code, new_price, qty)
+                try:
+                    last_price, last_qty = market.get_last_state(s_code)
+                    epsilon = self.species_dict[s_code].epsilon
+                    new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
+                    market.set_new_state(s_code, new_price, qty)
+                except Exception as e:
+                    if DEBUG:
+                        print(f"   ⚠️ Error updating price for market={m_code}, species={s_code}: {e}")
 
     def _update_local_history(self):
         """
@@ -231,6 +241,7 @@ class MarketSystem:
         for each local market at the current tick,
         then clear monthly_catch for the next month.
         """
+        print("   Update local history: snapshot prices and catches, then clear monthly catches...")
         current_tick = self.tick.get_tick()
         for market in self.local_markets.values():
             # Save both prices & catches for this tick
@@ -252,6 +263,7 @@ class MarketSystem:
         - Ignores markets with missing prices (None).
         - If no valid local prices exist, global price = None.
         """
+        print("   Compute global average prices and total catches across all local markets...")
         current_tick = self.tick.get_tick()
         global_prices = {}
         global_catches = {}
