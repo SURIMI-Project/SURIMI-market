@@ -8,7 +8,7 @@ from opentelemetry import trace
 from common_functions import log_and_abort
 
 class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
-    def __init__(self, tracer, simulation_dictionary):
+    def __init__(self, tracer, simulation_dictionary: dict[str, SimulationHandler]):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
         self.tracer = tracer  # Store the tracer instance
 

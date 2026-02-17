@@ -1,15 +1,16 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
-from surimi.v1 import market_service_pb2_grpc
+from surimi.v1 import market_service_pb2, market_service_pb2_grpc
 from opentelemetry import trace
 from common_functions import log_and_abort
+from src.simulation_handling import SimulationHandler
 
 class MarketService(market_service_pb2_grpc.MarketServiceServicer):
-    def __init__(self, tracer, simulation_dictionary):
+    def __init__(self, tracer, simulation_dictionary : dict[str, SimulationHandler]):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
         self.tracer = tracer  # Store the tracer instance
 
-    def GetSpeciesPrices(self, request, context):
+    def GetSpeciesPrices(self, request : market_service_pb2.GetSpeciesPricesRequest, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print("[Server] Waiting for price update ...")
         if not request.simulation_id in self.simulation_dictionary.keys():
@@ -20,7 +21,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         prices.simulation_id = current_simulation.simulation_id
         return prices
 
-    def UpdateSales(self, request, context):
+    def UpdateSales(self, request : market_service_pb2.UpdateSalesRequest, context):
         trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print("[Server] Waiting for sales update ...")
         if not request.simulation_id in self.simulation_dictionary.keys():
