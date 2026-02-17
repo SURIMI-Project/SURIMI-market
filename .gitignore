@@ -5,6 +5,7 @@ server/__pycache__/
 *.py[cod]
 *$py.class
 .venv
+.env
 .idea/
 simulations/*
 
