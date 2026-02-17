@@ -70,6 +70,24 @@ It runs every night and if the files in the source have changed, it will copy th
 It uses a Personal Access Token (PAT) with the name: SURIMI_SYNC_CSVS_TOKEN
 This token expires at 12-02-2027
 
+## Virtual Environment
+This solution has a Virtual Environment called ".venv". When you are working on it, make sure it is activated!!!
+To check this, you can open the terminal.
+The environment is before the prompt:
+`(.venv) PS C:\Users\Rik\source\repos\SURIMI-market>`
+This indicates that the ".venv" is active.
+
+When you see:
+`PS C:\Users\Rik\source\repos\SURIMI-market>`
+Then it's not active!
+
+### Activate the .venv Virtual Environment
+Type:
+`PS C:\Users\Rik\source\repos\SURIMI-market> .\.venv\Scripts\activate`
+
+### De-activate the .venv Virtual Environment
+Type
+`(.venv) PS C:\Users\Rik\source\repos\SURIMI-market> deactivate`
 
 # SURIMI
 
