@@ -7,7 +7,7 @@ import os
 from collections import defaultdict
 
 from src.market_model import MarketSystem, LocalMarket, Species
-from surimi.v1 import workflow_service_pb2, market_service_pb2, simulation_pb2
+from surimi.v1 import workflow_service_pb2, market_provider_service_pb2, simulation_pb2
 
 
 class SimulationHandler:
@@ -149,7 +149,7 @@ class SimulationHandler:
         print(f"   → Processed {new_entries} sales.")
         print(f"   → Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
-        return market_service_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
+        return market_provider_service_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
     def load_species_from_csv(self, filepath: str):
         """

@@ -71,7 +71,11 @@ It uses a Personal Access Token (PAT) with the name: SURIMI_SYNC_CSVS_TOKEN
 This token expires at 12-02-2027
 
 ## Virtual Environment
-This solution has a Virtual Environment called ".venv". When you are working on it, make sure it is activated!!!
+When you work on this project, first create a Virtual Environment called ".venv".
+
+`python -m venv .venv`
+
+Then make sure it is activated!!!
 To check this, you can open the terminal.
 The environment is before the prompt:
 `(.venv) PS C:\Users\Rik\source\repos\SURIMI-market>`
