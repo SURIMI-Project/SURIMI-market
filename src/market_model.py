@@ -6,7 +6,7 @@ import datetime
 from collections import defaultdict
 from typing import Dict, Tuple
 
-from surimi.v1 import species_price_pb2, market_service_pb2, species_pb2
+from surimi.v1 import species_price_pb2, market_provider_service_pb2, species_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
 # Define repo root & setup import/export paths
@@ -398,7 +398,7 @@ class MarketSystem:
         print(f"⚠️  Missing prices: {missing_count}")
         print("=========================\n")
 
-        return market_service_pb2.GetSpeciesPricesResponse(prices=messages)
+        return market_provider_service_pb2.GetSpeciesPricesResponse(prices=messages)
 
     def export_results(self, simulation_id: str, folder_path: str):
         """

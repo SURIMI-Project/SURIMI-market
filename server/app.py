@@ -5,9 +5,9 @@ import grpc
 from concurrent import futures
 from otlp_tracing import configure_oltp_grpc_tracing
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
-from server.market_service import MarketService
+from server.market_provider_service import MarketProviderService
 from server.workflow_service import WorkflowService
-from surimi.v1 import market_service_pb2_grpc, workflow_service_pb2_grpc
+from surimi.v1 import market_provider_service_pb2_grpc, workflow_service_pb2_grpc
 from vault_service import VaultService
 from dotenv import load_dotenv
 
@@ -33,8 +33,8 @@ def serve():
     )
 
     # Register core services
-    market_service = MarketService(tracer, simulation_dictionary)
-    market_service_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
+    market_provider_service = MarketProviderService(tracer, simulation_dictionary)
+    market_provider_service_pb2_grpc.add_MarketProviderServiceServicer_to_server(market_provider_service, server)
 
     workflow_service = WorkflowService(tracer, simulation_dictionary)
     workflow_service_pb2_grpc.add_WorkflowServiceServicer_to_server(workflow_service, server)
