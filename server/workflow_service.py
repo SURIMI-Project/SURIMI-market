@@ -4,16 +4,14 @@ import grpc
 from surimi.v1 import workflow_service_pb2, workflow_service_pb2_grpc
 from server.s3_storage import S3_Storage
 from src.simulation_handling import SimulationHandler
-from opentelemetry import trace
 from common_functions import log_and_abort
 
 class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
-    def __init__(self, tracer, simulation_dictionary: dict[str, SimulationHandler]):
+    def __init__(self, simulation_dictionary: dict[str, SimulationHandler], version: str):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
-        self.tracer = tracer  # Store the tracer instance
-
+        self.version = version
+    
     def Initialise(self, request : workflow_service_pb2.InitialiseRequest, context: grpc.ServicerContext):
-        trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print("[Server] Initialise...")
         if request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.simulation_id} already exists.")
@@ -32,7 +30,6 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
         return new_simulation.init_simulation(request.simulation)
 
     def SimulateStep(self, request : workflow_service_pb2.SimulateStepRequest, context: grpc.ServicerContext):
-        trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print(f"[Server] SimulateStep of Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
@@ -42,7 +39,6 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
         return current_simulation.simulate_step()
 
     def Finalise(self, request : workflow_service_pb2.FinaliseRequest, context: grpc.ServicerContext):
-        trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print(f"[Server] Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
@@ -56,7 +52,6 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
         return message
 
     def Cancel(self, request : workflow_service_pb2.CancelRequest, context: grpc.ServicerContext):
-        trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print(f"[Server] Cancel Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
@@ -69,3 +64,7 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
             simulation_id=current_simulation.simulation_id
         )
 
+    def GetProtocolVersion(self, request: workflow_service_pb2.GetProtocolVersionRequest, context: grpc.ServicerContext):
+        return workflow_service_pb2.GetProtocolVersionResponse(
+            protocol_version = self.version 
+        )
