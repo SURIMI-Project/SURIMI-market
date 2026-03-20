@@ -50,7 +50,6 @@ PS C:\Users\Rik\source\repos\SURIMI-market> docker build -f Dockerfile . -t rikk
 PS C:\Users\Rik\source\repos\SURIMI-market> docker push rikkert242/market:latest
 
 PS C:\Users\Rik\source\repos\SURIMI-market> docker run -p 5001:5001 rikkert242/market:latest
-2025-06-27 09:55:56,457 - INFO - OpenTelemetry tracing configured. Sending to: http://localhost:4317
 2025-06-27 09:55:56,458 - INFO - 🟧 Starting gRPC server...
 2025-06-27 09:55:56,466 - INFO - 🟩 gRPC Server running on [::]:5001
 ```

@@ -1,17 +1,14 @@
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from surimi.v1 import market_provider_service_pb2, market_provider_service_pb2_grpc
-from opentelemetry import trace
 from common_functions import log_and_abort
 from src.simulation_handling import SimulationHandler
 
 class MarketProviderService(market_provider_service_pb2_grpc.MarketProviderServiceServicer):
-    def __init__(self, tracer, simulation_dictionary : dict[str, SimulationHandler]):
+    def __init__(self, simulation_dictionary : dict[str, SimulationHandler]):
         self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
-        self.tracer = tracer  # Store the tracer instance
 
     def GetSpeciesPrices(self, request : market_provider_service_pb2.GetSpeciesPricesRequest, context: grpc.ServicerContext):
-        trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print("[Server] Waiting for price update ...")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
@@ -22,7 +19,6 @@ class MarketProviderService(market_provider_service_pb2_grpc.MarketProviderServi
         return prices
 
     def UpdateSales(self, request : market_provider_service_pb2.UpdateSalesRequest, context: grpc.ServicerContext):
-        trace.get_current_span().set_attribute("simulation_id", request.simulation_id)
         print("[Server] Waiting for sales update ...")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
