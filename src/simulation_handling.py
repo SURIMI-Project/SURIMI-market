@@ -21,7 +21,7 @@ class SimulationHandler:
         self.step_size = step_size
 
         # Initialize market system with default currency and measurement unit
-        self.market = MarketSystem(currency="EUR")
+        self.market = MarketSystem(currency="EUR", start_time=start_time)
 
         # Internal dictionaries for quick reference
         self.species_dict = {}

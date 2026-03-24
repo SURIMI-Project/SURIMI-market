@@ -23,9 +23,9 @@ def _is_valid_price(price: float | None) -> bool:
 
 class Tick:
     """A per-MarketSystem time tracker."""
-    def __init__(self, step_days=30):
+    def __init__(self, start_time: datetime.datetime,step_days=30):
         self.tick = 0
-        self.start_time = datetime.datetime.utcnow()
+        self.start_time = start_time
         self.step_days = step_days
 
     def increase_tick(self):
@@ -161,8 +161,8 @@ class MarketSystem:
     Represents the overall simulation environment for dynamic fish markets.
     Combines multiple LocalMarkets and a GlobalMarket for multi-level pricing.
     """
-    def __init__(self, currency: str):
-        self.tick = Tick(step_days=30)
+    def __init__(self, currency: str, start_time: datetime.datetime):
+        self.tick = Tick(step_days=30, start_time=start_time)
         self.currency = currency
         self.species_dict: Dict[str, Species] = {}
         self.local_markets: Dict[str, LocalMarket] = {}

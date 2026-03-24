@@ -20,7 +20,7 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
         # e.g. check if market codes and species codes exist in files etc.
         # If you don't throw an error here, the server will crash later when trying to access unknown data.
 
-        new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.simulation.start_date_time, request.simulation.time_step)
+        new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.simulation.start_date_time.ToDatetime(), request.simulation.time_step)
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
         print(f"[Server] Simulation ID: {request.simulation_id} started.")
