@@ -8,6 +8,7 @@ server/__pycache__/
 .env
 .idea/
 simulations/*
+BUGS.md
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

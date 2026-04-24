@@ -257,7 +257,7 @@ class MarketSystem:
             # Reset catches after snapshotting
             market.monthly_catch.clear()
 
-    def _compute_global_prices(self):
+    def _compute_global_prices(self, save_history=True):
         """
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
@@ -297,12 +297,13 @@ class MarketSystem:
         self.global_market.global_prices = global_prices
 
         # Save both avg prices & total catches for this tick
-        self.global_market.global_price_history.append(
-            (current_tick, {
-                "avg_prices": global_prices.copy(),
-                "total_catches": global_catches.copy()
-            })
-        )
+        if save_history:
+            self.global_market.global_price_history.append(
+                (current_tick, {
+                    "avg_prices": global_prices.copy(),
+                    "total_catches": global_catches.copy()
+                })
+            )
 
         if DEBUG:
             print(f"   Global price summary (tick={current_tick}):")
@@ -342,7 +343,7 @@ class MarketSystem:
 
         # Compute initial GLOBAL baseline
         print("📊 Computing initial GLOBAL baseline from valid local markets...")
-        self._compute_global_prices()
+        self._compute_global_prices(save_history=False)
 
         # Phase 3: fill missing using valid global avg
         for market in self.local_markets.values():
