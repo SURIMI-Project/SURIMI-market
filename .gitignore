@@ -9,6 +9,7 @@ server/__pycache__/
 .idea/
 simulations/*
 BUGS.md
+logs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

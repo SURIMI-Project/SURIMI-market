@@ -8,6 +8,7 @@ from collections import defaultdict
 
 from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import workflow_service_pb2, market_provider_service_pb2, simulation_pb2
+from logger import get_logger
 
 
 class SimulationHandler:
@@ -19,6 +20,8 @@ class SimulationHandler:
         self.scenario_id = scenario_id
         self.start_time = start_time
         self.step_size = step_size
+
+        self.logger = get_logger(f"simulation.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
         self.market = MarketSystem(currency="EUR", start_time=start_time)
@@ -37,14 +40,15 @@ class SimulationHandler:
         # key = (market_code, species_code) -> total quantity
         self.pending_catch_dict = defaultdict(float)
 
-    def init_simulation(self, simulation : simulation_pb2.Simulation):
+        # Flag to detect concurrent SimulateStep and UpdateSales calls
+        self._step_in_progress = False
+
+    def init_simulation(self, simulation: simulation_pb2.Simulation):
         """
         Trigger simulation initialization and respond to controller.
         Loads initialization config (species, ports, historical prices)
         and sets baseline prices for each market.
         """
-
-        # Create simulation directory if it does not exist, and copy config files into it
         simulation_dir = Path(__file__).parent.parent / "simulations" / self.simulation_id
         simulation_dir.mkdir(parents=True, exist_ok=True)
         config_src = Path(__file__).parent.parent / "config"
@@ -53,20 +57,19 @@ class SimulationHandler:
             shutil.rmtree(config_dst)
         shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
-        print("-" * 60)
-        # Load all baseline config (species, ports, historical prices)
         self.load_initialization_data("config")
 
-        # Validate that all species in simulation are loaded
         missing_species = []
         for species in simulation.items.species:
             if species.species_code not in self.species_dict:
                 missing_species.append(species.species_code)
-        
+
         if missing_species:
-            raise ValueError(f"Species codes from simulation contract not found in loaded species configuration: {missing_species}")
-        
-        print(f"[Simulation] ID: {self.simulation_id}, Tick {self.market.tick.get_tick()} initialized ...")
+            raise ValueError(
+                f"Species codes from simulation contract not found in loaded species configuration: {missing_species}"
+            )
+
+        self.logger.info(f"Tick {self.market.tick.get_tick()} initialized.")
         return workflow_service_pb2.InitialiseResponse(simulation_id=self.simulation_id)
 
     def finalise_simulation(self, folder_path="simulations"):
@@ -74,12 +77,9 @@ class SimulationHandler:
         Trigger simulation finalisation and respond to controller.
         Writes results into simulations/<simulation_id>.
         """
-        print(f"[Simulation] Finalising {self.simulation_id}...")
-
-        # Export results after final tick
+        self.logger.info("Finalising simulation...")
         self.market.export_results(self.simulation_id, folder_path)
-
-        print(f"[Simulation] Results saved in simulations/{self.simulation_id}")
+        self.logger.info(f"Results saved in simulations/{self.simulation_id}")
         return workflow_service_pb2.FinaliseResponse(simulation_id=self.simulation_id)
 
     def simulate_step(self):
@@ -87,25 +87,22 @@ class SimulationHandler:
         Trigger a simulation step.
         Uses all buffered sales for this tick.
         """
-        print("-" * 60)
-        print(f"[Simulation] ID: {self.simulation_id}, Simulate step triggered ...")
+        self.logger.info("Simulate step triggered...")
+        self._step_in_progress = True
+        try:
+            catches = [(m, s, qty) for (m, s), qty in self.pending_catch_dict.items()]
+            self.market.step(catches)
 
-        # Convert aggregated dict to list of tuples for MarketSystem
-        catches = [(m, s, qty) for (m, s), qty in self.pending_catch_dict.items()]
+            total_qty = sum(qty for _, _, qty in catches)
+            self.logger.info(f"Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
 
-        # Process in MarketSystem (this updates local/global prices)
-        self.market.step(catches)
-
-        # Debug summary
-        total_qty = sum(qty for _, _, qty in catches)
-        print(f"   Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
-
-        # Clear buffer after step for next tick
-        self.pending_catch_dict.clear()
+            self.pending_catch_dict.clear()
+        finally:
+            self._step_in_progress = False
 
         tick = self.market.tick.get_tick()
         current_date = self.market.tick.get_timestamp()[:10]
-        print(f"[Simulation] ID: {self.simulation_id}, Tick {tick} ({current_date}) completed.")
+        self.logger.info(f"Tick {tick} ({current_date}) completed.")
 
         return workflow_service_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
@@ -113,9 +110,8 @@ class SimulationHandler:
         """
         Send current prices to the controller.
         """
-        print("-" * 60)
         self.latest_market_prices = self.market.get_species_prices_message()
-        print(f"[Simulation] ID: {self.simulation_id}, Prices sent ...")
+        self.logger.info("Prices sent.")
         return self.latest_market_prices
 
     def update_sales(self, request):
@@ -123,31 +119,33 @@ class SimulationHandler:
         Receives external sales (catches) from controller.
         Aggregates them into pending_catch_dict for this tick.
         """
-        print("-" * 60)
-        print(f"[Simulation] ID: {self.simulation_id}, Sales update received ...")
+        self.logger.info("Sales update received...")
+
+        if self._step_in_progress:
+            self.logger.warning(
+                "UpdateSales called while SimulateStep is in progress. Sale may be lost."
+            )
 
         new_entries = 0
 
-        # Loop over sales_summaries in the proto message
         for summary in request.sales_summaries:
             market_code = summary.market_code
 
             for sale in summary.sales:
                 species_code = sale.species.species_code
                 quantity = sale.quantity
-                # optional debug:
                 gear_code = sale.fleet_segment.gear_code
 
-                # Aggregate for this tick (ignore gear for now)
                 key = (market_code, species_code)
                 self.pending_catch_dict[key] += quantity
                 new_entries += 1
 
-                # Debug print
-                print(f"   → Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg")
+                self.logger.info(
+                    f"Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg"
+                )
 
-        print(f"   → Processed {new_entries} sales.")
-        print(f"   → Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
+        self.logger.info(f"Processed {new_entries} sales.")
+        self.logger.info(f"Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
         return market_provider_service_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
@@ -206,45 +204,43 @@ class SimulationHandler:
 
                 market = self.local_market_dict.get(market_code)
                 if not market:
-                    print(f"⚠️ Market '{market_code}' not found. Skipping price row.")
+                    self.logger.warning(f"Market '{market_code}' not found. Skipping price row.")
                     continue
 
-                # Save into the market's price_time_series
                 market.price_time_series[(species_code, date)] = price
 
     def load_initialization_data(self, folder_path="config"):
         """
         Loads all initial simulation input (species, ports, prices),
-        then initializes baseline prices using Option B (CSV → global avg → fallback).
+        then initializes baseline prices using Option B (CSV -> global avg -> fallback).
         """
-        app_directory = Path(__file__).parent.parent.resolve()  # Get the parent directory of the current file
-        folder_path = str(Path(app_directory) / folder_path) # Combine the app directory with the folder path
+        app_directory = Path(__file__).parent.parent.resolve()
+        folder_path = str(Path(app_directory) / folder_path)
 
         species_path = os.path.join(folder_path, "species.csv")
         ports_path = os.path.join(folder_path, "ports.csv")
         prices_path = os.path.join(folder_path, "prices.csv")
 
         if os.path.exists(species_path):
-            print(f"📥 Loading species from {species_path}")
+            self.logger.info(f"Loading species from {species_path}")
             self.load_species_from_csv(species_path)
         else:
-            print(f"⚠️ species.csv not found in {folder_path}")
+            self.logger.warning(f"species.csv not found in {folder_path}")
 
         if os.path.exists(ports_path):
-            print(f"📥 Loading ports from {ports_path}")
+            self.logger.info(f"Loading ports from {ports_path}")
             self.load_ports_from_csv(ports_path)
         else:
-            print(f"⚠️ ports.csv not found in {folder_path}")
+            self.logger.warning(f"ports.csv not found in {folder_path}")
 
         if os.path.exists(prices_path):
-            print(f"📥 Loading prices from {prices_path}")
+            self.logger.info(f"Loading prices from {prices_path}")
             self.load_prices_from_csv(prices_path)
         else:
-            print(f"ℹ️ prices.csv not found — skipping price injection")
+            self.logger.info("prices.csv not found — skipping price injection")
 
-        # After loading CSV config, initialize baseline prices
         self.market._initialize_baseline_prices_from_csv()
 
-# Function to ignore non-CSV files when copying config. Like .gitkeep files
+
 def ignore_non_csv(dir, files):
     return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}

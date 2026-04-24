@@ -5,14 +5,18 @@ from surimi.v1 import workflow_service_pb2, workflow_service_pb2_grpc
 from server.s3_storage import S3_Storage
 from src.simulation_handling import SimulationHandler
 from common_functions import log_and_abort
+from logger import get_logger
+
+logger = get_logger("workflow_service")
+
 
 class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
     def __init__(self, simulation_dictionary: dict[str, SimulationHandler], version: str):
-        self.simulation_dictionary = simulation_dictionary  # Will hold the current simulation instance
+        self.simulation_dictionary = simulation_dictionary
         self.version = version
-    
-    def Initialise(self, request : workflow_service_pb2.InitialiseRequest, context: grpc.ServicerContext):
-        print("[Server] Initialise...")
+
+    def Initialise(self, request: workflow_service_pb2.InitialiseRequest, context: grpc.ServicerContext):
+        logger.info("Initialise...")
         if request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.simulation_id} already exists.")
 
@@ -23,23 +27,24 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
         new_simulation = SimulationHandler(request.simulation_id, request.scenario_id, request.simulation.start_date_time.ToDatetime(), request.simulation.time_step)
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
-        print(f"[Server] Simulation ID: {request.simulation_id} started.")
+        logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
         S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
 
         return new_simulation.init_simulation(request.simulation)
 
-    def SimulateStep(self, request : workflow_service_pb2.SimulateStepRequest, context: grpc.ServicerContext):
-        print(f"[Server] SimulateStep of Simulation ID: {request.simulation_id}.")
+    def SimulateStep(self, request: workflow_service_pb2.SimulateStepRequest, context: grpc.ServicerContext):
+        logger.info(f"SimulateStep of Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
-        current_simulation = self.simulation_dictionary[request.simulation_id]
+        logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
 
+        current_simulation = self.simulation_dictionary[request.simulation_id]
         return current_simulation.simulate_step()
 
-    def Finalise(self, request : workflow_service_pb2.FinaliseRequest, context: grpc.ServicerContext):
-        print(f"[Server] Finalise Simulation ID: {request.simulation_id}.")
+    def Finalise(self, request: workflow_service_pb2.FinaliseRequest, context: grpc.ServicerContext):
+        logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
@@ -51,13 +56,12 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
 
         return message
 
-    def Cancel(self, request : workflow_service_pb2.CancelRequest, context: grpc.ServicerContext):
-        print(f"[Server] Cancel Simulation ID: {request.simulation_id}.")
+    def Cancel(self, request: workflow_service_pb2.CancelRequest, context: grpc.ServicerContext):
+        logger.info(f"Cancel Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        # just remove the id form self.simulation_dictionary
         del self.simulation_dictionary[request.simulation_id]
 
         return workflow_service_pb2.CancelResponse(
@@ -66,5 +70,5 @@ class WorkflowService(workflow_service_pb2_grpc.WorkflowServiceServicer):
 
     def GetProtocolVersion(self, request: workflow_service_pb2.GetProtocolVersionRequest, context: grpc.ServicerContext):
         return workflow_service_pb2.GetProtocolVersionResponse(
-            protocol_version = self.version 
+            protocol_version=self.version
         )
