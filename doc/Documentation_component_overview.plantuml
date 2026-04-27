@@ -1,0 +1,64 @@
+@startuml SURIMI_Market_Domain
+
+class MarketSystem {
+  - currency: str
+  - species_dict: Dict[str, Species]
+  - local_markets: Dict[str, LocalMarket]
+  - global_market: GlobalMarket
+  - tick: Tick
+  + add_species(s: Species)
+  + add_local_market(m: LocalMarket)
+  + step(catches: list)
+  + export_results(simulation_id, folder_path)
+  + get_species_prices_message(): GetSpeciesPricesResponse
+}
+
+class Species {
+  - name: str
+  - code: str
+  - epsilon: float
+}
+
+class LocalMarket {
+  - market_code: str
+  - market_name: str
+  - lon: float
+  - lat: float
+  - lambda_mix: float
+  - theta_mix: float
+  - monthly_catch: Dict[str, float]
+  - local_prices: Dict[str, float | None]
+  - price_state: Dict[str, (float, float)]
+  - price_history: list
+  - price_time_series: Dict[(str, str), float]
+  + record_monthly_catch(species_code, quantity)
+  + get_last_state(s_code): (price, qty)
+  + set_new_state(s_code, price, qty)
+  + calculate_local_price(species_code, other_market_avg)
+}
+
+class GlobalMarket {
+  - species_dict: Dict[str, Species]
+  - global_prices: Dict[str, float | None]
+  - global_price_history: list
+  + get_global_price(species_code): float | None
+}
+
+class Tick {
+  - tick: int
+  - start_time: datetime
+  - step_days: int
+  + increase_tick()
+  + get_tick(): int
+  + get_timestamp(): str
+}
+
+MarketSystem "1" o-- "many" Species
+MarketSystem "1" o-- "many" LocalMarket
+MarketSystem "1" o-- "1" GlobalMarket
+MarketSystem "1" o-- "1" Tick
+LocalMarket "many" --> "1" GlobalMarket
+GlobalMarket --> Species : references
+LocalMarket --> Species : references (shared)
+
+@enduml
