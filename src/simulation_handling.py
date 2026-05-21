@@ -6,8 +6,10 @@ import csv
 import os
 from collections import defaultdict
 
+import grpc
+
 from src.market_model import MarketSystem, LocalMarket, Species
-from surimi.v1 import workflow_service_pb2, market_provider_service_pb2, simulation_pb2
+from surimi.v1 import market_service_pb2, simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, update_sales_pb2
 from logger import get_logger
 
 
@@ -70,7 +72,7 @@ class SimulationHandler:
             )
 
         self.logger.info(f"Tick {self.market.tick.get_tick()} initialized.")
-        return workflow_service_pb2.InitialiseResponse(simulation_id=self.simulation_id)
+        return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id)
 
     def finalise_simulation(self, folder_path="simulations"):
         """
@@ -80,7 +82,7 @@ class SimulationHandler:
         self.logger.info("Finalising simulation...")
         self.market.export_results(self.simulation_id, folder_path)
         self.logger.info(f"Results saved in simulations/{self.simulation_id}")
-        return workflow_service_pb2.FinaliseResponse(simulation_id=self.simulation_id)
+        return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id=self.simulation_id)
 
     def simulate_step(self):
         """
@@ -104,7 +106,7 @@ class SimulationHandler:
         current_date = self.market.tick.get_timestamp()[:10]
         self.logger.info(f"Tick {tick} ({current_date}) completed.")
 
-        return workflow_service_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
+        return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
     def update_prices(self):
         """
@@ -114,7 +116,7 @@ class SimulationHandler:
         self.logger.info("Prices sent.")
         return self.latest_market_prices
 
-    def update_sales(self, request):
+    def update_sales(self, request: update_sales_pb2.UpdateSalesRequest):
         """
         Receives external sales (catches) from controller.
         Aggregates them into pending_catch_dict for this tick.
@@ -128,7 +130,7 @@ class SimulationHandler:
 
         new_entries = 0
 
-        for summary in request.sales_summaries:
+        for summary in request.sales_summary.market_sales:
             market_code = summary.market_code
 
             for sale in summary.sales:
@@ -147,7 +149,7 @@ class SimulationHandler:
         self.logger.info(f"Processed {new_entries} sales.")
         self.logger.info(f"Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
-        return market_provider_service_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
+        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
     def load_species_from_csv(self, filepath: str):
         """

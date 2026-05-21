@@ -4,10 +4,9 @@ import grpc
 
 from concurrent import futures
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
-from server.market_provider_service import MarketProviderService
+from server.market_service import MarketService
 from server.version_metadata_interceptor import VersionMetadataInterceptor
-from server.workflow_service import WorkflowService
-from surimi.v1 import market_provider_service_pb2_grpc, workflow_service_pb2_grpc
+from surimi.v1 import market_service_pb2_grpc
 from vault_service import VaultService
 from dotenv import load_dotenv
 from importlib.metadata import version, PackageNotFoundError
@@ -34,11 +33,8 @@ def serve():
         interceptors=[ExceptionMetadataInterceptor(), VersionMetadataInterceptor(version)]
     )
 
-    market_provider_service = MarketProviderService(simulation_dictionary)
-    market_provider_service_pb2_grpc.add_MarketProviderServiceServicer_to_server(market_provider_service, server)
-
-    workflow_service = WorkflowService(simulation_dictionary, version)
-    workflow_service_pb2_grpc.add_WorkflowServiceServicer_to_server(workflow_service, server)
+    market_service = MarketService(simulation_dictionary, version)
+    market_service_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
 
     host = os.environ.get("GRPC_HOST", "[::]")
     port = os.environ.get("GRPC_PORT", "5001")
