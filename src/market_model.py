@@ -4,7 +4,7 @@ import datetime
 from collections import defaultdict
 from typing import Dict, Tuple
 
-from surimi.v1 import species_price_pb2, market_provider_service_pb2, species_pb2
+from surimi.v1 import species_price_pb2, market_service_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 from logger import get_logger
 
@@ -360,8 +360,7 @@ class MarketSystem:
                         species=species_pb2.Species(species_code=species.code),
                         market_code=market.market_code,
                         price=price,
-                        currency=self.currency,
-                        timestamp=timestamp
+                        currency=self.currency
                     )
                     messages.append(message)
                 else:
@@ -375,7 +374,9 @@ class MarketSystem:
             f"combinations: {total_species * total_markets}, valid: {valid_count}, missing: {missing_count}"
         )
 
-        return market_provider_service_pb2.GetSpeciesPricesResponse(prices=messages)
+        return get_species_prices_pb2.GetSpeciesPricesResponse(
+            species_price_summary=species_price_pb2.SpeciesPriceSummary(species_prices=messages)
+        )
 
     def export_results(self, simulation_id: str, folder_path: str):
         """
