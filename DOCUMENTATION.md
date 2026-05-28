@@ -175,64 +175,58 @@ sequenceDiagram
     participant MS as MarketSystem
     participant S3 as AWS S3
 
-    rect rgb(0, 0, 0)
-        Note over Controller,S3: Initialise
-        Controller->>WF: Initialise(simulation_id, scenario_id, start_date_time, time_step, simulation_contract)
-        WF->>S3: DownloadFilesFromS3("surimi-market/config")
-        S3-->>WF: config CSVs
-        WF->>SH: new SimulationHandler(simulation_id, ...)
-        WF->>SH: init_simulation(simulation)
-        SH->>SH: copy config/ to simulations/{id}/config/
-        SH->>SH: load_species_from_csv()
-        SH->>SH: load_ports_from_csv()
-        SH->>SH: load_prices_from_csv()
-        SH->>MS: _initialize_baseline_prices_from_csv()
-        SH-->>WF: InitialiseResponse(simulation_id)
-        WF-->>Controller: InitialiseResponse
+    Note over Controller,S3: Initialise
+    Controller->>WF: Initialise(simulation_id, scenario_id, start_date_time, time_step, simulation_contract)
+    WF->>S3: DownloadFilesFromS3("surimi-market/config")
+    S3-->>WF: config CSVs
+    WF->>SH: new SimulationHandler(simulation_id, ...)
+    WF->>SH: init_simulation(simulation)
+    SH->>SH: copy config/ to simulations/{id}/config/
+    SH->>SH: load_species_from_csv()
+    SH->>SH: load_ports_from_csv()
+    SH->>SH: load_prices_from_csv()
+    SH->>MS: _initialize_baseline_prices_from_csv()
+    SH-->>WF: InitialiseResponse(simulation_id)
+    WF-->>Controller: InitialiseResponse
+
+    Note over Controller,S3: Per Tick (repeated N times)
+    loop each simulation month
+        Controller->>MPS: UpdateSales(simulation_id, sales_summaries)
+        Note right of MPS: May be called multiple times per tick, catches are buffered
+        MPS->>SH: update_sales(request)
+        SH->>SH: pending_catch_dict[market, species] += qty
+        SH-->>MPS: UpdateSalesResponse
+        MPS-->>Controller: UpdateSalesResponse
+
+        Controller->>WF: SimulateStep(simulation_id, current_date_time)
+        WF->>SH: simulate_step()
+        SH->>MS: step(catches)
+        MS->>MS: _record_catches()
+        MS->>MS: _update_local_prices()
+        MS->>MS: _update_local_history()
+        MS->>MS: _compute_global_prices()
+        MS->>MS: tick.increase_tick()
+        SH->>SH: pending_catch_dict.clear()
+        SH-->>WF: SimulateStepResponse
+        WF-->>Controller: SimulateStepResponse
+
+        Controller->>MPS: GetSpeciesPrices(simulation_id)
+        MPS->>SH: update_prices()
+        SH->>MS: get_species_prices_message()
+        MS-->>SH: GetSpeciesPricesResponse
+        SH-->>MPS: GetSpeciesPricesResponse
+        MPS-->>Controller: GetSpeciesPricesResponse
     end
 
-    rect rgb(0, 0, 0)
-        Note over Controller,S3: Per Tick (repeated N times)
-        loop each simulation month
-            Controller->>MPS: UpdateSales(simulation_id, sales_summaries)
-            Note right of MPS: May be called multiple times per tick, catches are buffered
-            MPS->>SH: update_sales(request)
-            SH->>SH: pending_catch_dict[market, species] += qty
-            SH-->>MPS: UpdateSalesResponse
-            MPS-->>Controller: UpdateSalesResponse
-
-            Controller->>WF: SimulateStep(simulation_id, current_date_time)
-            WF->>SH: simulate_step()
-            SH->>MS: step(catches)
-            MS->>MS: _record_catches()
-            MS->>MS: _update_local_prices()
-            MS->>MS: _update_local_history()
-            MS->>MS: _compute_global_prices()
-            MS->>MS: tick.increase_tick()
-            SH->>SH: pending_catch_dict.clear()
-            SH-->>WF: SimulateStepResponse
-            WF-->>Controller: SimulateStepResponse
-
-            Controller->>MPS: GetSpeciesPrices(simulation_id)
-            MPS->>SH: update_prices()
-            SH->>MS: get_species_prices_message()
-            MS-->>SH: GetSpeciesPricesResponse
-            SH-->>MPS: GetSpeciesPricesResponse
-            MPS-->>Controller: GetSpeciesPricesResponse
-        end
-    end
-
-    rect rgb(0, 0, 0)
-        Note over Controller,S3: Finalise
-        Controller->>WF: Finalise(simulation_id)
-        WF->>SH: finalise_simulation()
-        SH->>MS: export_results(simulation_id, "simulations")
-        MS->>MS: write global_prices.csv
-        MS->>MS: write local_prices.csv
-        SH-->>WF: FinaliseResponse
-        WF->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
-        WF-->>Controller: FinaliseResponse
-    end
+    Note over Controller,S3: Finalise
+    Controller->>WF: Finalise(simulation_id)
+    WF->>SH: finalise_simulation()
+    SH->>MS: export_results(simulation_id, "simulations")
+    MS->>MS: write global_prices.csv
+    MS->>MS: write local_prices.csv
+    SH-->>WF: FinaliseResponse
+    WF->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
+    WF-->>Controller: FinaliseResponse
 ```
 
 ---
