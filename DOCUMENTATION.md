@@ -46,127 +46,118 @@ Geographic scope: **Western Mediterranean Sea**, ~30 ports, ~150 species, histor
 
 ### Component Overview
 
-```plantuml
-@startuml SURIMI_Market_Architecture
+```mermaid
+flowchart TD
+    Controller["External Controller<br/>(e.g. Poseidon / EwE)"]
 
-skinparam componentStyle rectangle
-skinparam linetype ortho
+    subgraph SURIMI["SURIMI Market Service"]
+        Server["gRPC Server<br/>(app.py, port 5001)"]
 
-actor "External Controller\n(e.g. Poseidon / EwE)" as Controller
+        subgraph Services["gRPC Services"]
+            WF["WorkflowService"]
+            MPS["MarketProviderService"]
+        end
 
-package "SURIMI Market Service" {
-    component "gRPC Server\n(app.py, port 5001)" as Server
+        SH["SimulationHandler<br/>(one per simulation)"]
+        MS["MarketSystem"]
 
-    package "gRPC Services" {
-        component "WorkflowService" as WF
-        component "MarketProviderService" as MPS
-    }
+        subgraph Engine["Market Engine"]
+            GM["GlobalMarket"]
+            LM["LocalMarket ×N<br/>(one per port)"]
+            SP["Species ×M"]
+            Tick["Tick"]
+        end
+    end
 
-    component "SimulationHandler\n(one per simulation)" as SH
-    component "MarketSystem" as MS
+    S3[("AWS S3")]
+    Vault[("HashiCorp Vault")]
+    OTEL["OpenTelemetry Collector"]
+    CSV[("config/ CSV files")]
+    Out[("simulations/ output CSVs")]
 
-    package "Market Engine" {
-        component "GlobalMarket" as GM
-        component "LocalMarket ×N\n(one per port)" as LM
-        component "Species ×M" as SP
-        component "Tick" as Tick
-    }
-}
-
-cloud "AWS S3" as S3
-cloud "HashiCorp Vault" as Vault
-component "OpenTelemetry\nCollector" as OTEL
-database "config/\n(CSV files)" as CSV
-database "simulations/\n(output CSVs)" as Out
-
-Controller --> Server : gRPC (port 5001)
-Server --> WF
-Server --> MPS
-WF --> SH : Initialise / SimulateStep / Finalise / Cancel
-MPS --> SH : GetSpeciesPrices / UpdateSales
-SH --> MS
-MS --> GM
-MS --> LM
-MS --> SP
-MS --> Tick
-WF --> S3 : Download config on Initialise\nUpload results on Finalise
-Server --> Vault : Load AWS secrets on startup
-Server --> OTEL : Traces & metrics
-SH --> CSV : Read on init
-SH --> Out : Write on finalise
-
-@enduml
+    Controller -->|"gRPC (port 5001)"| Server
+    Server --> WF
+    Server --> MPS
+    WF -->|"Initialise / SimulateStep / Finalise / Cancel"| SH
+    MPS -->|"GetSpeciesPrices / UpdateSales"| SH
+    SH --> MS
+    MS --> GM
+    MS --> LM
+    MS --> SP
+    MS --> Tick
+    WF -->|"Download config on Initialise / Upload results on Finalise"| S3
+    Server -->|"Load AWS secrets on startup"| Vault
+    Server -->|"Traces & metrics"| OTEL
+    SH -->|"Read on init"| CSV
+    SH -->|"Write on finalise"| Out
 ```
 
 ### Domain Model
 
 This diagram reflects the class structure in `src/market_model.py`.
 
-```plantuml
-@startuml SURIMI_Market_Domain
+```mermaid
+classDiagram
+    class MarketSystem {
+        -currency: str
+        -species_dict: Dict~str, Species~
+        -local_markets: Dict~str, LocalMarket~
+        -global_market: GlobalMarket
+        -tick: Tick
+        +add_species(s: Species)
+        +add_local_market(m: LocalMarket)
+        +step(catches: list)
+        +export_results(simulation_id, folder_path)
+        +get_species_prices_message() GetSpeciesPricesResponse
+    }
 
-class MarketSystem {
-  - currency: str
-  - species_dict: Dict[str, Species]
-  - local_markets: Dict[str, LocalMarket]
-  - global_market: GlobalMarket
-  - tick: Tick
-  + add_species(s: Species)
-  + add_local_market(m: LocalMarket)
-  + step(catches: list)
-  + export_results(simulation_id, folder_path)
-  + get_species_prices_message(): GetSpeciesPricesResponse
-}
+    class Species {
+        -name: str
+        -code: str
+        -epsilon: float
+    }
 
-class Species {
-  - name: str
-  - code: str
-  - epsilon: float
-}
+    class LocalMarket {
+        -market_code: str
+        -market_name: str
+        -lon: float
+        -lat: float
+        -lambda_mix: float
+        -theta_mix: float
+        -monthly_catch: Dict~str, float~
+        -local_prices: Dict~str, float~
+        -price_state: Dict~str, tuple~
+        -price_history: list
+        -price_time_series: Dict~tuple, float~
+        +record_monthly_catch(species_code, quantity)
+        +get_last_state(s_code) tuple
+        +set_new_state(s_code, price, qty)
+        +calculate_local_price(species_code, other_market_avg)
+    }
 
-class LocalMarket {
-  - market_code: str
-  - market_name: str
-  - lon: float
-  - lat: float
-  - lambda_mix: float
-  - theta_mix: float
-  - monthly_catch: Dict[str, float]
-  - local_prices: Dict[str, float | None]
-  - price_state: Dict[str, (float, float)]
-  - price_history: list
-  - price_time_series: Dict[(str, str), float]
-  + record_monthly_catch(species_code, quantity)
-  + get_last_state(s_code): (price, qty)
-  + set_new_state(s_code, price, qty)
-  + calculate_local_price(species_code, other_market_avg)
-}
+    class GlobalMarket {
+        -species_dict: Dict~str, Species~
+        -global_prices: Dict~str, float~
+        -global_price_history: list
+        +get_global_price(species_code) float
+    }
 
-class GlobalMarket {
-  - species_dict: Dict[str, Species]
-  - global_prices: Dict[str, float | None]
-  - global_price_history: list
-  + get_global_price(species_code): float | None
-}
+    class Tick {
+        -tick: int
+        -start_time: datetime
+        -step_days: int
+        +increase_tick()
+        +get_tick() int
+        +get_timestamp() str
+    }
 
-class Tick {
-  - tick: int
-  - start_time: datetime
-  - step_days: int
-  + increase_tick()
-  + get_tick(): int
-  + get_timestamp(): str
-}
-
-MarketSystem "1" o-- "many" Species
-MarketSystem "1" o-- "many" LocalMarket
-MarketSystem "1" o-- "1" GlobalMarket
-MarketSystem "1" o-- "1" Tick
-LocalMarket "many" --> "1" GlobalMarket
-GlobalMarket --> Species : references
-LocalMarket --> Species : references (shared)
-
-@enduml
+    MarketSystem "1" o-- "many" Species
+    MarketSystem "1" o-- "many" LocalMarket
+    MarketSystem "1" o-- "1" GlobalMarket
+    MarketSystem "1" o-- "1" Tick
+    LocalMarket "many" --> "1" GlobalMarket
+    GlobalMarket --> Species : references
+    LocalMarket --> Species : references (shared)
 ```
 
 ---
@@ -175,78 +166,73 @@ LocalMarket --> Species : references (shared)
 
 A simulation proceeds in three phases: **Initialise**, one or more **tick iterations**, and **Finalise**. The external controller orchestrates this sequence.
 
-```plantuml
-@startuml SURIMI_Market_Sequence
+```mermaid
+sequenceDiagram
+    participant Controller
+    participant WF as WorkflowService
+    participant MPS as MarketProviderService
+    participant SH as SimulationHandler
+    participant MS as MarketSystem
+    participant S3 as AWS S3
 
-skinparam sequenceArrowThickness 2
-skinparam sequenceGroupBorderThickness 1
+    rect rgb(0, 0, 0)
+        Note over Controller,S3: Initialise
+        Controller->>WF: Initialise(simulation_id, scenario_id, start_date_time, time_step, simulation_contract)
+        WF->>S3: DownloadFilesFromS3("surimi-market/config")
+        S3-->>WF: config CSVs
+        WF->>SH: new SimulationHandler(simulation_id, ...)
+        WF->>SH: init_simulation(simulation)
+        SH->>SH: copy config/ to simulations/{id}/config/
+        SH->>SH: load_species_from_csv()
+        SH->>SH: load_ports_from_csv()
+        SH->>SH: load_prices_from_csv()
+        SH->>MS: _initialize_baseline_prices_from_csv()
+        SH-->>WF: InitialiseResponse(simulation_id)
+        WF-->>Controller: InitialiseResponse
+    end
 
-participant Controller
-participant WorkflowService as WF
-participant MarketProviderService as MPS
-participant SimulationHandler as SH
-participant MarketSystem as MS
-participant "AWS S3" as S3
+    rect rgb(0, 0, 0)
+        Note over Controller,S3: Per Tick (repeated N times)
+        loop each simulation month
+            Controller->>MPS: UpdateSales(simulation_id, sales_summaries)
+            Note right of MPS: May be called multiple times per tick, catches are buffered
+            MPS->>SH: update_sales(request)
+            SH->>SH: pending_catch_dict[market, species] += qty
+            SH-->>MPS: UpdateSalesResponse
+            MPS-->>Controller: UpdateSalesResponse
 
-== Initialise ==
+            Controller->>WF: SimulateStep(simulation_id, current_date_time)
+            WF->>SH: simulate_step()
+            SH->>MS: step(catches)
+            MS->>MS: _record_catches()
+            MS->>MS: _update_local_prices()
+            MS->>MS: _update_local_history()
+            MS->>MS: _compute_global_prices()
+            MS->>MS: tick.increase_tick()
+            SH->>SH: pending_catch_dict.clear()
+            SH-->>WF: SimulateStepResponse
+            WF-->>Controller: SimulateStepResponse
 
-Controller -> WF : Initialise(simulation_id, scenario_id,\n  start_date_time, time_step, simulation_contract)
-WF -> S3 : DownloadFilesFromS3("surimi-market/config")
-S3 --> WF : config CSVs
-WF -> SH ** : new SimulationHandler(simulation_id, ...)
-WF -> SH : init_simulation(simulation)
-SH -> SH : copy config/ → simulations/<id>/config/
-SH -> SH : load_species_from_csv()
-SH -> SH : load_ports_from_csv()
-SH -> SH : load_prices_from_csv()
-SH -> MS : _initialize_baseline_prices_from_csv()
-SH --> WF : InitialiseResponse(simulation_id)
-WF --> Controller : InitialiseResponse
+            Controller->>MPS: GetSpeciesPrices(simulation_id)
+            MPS->>SH: update_prices()
+            SH->>MS: get_species_prices_message()
+            MS-->>SH: GetSpeciesPricesResponse
+            SH-->>MPS: GetSpeciesPricesResponse
+            MPS-->>Controller: GetSpeciesPricesResponse
+        end
+    end
 
-== Per Tick (repeated N times) ==
-
-loop each simulation month
-
-    Controller -> MPS : UpdateSales(simulation_id, sales_summaries)
-    note right: May be called multiple times\nper tick; catches are buffered
-    MPS -> SH : update_sales(request)
-    SH -> SH : pending_catch_dict[market, species] += qty
-    SH --> MPS : UpdateSalesResponse
-    MPS --> Controller : UpdateSalesResponse
-
-    Controller -> WF : SimulateStep(simulation_id, current_date_time)
-    WF -> SH : simulate_step()
-    SH -> MS : step(catches)
-    MS -> MS : _record_catches()
-    MS -> MS : _update_local_prices()
-    MS -> MS : _update_local_history()
-    MS -> MS : _compute_global_prices()
-    MS -> MS : tick.increase_tick()
-    SH -> SH : pending_catch_dict.clear()
-    SH --> WF : SimulateStepResponse
-    WF --> Controller : SimulateStepResponse
-
-    Controller -> MPS : GetSpeciesPrices(simulation_id)
-    MPS -> SH : update_prices()
-    SH -> MS : get_species_prices_message()
-    MS --> SH : GetSpeciesPricesResponse
-    SH --> MPS : GetSpeciesPricesResponse
-    MPS --> Controller : GetSpeciesPricesResponse
-
-end
-
-== Finalise ==
-
-Controller -> WF : Finalise(simulation_id)
-WF -> SH : finalise_simulation()
-SH -> MS : export_results(simulation_id, "simulations")
-MS -> MS : write global_prices.csv
-MS -> MS : write local_prices.csv
-SH --> WF : FinaliseResponse
-WF -> S3 : UploadFilesToS3(simulations/<id>, "surimi-market/simulations/<id>")
-WF --> Controller : FinaliseResponse
-
-@enduml
+    rect rgb(0, 0, 0)
+        Note over Controller,S3: Finalise
+        Controller->>WF: Finalise(simulation_id)
+        WF->>SH: finalise_simulation()
+        SH->>MS: export_results(simulation_id, "simulations")
+        MS->>MS: write global_prices.csv
+        MS->>MS: write local_prices.csv
+        SH-->>WF: FinaliseResponse
+        WF->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
+        WF-->>Controller: FinaliseResponse
+    end
 ```
 
 ---
@@ -405,24 +391,19 @@ Implemented in `server/s3_storage.py`. AWS credentials are injected via environm
 
 Defined in `.github/workflows/sync-market-inputs.yml`. Runs at **02:00 UTC** every day (also triggerable manually).
 
-```plantuml
-@startuml Nightly_Sync
+```mermaid
+sequenceDiagram
+    participant GHA as GitHub Actions
+    participant Src as SURIMI-western_med
+    participant Dst as SURIMI-market
 
-skinparam sequenceArrowThickness 2
-
-participant "GitHub Actions" as GHA
-participant "SURIMI-western_med\n(source repo)" as Src
-participant "SURIMI-market\n(this repo)" as Dst
-
-GHA -> Src : sparse checkout SURIMI-market_inputs/\n(with LFS, using SURIMI_SYNC_CSVS_TOKEN)
-GHA -> GHA : diff ports.csv, prices.csv, species.csv
-alt any file changed
-    GHA -> Dst : copy files to config/\ngit add + commit + push
-else no changes
-    GHA -> GHA : echo "Nothing to commit"
-end
-
-@enduml
+    GHA->>Src: sparse checkout SURIMI-market_inputs/ (with LFS, using SURIMI_SYNC_CSVS_TOKEN)
+    GHA->>GHA: diff ports.csv, prices.csv, species.csv
+    alt any file changed
+        GHA->>Dst: copy files to config/, git add + commit + push
+    else no changes
+        GHA->>GHA: echo "Nothing to commit"
+    end
 ```
 
 The Personal Access Token (`SURIMI_SYNC_CSVS_TOKEN`) expires **2027-02-12**.
