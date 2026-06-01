@@ -4,7 +4,7 @@ import grpc
 
 from concurrent import futures
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
-from server.market_service import MarketService
+from server.market_service import MarketService, market_service_pb2
 from server.version_metadata_interceptor import VersionMetadataInterceptor
 from surimi.v1 import market_service_pb2_grpc
 from vault_service import VaultService
@@ -35,6 +35,13 @@ def serve():
 
     market_service = MarketService(simulation_dictionary, version)
     market_service_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
+
+    # The reflection service will be aware of "MarketService" and "ServerReflection" services.
+    SERVICE_NAMES = (
+        market_service_pb2.DESCRIPTOR.services_by_name['MarketService'].full_name,
+        reflection.SERVICE_NAME,
+    )
+    reflection.enable_server_reflection(SERVICE_NAMES, server)
 
     host = os.environ.get("GRPC_HOST", "[::]")
     port = os.environ.get("GRPC_PORT", "5001")
