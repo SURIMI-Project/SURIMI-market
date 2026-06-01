@@ -1,0 +1,11 @@
+info:
+  name: GetProtocolVersion
+  type: grpc
+  seq: 1
+
+grpc:
+  url: http://localhost:5001
+  method: /surimi.v1.MarketService/GetProtocolVersion
+  methodType: unary
+  message: "{}"
+  auth: inherit
