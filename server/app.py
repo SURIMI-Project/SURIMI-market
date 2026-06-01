@@ -11,6 +11,7 @@ from vault_service import VaultService
 from dotenv import load_dotenv
 from importlib.metadata import version, PackageNotFoundError
 from logger import get_logger
+from grpc_reflection.v1alpha import reflection
 
 logger = get_logger("app")
 
