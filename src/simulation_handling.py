@@ -17,6 +17,9 @@ class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
         """
         Manages the simulation loop, using MarketSystem as the core.
+        Here we need to implement the Experiment = munltiple simulations idea of SURIMI controller. 
+        Possilbly also change the name to experiment handler or simmilar. 
+        Talk with RIK required to see what the controller handles and what the market model needs to handle.
         """
         self.simulation_id = simulation_id
         self.scenario_id = scenario_id

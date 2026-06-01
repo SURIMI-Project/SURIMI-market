@@ -60,7 +60,7 @@ class Species:
 class GlobalMarket:
     """
     Represents the global market context, computing global species prices
-    as an average of valid local prices.
+    as an average of valid local prices (preliminary solution).
     """
     def __init__(self, species_dict):
         self.species_dict = species_dict
@@ -82,8 +82,11 @@ class LocalMarket:
         global_market (GlobalMarket): Reference to the shared global market.
         lambda_mix (float): Influence of global price on local price [0, 1].
         theta_mix (float): Influence of neighboring markets on local price [0, 1].
+        Todo: Think about how to calibrate market influence through
+            - lambda_mix: this will be especially relevant when dealing with the fleets from EwE, as they are not selling to specific local markets at the moment.
+            - theta_mix: this might require some spatial representation of the market locations.
     """
-    # Todo: Think about what todo with market influence (lambda_mix, theta_mix)
+
     def __init__(self, market_code: str, global_market: object,
                  name: str = None, lon: float = None, lat: float = None,
                  lambda_mix=0.0, theta_mix=0.0):
@@ -127,8 +130,8 @@ class LocalMarket:
 
     def calculate_local_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
         """
-        Lambda/theta mixing if needed (not used in baseline init).
-        Only applies if global/neighbor prices are valid (not None).
+        Lambda/theta mixing if needed (not used in currenct scenarios).
+        Will only apply if global/neighbor prices are valid (not None).
         """
         prices = {}
         species_to_process = [species_code] if species_code else list(self.species_dict.keys())
