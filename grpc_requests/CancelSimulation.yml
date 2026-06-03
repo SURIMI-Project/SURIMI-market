@@ -5,7 +5,8 @@ info:
 
 grpc:
   url: localhost:5001
-  method: ""
+  method: /surimi.v1.MarketService/CancelSimulation
+  methodType: unary
   message: |-
     {
         "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30"
