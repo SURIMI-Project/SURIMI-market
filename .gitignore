@@ -4,12 +4,22 @@ src/__pycache__/
 server/__pycache__/
 *.py[cod]
 *$py.class
-.venv
-.env
-.idea/
-simulations/*
-BUGS.md
-logs/
 
-# Visual Studio 2015/2017 cache/options directory
+# Python virtual environment
+.venv/
+.env
+
+# IDE or code editor related
+## Visual Studio (version 2015 and newer) cache/options directory
 .vs/
+
+## Jetbrains
+.idea/
+
+## Visual Studio Code
+.vscode/
+
+# Project artifacts
+simulations/
+logs/
+BUGS.md
