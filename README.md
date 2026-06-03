@@ -70,27 +70,77 @@ It uses a Personal Access Token (PAT) with the name: SURIMI_SYNC_CSVS_TOKEN
 This token expires at 12-02-2027
 
 ## Virtual Environment
-When you work on this project, first create a Virtual Environment called ".venv".
+The SURIMI Market model is written with Python version 3.12. Due to Python's troubles with version incompatibilities, ensure that you work with the correct version. You can do this by opening the terminal and executing the following command where `X` is the patch version:
 
-`python -m venv .venv`
+```ps1
+python -V
+# Output: Python 3.12.X
+```
+
+We support an automatic and a manual approach to manage the virtual environment.
+
+### Automatic Approach
+The automatic approach consists of using scripts. It is the easiest approach and is appropriate if you don't need a finer control of the virtual environment. To use them, follow appropriate instructions for your operating system.
+
+*Windows Systems*
+```ps1
+# Activate the virtual environment
+.\scripts\setup.ps1
+```
+
+*GNU/Linux and MacOS*
+```bash
+# Activate the virtual environment
+source ./scripts/setup.sh
+```
+
+You can deactivate the virtual environment on all operating systems as follows:
+```
+deactivate
+```
+
+You can read more at [scripts/README.md](./scripts/README.md).
+
+
+### Manual Approach
+This approach involves configuring the virtual environment using the terminal. To create this, execute the following command:
+
+```
+python -m venv .venv
+```
 
 Then make sure it is activated!!!
 To check this, you can open the terminal.
 The environment is before the prompt:
-`(.venv) PS C:\Users\Rik\source\repos\SURIMI-market>`
-This indicates that the ".venv" is active.
 
-When you see:
-`PS C:\Users\Rik\source\repos\SURIMI-market>`
-Then it's not active!
+```ps1
+# Activated
+(.venv) PS C:\Users\Rik\source\repos\SURIMI-market>
 
-### Activate the .venv Virtual Environment
-Type:
-`PS C:\Users\Rik\source\repos\SURIMI-market> .\.venv\Scripts\activate`
+# Not activated
+PS C:\Users\Rik\source\repos\SURIMI-market>
+```
 
-### De-activate the .venv Virtual Environment
-Type
-`(.venv) PS C:\Users\Rik\source\repos\SURIMI-market> deactivate`
+On MacOS and Linux, this is equivalent to the following example:
+```sh
+# Activated
+(.venv) rik@ubuntu:~$
+
+# Not activated
+rik@ubuntu:~$
+```
+
+#### Activate the .venv Virtual Environment
+On all operating systems, activating the virtual environment is as follows:
+```
+./venv/scripts/activate
+```
+
+#### De-activate the .venv Virtual Environment
+On all operating systems, activating the virtual environment is as follows:
+```
+deactivate
+```
 
 # SURIMI
 
