@@ -5,10 +5,14 @@ info:
 
 grpc:
   url: localhost:5001
-  method: ""
+  method: /surimi.v1.MarketService/SimulateStep
+  methodType: unary
   message: |-
     {
         "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
-        "current_date_time":"2026-05-01T00:00:00Z"
+        "current_date_time": {
+          "seconds": 1777593600,
+          "nanos": 0
+        }
     }
   auth: inherit
