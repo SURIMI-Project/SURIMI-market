@@ -1,4 +1,4 @@
-date,market_code,species_code,category_code,price,currency,measurement_unit
+date,market_code,species_code,gear_code,price,currency,measurement_unit
 2013-01-01,ESSCR,ANE,OTB,1.7885437948260292,EUR,kg
 2013-01-01,ESSCR,HKE,OTB,4.038496471951654,EUR,kg
 2013-01-01,ESSCR,MUT,OTB,4.770800734771555,EUR,kg
