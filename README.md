@@ -131,9 +131,15 @@ rik@ubuntu:~$
 ```
 
 #### Activate the .venv Virtual Environment
-On all operating systems, activating the virtual environment is as follows:
+Activating the virtual environment is different across platforms. On Windows:
+
+```ps1
+.\.venv\Scripts\Activate.ps1
 ```
-./venv/scripts/activate
+
+On MacOS and Linux, the command is as follows:
+```
+./.venv/bin/activate
 ```
 
 #### De-activate the .venv Virtual Environment
