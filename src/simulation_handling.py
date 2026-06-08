@@ -29,8 +29,7 @@ class SimulationHandler:
         self.logger = get_logger(f"simulation.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
-        # TODO currency should come from the contract or the controller.
-        self.market = MarketSystem(currency="EUR", start_time=start_time)
+        self.market = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
 
         # Internal dictionaries for quick reference
         self.species_dict = {}
@@ -266,6 +265,11 @@ class SimulationHandler:
                 market_code = row["market_code"].strip()
                 species_code = row["species_code"].strip()
                 price = float(row["price"])
+                currency = row["currency"].strip()
+
+                if currency != consts.SUPPORTED_CURRENCY:
+                    self.logger.warning(f"SimulationHandler.load_prices_from_csv(): Currency {currency} was loaded, but only {consts.SUPPORTED_CURRENCY} is supported!")
+                    continue
 
                 market = self.local_market_dict.get(market_code)
                 if not market:
