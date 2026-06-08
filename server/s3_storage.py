@@ -3,9 +3,10 @@ from pathlib import Path
 import boto3
 
 class S3_Storage:
-    @staticmethod
-    def UploadFilesToS3(source_directory, destination_directory):
-
+    # TODO there is no reason why need a class. If the requirements in fact tell
+    #      us to include a class, then there is no need to create a static class
+    # TODO design and implement an approach to skip S3 connection alltogether
+    def UploadFilesToS3(self, source_directory, destination_directory):
         if not os.environ.get('AWS_BUCKET_NAME'):
             print("AWS_BUCKET_NAME environment variable not set. Aborting S3 upload.")
             return
@@ -43,7 +44,7 @@ class S3_Storage:
         except Exception as e:
             print(f"Error uploading files to S3: {e}")
 
-    @staticmethod
+
     def DownloadFilesFromS3(source_directory, destination_directory):
         """
         Download all files from the given S3 source_directory (prefix) to the local destination_directory.

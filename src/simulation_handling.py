@@ -29,6 +29,7 @@ class SimulationHandler:
         self.logger = get_logger(f"simulation.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
+        # TODO currency should come from the contract or the controller.
         self.market = MarketSystem(currency="EUR", start_time=start_time)
 
         # Internal dictionaries for quick reference
@@ -39,6 +40,7 @@ class SimulationHandler:
         self.update_event = threading.Event()
 
         # Cached message for latest prices
+        # TODO what is the purpose of this?
         self.latest_market_prices = None
 
         # Aggregated catches for the current tick
@@ -46,6 +48,7 @@ class SimulationHandler:
         self.pending_catch_dict = defaultdict(float)
 
         # Flag to detect concurrent SimulateStep and UpdateSales calls
+        # TODO why not use mutex?
         self._step_in_progress = False
 
     def init_simulation(self, simulation: simulation_pb2.Simulation):
@@ -53,7 +56,11 @@ class SimulationHandler:
         Trigger simulation initialization and respond to controller.
         Loads initialization config (species, ports, historical prices)
         and sets baseline prices for each market.
+
+        TODO add typehint for return type.
         """
+        # TODO consider whether this should be its own function
+        # Copy config from the S3 downloaded configs to the simulation dirs.
         simulation_dir = Path(__file__).parent.parent / "simulations" / self.simulation_id
         simulation_dir.mkdir(parents=True, exist_ok=True)
         config_src = Path(__file__).parent.parent / "config"
@@ -62,8 +69,23 @@ class SimulationHandler:
             shutil.rmtree(config_dst)
         shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
+        # TODO unwrap the below method.
         self.load_initialization_data("config")
 
+        # TODO this should initialise baseline local prices.
+        # TODO update sequence diagram after doing this change.
+        self.market._initialize_baseline_prices_from_csv()
+
+        # TODO update sequence diagram after doing this change.
+        # TODO and then we initialise the global baseline prices.
+        
+        # TODO change to save history = True?
+        # TODO remove safe_history param.
+        self._compute_global_prices(save_history=False)
+
+        # Checks if the species in the configs are in the contract. If some
+        # aren't, then fill these in so no species are missing.
+        # TODO add unit test.
         missing_species = []
         for species in simulation.items.species:
             if species.species_code not in self.species_dict:
@@ -101,6 +123,7 @@ class SimulationHandler:
             total_qty = sum(qty for _, _, qty in catches)
             self.logger.info(f"Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
 
+            # TODO need to make sure that values are nullified
             self.pending_catch_dict.clear()
         finally:
             self._step_in_progress = False
@@ -114,6 +137,8 @@ class SimulationHandler:
     def update_prices(self):
         """
         Send current prices to the controller.
+
+        TODO the name is misleading. No prices are updated.
         """
         self.latest_market_prices = self.market.get_species_prices_message()
         self.logger.info("Prices sent.")
@@ -126,6 +151,7 @@ class SimulationHandler:
         """
         self.logger.info("Sales update received...")
 
+        # TODO handle race condition gracefully.
         if self._step_in_progress:
             self.logger.warning(
                 "UpdateSales called while SimulateStep is in progress. Sale may be lost."
@@ -142,6 +168,7 @@ class SimulationHandler:
                 gear_code = sale.fleet_segment.gear_code
 
                 key = (market_code, species_code)
+                # TODO re: race condition. Not threadsafe.
                 self.pending_catch_dict[key] += quantity
                 new_entries += 1
 
@@ -226,6 +253,7 @@ class SimulationHandler:
         ports_path = os.path.join(folder_path, "ports.csv")
         prices_path = os.path.join(folder_path, "prices.csv")
 
+        # TODO add unit testing for each of the three actions.
         if os.path.exists(species_path):
             self.logger.info(f"Loading species from {species_path}")
             self.load_species_from_csv(species_path)
@@ -243,8 +271,6 @@ class SimulationHandler:
             self.load_prices_from_csv(prices_path)
         else:
             self.logger.info("prices.csv not found — skipping price injection")
-
-        self.market._initialize_baseline_prices_from_csv()
 
 
 def ignore_non_csv(dir, files):

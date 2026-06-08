@@ -42,10 +42,11 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
 
         # TODO: validate that the current_date_time in request matches the expected time in the simulation loop. If not, throw an error to prevent out-of-sync simulation steps.
-
+        # TODO we are not doing anything with current_date_time ??
         current_simulation = self.simulation_dictionary[request.simulation_id]
         return current_simulation.simulate_step()
 
+    # TODO why does finalise simulation not remove the simulation from simulation_dictionary?
     def FinaliseSimulation(self, request: finalise_simulation_pb2.FinaliseSimulationRequest, context: grpc.ServicerContext):
         logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
@@ -84,6 +85,10 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         current_simulation = self.simulation_dictionary[request.simulation_id]
         pricesResponse = current_simulation.update_prices()
         pricesResponse.simulation_id = current_simulation.simulation_id
+
+        # TODO What is the purpose of date_time if it always returns the most
+        #      recent price? Should it not be the historic time of the provided
+        #      date_time?
         pricesResponse.date_time = request.date_time.ToDatetime()
         return pricesResponse
 

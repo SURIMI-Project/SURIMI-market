@@ -19,10 +19,13 @@ logger = get_logger("app")
 def serve():
     load_dotenv()
 
+    # TODO Talk to Rik about why the simulation_directionary belongs to app and not
+    # to MarketService
     simulation_dictionary = {}
 
     VaultService.LoadVaultSecretsInEnvironmentVariables()
 
+    # TODO investigate why we want to show env vars
     env_vars = "\n".join(f"  {k}: {v}" for k, v in sorted(os.environ.items()))
     logger.info(f"Environment variables:\n{env_vars}")
 

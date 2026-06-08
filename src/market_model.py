@@ -22,6 +22,7 @@ def _is_valid_price(price: float | None) -> bool:
 class Tick:
     """A per-MarketSystem time tracker."""
     def __init__(self, start_time: datetime.datetime, step_days=30):
+        # TODO issue https://github.com/Official-EwE/SURIMI-market/issues/35
         self.tick = 0
         self.start_time = start_time
         self.step_days = step_days
@@ -69,6 +70,8 @@ class GlobalMarket:
 
     def get_global_price(self, species_code: str) -> float | None:
         return self.global_prices.get(species_code)
+    
+    # TODO the global market computations should happen here.
 
 
 class LocalMarket:
@@ -128,7 +131,7 @@ class LocalMarket:
         self.price_state[s_code] = (price, qty)
         self.local_prices[s_code] = price
 
-    def calculate_local_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
+    def calculate_market_influences_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
         """
         Lambda/theta mixing if needed (not used in currenct scenarios).
         Will only apply if global/neighbor prices are valid (not None).
@@ -194,9 +197,11 @@ class MarketSystem:
             logger.debug("No catches provided this tick (prices will remain unchanged).")
 
         self._record_catches(catches)
+        # TODO this is the method to compute local prices. Should be renamed to
+        #      self.compute_local_prices()
         self._update_local_prices()
         self._update_local_history()
-        self._compute_global_prices()
+        # self._compute_global_prices()
         self.tick.increase_tick()
 
         logger.debug("MarketSystem STEP completed")
@@ -212,7 +217,12 @@ class MarketSystem:
                     logger.warning(f"Error recording catch for market={m_code}, species={s_code}: {e}")
 
     def _update_local_prices(self):
-        """Update per-market prices using Elser adjustment based on current catches."""
+        """
+        Update per-market prices using Elser adjustment based on current catches.
+        
+        TODO it seems like this does not do anything, because we only get static
+             prices (issue 34: https://github.com/Official-EwE/SURIMI-market/issues/34)
+        """
         logger.info("Updating local prices using Elser adjustment...")
         for m_code, market in self.local_markets.items():
             for s_code, qty in market.monthly_catch.items():
@@ -249,6 +259,7 @@ class MarketSystem:
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
         - If no valid local prices exist, global price = None.
+        TODO remove safe_history param
         """
         logger.info("Computing global average prices...")
         current_tick = self.tick.get_tick()
@@ -271,6 +282,8 @@ class MarketSystem:
                     total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0)
 
             if valid_prices:
+                # TODO improve this, as it shouldnt just do a mean of the local market prices.
+                # TODO take inflation as a parameter.
                 global_prices[s_code] = sum(valid_prices) / len(valid_prices)
                 valid_global_count += 1
             else:
@@ -301,6 +314,7 @@ class MarketSystem:
 
     def _initialize_baseline_prices_from_csv(self):
         """
+        TODO fix the naming
         Fill local markets with earliest CSV price if available,
         then compute a global baseline and fill only truly missing prices.
         """
@@ -325,9 +339,11 @@ class MarketSystem:
 
         # Compute initial GLOBAL baseline without recording history
         logger.info("Computing initial GLOBAL baseline from valid local markets...")
-        self._compute_global_prices(save_history=False)
 
         # Phase 3: fill missing using valid global avg
+        # TODO use actual global value instead of using global mean/avg. This
+        #      code was written probably because our data was
+        #      bad/lacking datapoints/lacking information
         for market in self.local_markets.values():
             for s_code in self.species_dict.keys():
                 if s_code not in market.local_prices:
