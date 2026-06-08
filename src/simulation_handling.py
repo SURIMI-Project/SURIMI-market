@@ -11,7 +11,7 @@ import grpc
 from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import market_service_pb2, simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, update_sales_pb2
 from logger import get_logger
-
+from util import consts
 
 class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -69,8 +69,12 @@ class SimulationHandler:
             shutil.rmtree(config_dst)
         shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
-        # TODO unwrap the below method.
-        self.load_initialization_data("config")
+        # TODO add unit testing for each of the three actions.
+        # Load configurations and data from CSV 
+        self.load_species_from_csv()
+        self.load_ports_from_csv()
+        self.load_prices_from_csv()
+
 
         # TODO this should initialise baseline local prices.
         # TODO update sequence diagram after doing this change.
@@ -183,13 +187,22 @@ class SimulationHandler:
 
         return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
 
-    def load_species_from_csv(self, filepath: str):
+    def load_species_from_csv(self):
         """
         Load species definitions from CSV file into the market system.
 
         CSV columns: species_code, species_name
         """
-        with open(filepath, newline='', encoding='utf-8') as csvfile:
+        app_directory = Path(__file__).parent.parent.resolve()
+        folder_path = str(Path(app_directory) / "config")
+        species_path = os.path.join(folder_path, consts.SPECIES_CSV)
+
+        if os.path.exists(species_path):
+            self.logger.info(f"Loading species from {species_path}")
+        else:
+            self.logger.warning(f"{consts.PORTS_CSV} not found in {folder_path}") 
+
+        with open(species_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 code = row["species_code"].strip()
@@ -198,13 +211,22 @@ class SimulationHandler:
                 self.market.add_species(species)
                 self.species_dict[code] = species
 
-    def load_ports_from_csv(self, filepath: str):
+    def load_ports_from_csv(self):
         """
         Load local market (port) definitions from CSV into the market system.
 
         CSV columns: port_code, port_name, lon, lat
         """
-        with open(filepath, newline='', encoding='utf-8') as csvfile:
+        app_directory = Path(__file__).parent.parent.resolve()
+        folder_path = str(Path(app_directory) / "config")
+        ports_path = os.path.join(folder_path, consts.PORTS_CSV)
+
+        if os.path.exists(ports_path):
+            self.logger.info(f"Loading species from {ports_path}")
+        else:
+            self.logger.warning(f"{consts.PORTS_CSV} not found in {folder_path}") 
+
+        with open(ports_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 code = row["port_code"].strip()
@@ -222,13 +244,22 @@ class SimulationHandler:
                 self.market.add_local_market(market)
                 self.local_market_dict[code] = market
 
-    def load_prices_from_csv(self, filepath: str):
+    def load_prices_from_csv(self):
         """
         Load time-series prices into each local market from CSV file.
 
         CSV columns: date, market_code, species_code, category_code, price, currency, measurement_unit
         """
-        with open(filepath, newline='', encoding='utf-8') as csvfile:
+        app_directory = Path(__file__).parent.parent.resolve()
+        folder_path = str(Path(app_directory) / "config")
+        prices_path = os.path.join(folder_path, consts.PRICES_CSV)
+
+        if os.path.exists(prices_path):
+            self.logger.info(f"Loading species from {prices_path}")
+        else:
+            self.logger.warning(f"{consts.PRICES_CSV} not found in {folder_path}")
+
+        with open(prices_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 date = row["date"].strip()
@@ -242,37 +273,6 @@ class SimulationHandler:
                     continue
 
                 market.price_time_series[(species_code, date)] = price
-
-    def load_initialization_data(self, folder_path="config"):
-        """
-        Loads all initial simulation input (species, ports, prices),
-        then initializes baseline prices using Option B (CSV -> global avg -> fallback).
-        """
-        app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = str(Path(app_directory) / folder_path)
-
-        species_path = os.path.join(folder_path, "species.csv")
-        ports_path = os.path.join(folder_path, "ports.csv")
-        prices_path = os.path.join(folder_path, "prices.csv")
-
-        # TODO add unit testing for each of the three actions.
-        if os.path.exists(species_path):
-            self.logger.info(f"Loading species from {species_path}")
-            self.load_species_from_csv(species_path)
-        else:
-            self.logger.warning(f"species.csv not found in {folder_path}")
-
-        if os.path.exists(ports_path):
-            self.logger.info(f"Loading ports from {ports_path}")
-            self.load_ports_from_csv(ports_path)
-        else:
-            self.logger.warning(f"ports.csv not found in {folder_path}")
-
-        if os.path.exists(prices_path):
-            self.logger.info(f"Loading prices from {prices_path}")
-            self.load_prices_from_csv(prices_path)
-        else:
-            self.logger.info("prices.csv not found — skipping price injection")
 
 
 def ignore_non_csv(dir, files):
