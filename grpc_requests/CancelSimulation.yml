@@ -1,7 +1,7 @@
 info:
   name: CancelSimulation
   type: grpc
-  seq: 8
+  seq: 7
 
 grpc:
   url: localhost:5001
