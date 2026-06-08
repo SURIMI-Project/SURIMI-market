@@ -128,11 +128,13 @@ classDiagram
 
 A simulation proceeds in three phases: **Initialise**, one or more **tick iterations**, and **Finalise**. The external controller orchestrates this sequence.
 
+<!-- Ask third-part person for feedback on this diagram. -->
+
 ```mermaid
 sequenceDiagram
     participant Controller
     participant APP as App
-    participant WF as Vault
+    participant WF as VaultService
     participant MPS as MarketService
     participant SH as SimulationHandler
     participant MS as MarketSystem
@@ -142,7 +144,9 @@ sequenceDiagram
     Controller->>APP: new App()
     Controller->>APP: Initialise(simulation_id, start_date_time, time_step, simulation_contract)
     
-    WF->>WF: Get AWS S3 secrets from Hashicorp Vault
+    APP->>WF: new VaultService()
+    WF->>WF: Get AWS S3 secrets from Hashicorp VaultService
+    APP->>MPS: new MarketService()
     MPS->>S3: download_files_from_S3("surimi-market/config")
     S3-->>MPS: config CSVs
     MPS->>SH: new SimulationHandler(simulation_id, ...)
