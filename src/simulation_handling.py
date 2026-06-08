@@ -74,17 +74,10 @@ class SimulationHandler:
         self.load_ports_from_csv()
         self.load_prices_from_csv()
 
-
-        # TODO this should initialise baseline local prices.
-        # TODO update sequence diagram after doing this change.
-        self.market._initialize_baseline_prices_from_csv()
-
-        # TODO update sequence diagram after doing this change.
-        # TODO and then we initialise the global baseline prices.
+        # Initialise baseline prices
+        self.market.initialize_local_markets_baseline_prices()
+        self.market.initialize_global_market_baseline_prices()
         
-        # TODO change to save history = True?
-        # TODO remove safe_history param.
-
         # Elser et al. assumes that the global market price is static.
         self.market._compute_global_prices()
 

@@ -198,9 +198,7 @@ class MarketSystem:
             logger.debug("No catches provided this tick (prices will remain unchanged).")
 
         self._record_catches(catches)
-        # TODO this is the method to compute local prices. Should be renamed to
-        #      self.compute_local_prices()
-        self._update_local_prices()
+        self._compute_local_prices()
         self._update_local_history()
         self.tick.increase_tick()
 
@@ -216,7 +214,7 @@ class MarketSystem:
                 except Exception as e:
                     logger.warning(f"Error recording catch for market={m_code}, species={s_code}: {e}")
 
-    def _update_local_prices(self):
+    def _compute_local_prices(self):
         """
         Update per-market prices using Elser adjustment based on current catches.
         
