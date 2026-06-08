@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import datetime
+from dateutil.relativedelta import *
 from collections import defaultdict
 from typing import Dict, Tuple
 
@@ -21,11 +22,10 @@ def _is_valid_price(price: float | None) -> bool:
 
 class Tick:
     """A per-MarketSystem time tracker."""
-    def __init__(self, start_time: datetime.datetime, step_days=30):
-        # TODO issue https://github.com/Official-EwE/SURIMI-market/issues/35
+    def __init__(self, start_time: datetime.datetime, step_months=1):
         self.tick = 0
         self.start_time = start_time
-        self.step_days = step_days
+        self.step_months = step_months
 
     def increase_tick(self):
         self.tick += 1
@@ -34,11 +34,12 @@ class Tick:
         return self.tick
 
     def set_timestep(self, days: int):
-        self.step_days = days
+        self.step_months = days
 
     def get_timestamp(self):
+        # TODO unit test this
         current_time = (self.start_time +
-                        datetime.timedelta(days=self.tick * self.step_days)).isoformat() + "Z"
+                        relativedelta(months=self.tick * self.step_months)).isoformat() + "Z"
         return current_time
 
     def reset(self):
@@ -166,7 +167,7 @@ class MarketSystem:
     Combines multiple LocalMarkets and a GlobalMarket for multi-level pricing.
     """
     def __init__(self, currency: str, start_time: datetime.datetime):
-        self.tick = Tick(step_days=30, start_time=start_time)
+        self.tick = Tick(step_months=1, start_time=start_time)
         self.currency = currency
         self.species_dict: Dict[str, Species] = {}
         self.local_markets: Dict[str, LocalMarket] = {}
