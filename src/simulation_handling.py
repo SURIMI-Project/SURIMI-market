@@ -131,14 +131,11 @@ class SimulationHandler:
 
         return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
 
-    def update_prices(self):
+    def get_latest_market_prices(self):
         """
-        Send current prices to the controller.
-
-        TODO the name is misleading. No prices are updated.
+        Get the most recent market prices.
         """
         self.latest_market_prices = self.market.get_species_prices_message()
-        self.logger.info("Prices sent.")
         return self.latest_market_prices
 
     def update_sales(self, request: update_sales_pb2.UpdateSalesRequest):

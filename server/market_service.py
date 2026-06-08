@@ -78,18 +78,23 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         )
     
     def GetSpeciesPrices(self, request: get_species_prices_pb2.GetSpeciesPricesRequest, context: grpc.ServicerContext):
+        """
+        Send current prices to the controller.
+        """
         logger.info(f"GetSpeciesPrices for simulation {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        pricesResponse = current_simulation.update_prices()
+        pricesResponse = current_simulation.get_latest_market_prices()
         pricesResponse.simulation_id = current_simulation.simulation_id
 
         # TODO What is the purpose of date_time if it always returns the most
         #      recent price? Should it not be the historic time of the provided
         #      date_time?
         pricesResponse.date_time = request.date_time.ToDatetime()
+
+        logger.info("Prices sent.")
         return pricesResponse
 
     def UpdateSales(self, request: update_sales_pb2.UpdateSalesRequest, context: grpc.ServicerContext):
