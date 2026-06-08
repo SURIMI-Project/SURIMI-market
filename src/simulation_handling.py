@@ -81,7 +81,9 @@ class SimulationHandler:
         
         # TODO change to save history = True?
         # TODO remove safe_history param.
-        self._compute_global_prices(save_history=False)
+
+        # Elser et al. assumes that the global market price is static.
+        self.market._compute_global_prices()
 
         # Checks if the species in the configs are in the contract. If some
         # aren't, then fill these in so no species are missing.

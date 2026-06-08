@@ -202,7 +202,6 @@ class MarketSystem:
         #      self.compute_local_prices()
         self._update_local_prices()
         self._update_local_history()
-        # self._compute_global_prices()
         self.tick.increase_tick()
 
         logger.debug("MarketSystem STEP completed")
@@ -255,12 +254,11 @@ class MarketSystem:
             )
             market.monthly_catch.clear()
 
-    def _compute_global_prices(self, save_history=True):
+    def _compute_global_prices(self):
         """
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
         - If no valid local prices exist, global price = None.
-        TODO remove safe_history param
         """
         logger.info("Computing global average prices...")
         current_tick = self.tick.get_tick()
@@ -296,13 +294,12 @@ class MarketSystem:
 
         self.global_market.global_prices = global_prices
 
-        if save_history:
-            self.global_market.global_price_history.append(
-                (current_tick, {
-                    "avg_prices": global_prices.copy(),
-                    "total_catches": global_catches.copy()
-                })
-            )
+        self.global_market.global_price_history.append(
+            (current_tick, {
+                "avg_prices": global_prices.copy(),
+                "total_catches": global_catches.copy()
+            })
+        )
 
         logger.debug(
             f"Global prices (tick={current_tick}): valid={valid_global_count}, missing={missing_global_count}"
