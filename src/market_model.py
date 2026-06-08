@@ -322,14 +322,10 @@ class MarketSystem:
         for market in self.local_markets.values():
             earliest_per_species = {}
 
-            # TODO why are we checking whether the LocalMarket has attribute
-            #      price_time_series when it literally is always True?
-            # TODO are we checking whether market.price_time_series is valid or
-            #      whether it has content?
-            if hasattr(market, "price_time_series") and market.price_time_series:
-                for (species_code, date), price in market.price_time_series.items():
-                    if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
-                        earliest_per_species[species_code] = (date, price)
+            for (species_code, date), price in market.price_time_series.items():
+                # TODO interpolate between the two datapoints that the date falls between.
+                if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
+                    earliest_per_species[species_code] = (date, price)
 
             for s_code in self.species_dict.keys():
                 if s_code in earliest_per_species:
