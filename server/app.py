@@ -25,11 +25,11 @@ def serve():
     # to MarketService
     simulation_dictionary = {}
 
-    VaultService.LoadVaultSecretsInEnvironmentVariables()
+    vault_service = VaultService()
 
     # TODO investigate why we want to show env vars
-    env_vars = "\n".join(f"  {k}: {v}" for k, v in sorted(os.environ.items()))
-    logger.info(f"Environment variables:\n{env_vars}")
+    # env_vars = "\n".join(f"  {k}: {v}" for k, v in sorted(os.environ.items()))
+    # logger.info(f"Environment variables:\n{env_vars}")
 
     version = load_version("surimi_surimi_protocol_grpc_python")
     logger.info(f"Starting gRPC server with protocol version: {version}")
@@ -39,7 +39,7 @@ def serve():
         interceptors=[ExceptionMetadataInterceptor(), VersionMetadataInterceptor(version)]
     )
 
-    market_service = MarketService(simulation_dictionary, version)
+    market_service = MarketService(vault_service, simulation_dictionary, version)
     market_service_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
 
     # The reflection service will be aware of "MarketService" and "ServerReflection" services.
