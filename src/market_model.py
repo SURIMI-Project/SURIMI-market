@@ -308,18 +308,22 @@ class MarketSystem:
             else:
                 logger.debug(f"  {s}: None (no valid local prices)")
 
-    def _initialize_baseline_prices_from_csv(self):
+    def initialize_local_markets_baseline_prices(self):
         """
-        TODO fix the naming
-        Fill local markets with earliest CSV price if available,
-        then compute a global baseline and fill only truly missing prices.
+        TODO fix the naming and improve method description.
+
+        Fill local markets with earliest CSV price if available
         """
-        logger.info("Initializing baseline prices from earliest CSV config...")
+        logger.info("Initializing baseline prices from earliest price config...")
 
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
             earliest_per_species = {}
 
+            # TODO why are we checking whether the LocalMarket has attribute
+            #      price_time_series when it literally is always True?
+            # TODO are we checking whether market.price_time_series is valid or
+            #      whether it has content?
             if hasattr(market, "price_time_series") and market.price_time_series:
                 for (species_code, date), price in market.price_time_series.items():
                     if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
@@ -333,6 +337,13 @@ class MarketSystem:
                     else:
                         logger.warning(f"CSV price is invalid for {market.market_code}/{s_code}, ignoring.")
 
+        logger.info("Local markets baseline prices initialization complete.")
+
+
+    def initialize_global_market_baseline_prices(self):
+        """
+        Compute a global baseline and fill only truly missing prices.
+        """
         # Compute initial GLOBAL baseline without recording history
         logger.info("Computing initial GLOBAL baseline from valid local markets...")
 
@@ -351,7 +362,8 @@ class MarketSystem:
                             f"No CSV/global price for {market.market_code}/{s_code}, leaving as missing (None)."
                         )
 
-        logger.info("Baseline initialization complete.")
+        logger.info("Global market baseline prices initialization complete.")
+
 
     def get_species_prices_message(self):
         """

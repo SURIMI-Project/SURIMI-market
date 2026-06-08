@@ -58,7 +58,6 @@ class SimulationHandler:
 
         TODO add typehint for return type.
         """
-        # TODO consider whether this should be its own function
         # Copy config from the S3 downloaded configs to the simulation dirs.
         simulation_dir = Path(__file__).parent.parent / "simulations" / self.simulation_id
         simulation_dir.mkdir(parents=True, exist_ok=True)

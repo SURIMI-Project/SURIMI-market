@@ -152,7 +152,8 @@ sequenceDiagram
     SH->>SH: load_ports_from_csv()
     SH->>SH: load_prices_from_csv()
 
-    SH->>MS: _initialize_baseline_prices_from_csv()
+    SH->>MS:initialize_local_markets_baseline_prices()
+    SH->>MS:initialize_global_market_baseline_prices()
     MS->>MS: _compute_global_prices()
     SH-->>MPS: InitialiseSimulationResponse(simulation_id)
     MPS-->>APP: InitialiseSimulationResponse(simulation_id)
