@@ -74,4 +74,13 @@ integer. Changing to type float correctly returns type float.
 ```
 
 
-TODO: coding style: camel case for classes, snake case everywhere else (Python conventions).
+## Coding Style
+We follow the Python naming convention. The following applies:
+
+| Keyword | Case | Example |
+|:--|:--|:--|
+| File names | `CamelCase` for class files, otherwise `snake_case` | `ValueError.py or utils.py` |
+| Variables | `snake_case` | `my_list = []` |
+| Constants | `majuscule` | `PI = 3.14` |
+| Functions | `snake_case` | `def my_func` |
+| Classes | `CamelCase` | `MarketModel` |
