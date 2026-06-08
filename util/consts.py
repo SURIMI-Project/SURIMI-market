@@ -13,3 +13,5 @@ PRICES_CSV = "prices.csv"
 # The MarketModel should accept any arbitrary currencies and handle it
 # accordingly. At the moment, it only supports EUR.
 SUPPORTED_CURRENCY = "EUR"
+
+# TODO add supported measurement unit

@@ -256,6 +256,7 @@ class SimulationHandler:
                 price = float(row["price"])
                 currency = row["currency"].strip()
 
+                # TODO check if this is broken.
                 if currency != consts.SUPPORTED_CURRENCY:
                     self.logger.warning(f"SimulationHandler.load_prices_from_csv(): Currency {currency} was loaded, but only {consts.SUPPORTED_CURRENCY} is supported!")
                     continue

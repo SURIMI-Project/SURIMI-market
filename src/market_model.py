@@ -312,9 +312,10 @@ class MarketSystem:
 
     def initialize_local_markets_baseline_prices(self):
         """
+        TODO Khai: Investigate what this method is doing.
         TODO fix the naming and improve method description.
 
-        Fill local markets with earliest CSV price if available
+        Fill local markets with earliest CSV price if available.
         """
         logger.info("Initializing baseline prices from earliest price config...")
 
