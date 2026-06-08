@@ -13,6 +13,8 @@ from importlib.metadata import version, PackageNotFoundError
 from logger import get_logger
 from grpc_reflection.v1alpha import reflection
 
+from util import consts
+
 logger = get_logger("app")
 
 
@@ -47,8 +49,8 @@ def serve():
     )
     reflection.enable_server_reflection(SERVICE_NAMES, server)
 
-    host = os.environ.get("GRPC_HOST", "[::]")
-    port = os.environ.get("GRPC_PORT", "5001")
+    host = os.environ.get("GRPC_HOST", consts.GRPC_HOST)
+    port = os.environ.get("GRPC_PORT", consts.GRPC_PORT)
     server.add_insecure_port(f"{host}:{port}")
     server.start()
 
