@@ -46,53 +46,15 @@ Geographic scope: **Western Mediterranean Sea**, ~30 ports, ~150 species, histor
 
 ### Component Overview
 
-```mermaid
-flowchart TD
-    Controller["External Controller<br/>(e.g. Poseidon / EwE)"]
+TODO ask Rik about whether the Controller side is represented correctly.
+TODO Explaining the model in plain text
+- What "config/CSV files" are we reading on init?
 
-    subgraph SURIMI["SURIMI Market Service"]
-        Server["gRPC Server<br/>(app.py, port 5001)"]
-
-        subgraph Services["gRPC Services"]
-            WF["WorkflowService"]
-            MPS["MarketProviderService"]
-        end
-
-        SH["SimulationHandler<br/>(one per simulation)"]
-        MS["MarketSystem"]
-
-        subgraph Engine["Market Engine"]
-            GM["GlobalMarket"]
-            LM["LocalMarket ×N<br/>(one per port)"]
-            SP["Species ×M"]
-            Tick["Tick"]
-        end
-    end
-
-    S3[("AWS S3")]
-    Vault[("HashiCorp Vault")]
-    OTEL["OpenTelemetry Collector"]
-    CSV[("config/ CSV files")]
-    Out[("simulations/ output CSVs")]
-
-    Controller -->|"gRPC (port 5001)"| Server
-    Server --> WF
-    Server --> MPS
-    WF -->|"Initialise / SimulateStep / Finalise / Cancel"| SH
-    MPS -->|"GetSpeciesPrices / UpdateSales"| SH
-    SH --> MS
-    MS --> GM
-    MS --> LM
-    MS --> SP
-    MS --> Tick
-    WF -->|"Download config on Initialise / Upload results on Finalise"| S3
-    Server -->|"Load AWS secrets on startup"| Vault
-    Server -->|"Traces & metrics"| OTEL
-    SH -->|"Read on init"| CSV
-    SH -->|"Write on finalise"| Out
-```
+![Component diagram of the Market Server/Model](./doc/plantuml_image_renders/DOCUMENTATION_component_diagram.svg)
 
 ### Domain Model
+
+<!-- TODO use an automated tool to create the class diagrams. -->
 
 This diagram reflects the class structure in `src/market_model.py`.
 
@@ -169,64 +131,77 @@ A simulation proceeds in three phases: **Initialise**, one or more **tick iterat
 ```mermaid
 sequenceDiagram
     participant Controller
-    participant WF as WorkflowService
-    participant MPS as MarketProviderService
+    participant APP as App
+    participant WF as Vault
+    participant MPS as MarketService
     participant SH as SimulationHandler
     participant MS as MarketSystem
     participant S3 as AWS S3
 
     Note over Controller,S3: Initialise
-    Controller->>WF: Initialise(simulation_id, scenario_id, start_date_time, time_step, simulation_contract)
-    WF->>S3: DownloadFilesFromS3("surimi-market/config")
-    S3-->>WF: config CSVs
-    WF->>SH: new SimulationHandler(simulation_id, ...)
-    WF->>SH: init_simulation(simulation)
+    Controller->>APP: new App()
+    Controller->>APP: Initialise(simulation_id, start_date_time, time_step, simulation_contract)
+    
+    WF->>WF: Upload S3 secrets to environment variables
+    MPS->>S3: download_files_from_S3("surimi-market/config")
+    S3-->>MPS: config CSVs
+    MPS->>SH: new SimulationHandler(simulation_id, ...)
+    MPS->>SH: init_simulation(simulation)
     SH->>SH: copy config/ to simulations/{id}/config/
     SH->>SH: load_species_from_csv()
     SH->>SH: load_ports_from_csv()
     SH->>SH: load_prices_from_csv()
+
     SH->>MS: _initialize_baseline_prices_from_csv()
-    SH-->>WF: InitialiseResponse(simulation_id)
-    WF-->>Controller: InitialiseResponse
+    MS->>MS: _compute_global_prices()
+    SH-->>MPS: InitialiseSimulationResponse(simulation_id)
+    MPS-->>APP: InitialiseSimulationResponse(simulation_id)
+    APP-->>Controller: InitialiseSimulationResponse(simulation_id)
 
     Note over Controller,S3: Per Tick (repeated N times)
     loop each simulation month
-        Controller->>MPS: UpdateSales(simulation_id, sales_summaries)
-        Note right of MPS: May be called multiple times per tick, catches are buffered
+        Controller->>APP: UpdateSales(simulation_id, sales_summaries)
+        Note right of APP: May be called multiple times per tick, catches are buffered
+        APP->>MPS: UpdateSales(simulation_id, sales_summaries)
         MPS->>SH: update_sales(request)
-        SH->>SH: pending_catch_dict[market, species] += qty
+        SH->>SH: Add pending catch quantity
         SH-->>MPS: UpdateSalesResponse
-        MPS-->>Controller: UpdateSalesResponse
+        MPS-->>APP: UpdateSalesResponse
+        APP-->>Controller: UpdateSalesResponse
 
-        Controller->>WF: SimulateStep(simulation_id, current_date_time)
-        WF->>SH: simulate_step()
+        Controller->>APP: SimulateStep(simulation_id, current_date_time)
+        APP->>MPS: SimulateStep(simulation_id, current_date_time)
+        MPS->>SH: SimulateStep(simulation_id, current_date_time)
         SH->>MS: step(catches)
         MS->>MS: _record_catches()
         MS->>MS: _update_local_prices()
         MS->>MS: _update_local_history()
-        MS->>MS: _compute_global_prices()
         MS->>MS: tick.increase_tick()
         SH->>SH: pending_catch_dict.clear()
         SH-->>WF: SimulateStepResponse
-        WF-->>Controller: SimulateStepResponse
+        WF-->>APP: SimulateStepResponse
+        APP-->>Controller: SimulateStepResponse
 
-        Controller->>MPS: GetSpeciesPrices(simulation_id)
+        Controller->>APP: GetSpeciesPrices(simulation_id)
+        APP->>MPS: GetSpeciesPrices(simulation_id)
         MPS->>SH: update_prices()
         SH->>MS: get_species_prices_message()
         MS-->>SH: GetSpeciesPricesResponse
         SH-->>MPS: GetSpeciesPricesResponse
-        MPS-->>Controller: GetSpeciesPricesResponse
+        MPS-->>APP: GetSpeciesPricesResponse
+        APP-->>Controller: GetSpeciesPricesResponse
     end
 
     Note over Controller,S3: Finalise
-    Controller->>WF: Finalise(simulation_id)
-    WF->>SH: finalise_simulation()
+    Controller->>APP: Finalise(simulation_id)
+    APP->>MPS: MS(simulation_id)
+    MPS->>SH: finalise_simulation()
     SH->>MS: export_results(simulation_id, "simulations")
     MS->>MS: write global_prices.csv
     MS->>MS: write local_prices.csv
-    SH-->>WF: FinaliseResponse
-    WF->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
-    WF-->>Controller: FinaliseResponse
+    MPS->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
+    MPS-->>APP: FinaliseResponse
+    APP-->>Controller: FinaliseResponse
 ```
 
 ---
