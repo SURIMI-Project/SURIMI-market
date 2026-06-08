@@ -1,0 +1,39 @@
+@startuml SURIMI Market component diagram
+
+title SURIMI Market Component Diagram
+
+top to bottom direction
+' skinparam linetype polyline
+
+component "The SURIMI Controller" as CTL
+
+rectangle "Market Server" as S {
+    component "App" as APP
+    component "VaultService" as Vault
+    component "MarketService" as MService
+    component "S3 Storage" as S3
+
+    rectangle "Market Model" as Market {
+        component "SimulationHandler" as SH
+        component "MarketSystem" as MSystem
+
+        ' Engines
+        component "GlobalMarket" as GM
+        component "LocalMarket" as LM
+    }
+}
+
+' The controller can have many apps, where one app == one experiment
+APP "1..x" -up- "1" CTL
+APP "1" -- "1" Vault
+APP "1" -- "1" MService
+
+MService "1" -- "1" S3
+
+' One simulation has one simulation handler. That means one experiment can have
+' many simulations.
+MService "1" -- "1..x" SH
+SH "1" -- "1" MSystem
+MSystem "1" -- "1" GM
+MSystem "1" -- "1..x" LM
+@enduml
