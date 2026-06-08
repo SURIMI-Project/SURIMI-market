@@ -165,6 +165,8 @@ class MarketSystem:
     """
     Represents the overall simulation environment for dynamic fish markets.
     Combines multiple LocalMarkets and a GlobalMarket for multi-level pricing.
+
+    TODO give the market system a better name?
     """
     def __init__(self, currency: str, start_time: datetime.datetime):
         self.tick = Tick(step_months=1, start_time=start_time)

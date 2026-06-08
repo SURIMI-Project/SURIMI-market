@@ -29,7 +29,7 @@ class SimulationHandler:
         self.logger = get_logger(f"simulation.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
-        self.market = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
+        self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
 
         # Internal dictionaries for quick reference
         self.species_dict = {}
@@ -74,11 +74,11 @@ class SimulationHandler:
         self.load_prices_from_csv()
 
         # Initialise baseline prices
-        self.market.initialize_local_markets_baseline_prices()
-        self.market.initialize_global_market_baseline_prices()
+        self.market_system.initialize_local_markets_baseline_prices()
+        self.market_system.initialize_global_market_baseline_prices()
         
         # Elser et al. assumes that the global market price is static.
-        self.market._compute_global_prices()
+        self.market_system._compute_global_prices()
 
         # Checks if the species in the configs are in the contract. If some
         # aren't, then fill these in so no species are missing.
@@ -93,7 +93,7 @@ class SimulationHandler:
                 f"Species codes from simulation contract not found in loaded species configuration: {missing_species}"
             )
 
-        self.logger.info(f"Tick {self.market.tick.get_tick()} initialized.")
+        self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
         return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id)
 
     def finalise_simulation(self, folder_path="simulations"):
@@ -102,7 +102,7 @@ class SimulationHandler:
         Writes results into simulations/<simulation_id>.
         """
         self.logger.info("Finalising simulation...")
-        self.market.export_results(self.simulation_id, folder_path)
+        self.market_system.export_results(self.simulation_id, folder_path)
         self.logger.info(f"Results saved in simulations/{self.simulation_id}")
         return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id=self.simulation_id)
 
@@ -115,7 +115,7 @@ class SimulationHandler:
         self._step_in_progress = True
         try:
             catches = [(m, s, qty) for (m, s), qty in self.pending_catch_dict.items()]
-            self.market.step(catches)
+            self.market_system.step(catches)
 
             total_qty = sum(qty for _, _, qty in catches)
             self.logger.info(f"Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
@@ -125,8 +125,8 @@ class SimulationHandler:
         finally:
             self._step_in_progress = False
 
-        tick = self.market.tick.get_tick()
-        current_date = self.market.tick.get_timestamp()[:10]
+        tick = self.market_system.tick.get_tick()
+        current_date = self.market_system.tick.get_timestamp()[:10]
         self.logger.info(f"Tick {tick} ({current_date}) completed.")
 
         return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
@@ -135,7 +135,7 @@ class SimulationHandler:
         """
         Get the most recent market prices.
         """
-        self.latest_market_prices = self.market.get_species_prices_message()
+        self.latest_market_prices = self.market_system.get_species_prices_message()
         return self.latest_market_prices
 
     def update_sales(self, request: update_sales_pb2.UpdateSalesRequest):
@@ -196,7 +196,7 @@ class SimulationHandler:
                 code = row["species_code"].strip()
                 name = row["species_name"].strip()
                 species = Species(species_name=name, species_code=code)
-                self.market.add_species(species)
+                self.market_system.add_species(species)
                 self.species_dict[code] = species
 
     def load_ports_from_csv(self):
@@ -224,12 +224,12 @@ class SimulationHandler:
 
                 market = LocalMarket(
                     market_code=code,
-                    global_market=self.market.global_market,
+                    global_market=self.market_system.global_market,
                     name=name,
                     lon=lon,
                     lat=lat
                 )
-                self.market.add_local_market(market)
+                self.market_system.add_local_market(market)
                 self.local_market_dict[code] = market
 
     def load_prices_from_csv(self):
