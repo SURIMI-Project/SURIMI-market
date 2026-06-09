@@ -48,7 +48,6 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         current_simulation = self.simulation_dictionary[request.simulation_id]
         return current_simulation.simulate_step()
 
-    # TODO why does finalise simulation not remove the simulation from simulation_dictionary?
     def FinaliseSimulation(self, request: finalise_simulation_pb2.FinaliseSimulationRequest, context: grpc.ServicerContext):
         logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
@@ -59,6 +58,8 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
 
         simulation_dir = Path(__file__).parent.parent / "simulations" / request.simulation_id
         s3_storage.upload_files_to_S3(self.vault_service, str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
+
+        del self.simulation_dictionary[request.simulation_id]
 
         return message
 
