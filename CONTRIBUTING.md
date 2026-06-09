@@ -43,6 +43,7 @@ The title of a commit message should start with one of the following tags:
 |   `api`     | gRPC Client Changes      | Changes to files in e.g. [`grpc_requests`](./grpc_requests/) that are used by external clients, e.g. [Bruno](https://www.usebruno.com/). |
 |  `revert`   | Reverts                  | Reverts a previous commit.                                                                                  |
 |   `chore`   | Chores                   | Other changes that don't modify src or test files.                                                          |
+|   `tmp`     | Temporary Changes        | This tag indicates that changes are temporary. They should be squashed, removed or updated before merge.    |
 
 Example commit message:
 
