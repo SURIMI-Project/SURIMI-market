@@ -1,0 +1,1086 @@
+info:
+  name: UpdateSales_small_test_sample
+  type: grpc
+  seq: 7
+
+grpc:
+  url: localhost:5001
+  method: /surimi.v1.MarketService/UpdateSales
+  methodType: unary
+  message: |-
+    {
+        "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
+        "start_date_time": {
+          "seconds": 1777593600,
+          "nanos": 0
+        },
+        "end_date_time": {
+          "seconds": 1780272000,
+          "nanos": 0
+        },
+        "sales_summary": {
+            "market_sales": [
+                {
+                    "market_code": "ESBRX",
+                    "currency": "EUR",
+                    "sales": [
+                        {
+                            "species": {
+                                "species_code": "RJC",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 3.5054147745083544,
+                            "value": 8.22
+                        },
+                        {
+                            "species": {
+                                "species_code": "BIB",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 25.163728509363647,
+                            "value": 26.59
+                        },
+                        {
+                            "species": {
+                                "species_code": "OUM",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 20.292127719777906,
+                            "value": 159.28
+                        },
+                        {
+                            "species": {
+                                "species_code": "SQE",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 7.465080416241497,
+                            "value": 19.07
+                        },
+                        {
+                            "species": {
+                                "species_code": "SHO",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 14.368990497595009,
+                            "value": 53.87
+                        },
+                        {
+                            "species": {
+                                "species_code": "ALB",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 30.10952210428011,
+                            "value": 185.73
+                        },
+                        {
+                            "species": {
+                                "species_code": "POD",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 25.163728509363647,
+                            "value": 43.97
+                        },
+                        {
+                            "species": {
+                                "species_code": "OQT",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 7.322699071462808,
+                            "value": 173.46
+                        },
+                        {
+                            "species": {
+                                "species_code": "SOO",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 75.39657350437818,
+                            "value": 834.71
+                        },
+                        {
+                            "species": {
+                                "species_code": "JRS",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 3.5054147745083544,
+                            "value": 18.2
+                        },
+                        {
+                            "species": {
+                                "species_code": "GLI",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 3.81320111201857,
+                            "value": 11.55
+                        },
+                        {
+                            "species": {
+                                "species_code": "LDB",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 75.39657350437818,
+                            "value": 346.08
+                        },
+                        {
+                            "species": {
+                                "species_code": "PIL",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 1.478053131480941,
+                            "value": 1.85
+                        },
+                        {
+                            "species": {
+                                "species_code": "SRG",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 73.38219817165353,
+                            "value": 291.35
+                        },
+                        {
+                            "species": {
+                                "species_code": "LKO",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 37.299962380455106,
+                            "value": 148.46
+                        },
+                        {
+                            "species": {
+                                "species_code": "EOI",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 193.9299043681127,
+                            "value": 841.63
+                        },
+                        {
+                            "species": {
+                                "species_code": "PIL",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 4.990410073335701,
+                            "value": 6.35
+                        },
+                        {
+                            "species": {
+                                "species_code": "OCC",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 193.9299043681127,
+                            "value": 814.52
+                        },
+                        {
+                            "species": {
+                                "species_code": "BSH",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 17.203084922915828,
+                            "value": 27.89
+                        },
+                        {
+                            "species": {
+                                "species_code": "SFS",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 21.362891966956298,
+                            "value": 46.51
+                        },
+                        {
+                            "species": {
+                                "species_code": "LDV",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 73.38219817165353,
+                            "value": 142.37
+                        },
+                        {
+                            "species": {
+                                "species_code": "MUT",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 0.04718820015850958,
+                            "value": 0.15
+                        },
+                        {
+                            "species": {
+                                "species_code": "FAM",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 37.299962380455106,
+                            "value": 165.92
+                        },
+                        {
+                            "species": {
+                                "species_code": "ANK",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 8.134257744971901,
+                            "value": 44.57
+                        },
+                        {
+                            "species": {
+                                "species_code": "LKT",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 37.299962380455106,
+                            "value": 479.3
+                        },
+                        {
+                            "species": {
+                                "species_code": "SYC",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 5.782659578302441,
+                            "value": 3.47
+                        },
+                        {
+                            "species": {
+                                "species_code": "CIL",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 75.39657350437818,
+                            "value": 295.57
+                        },
+                        {
+                            "species": {
+                                "species_code": "MUT",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 0.26263912555626284,
+                            "value": 1.16
+                        },
+                        {
+                            "species": {
+                                "species_code": "OUL",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 20.292127719777906,
+                            "value": 202.33
+                        },
+                        {
+                            "species": {
+                                "species_code": "OLV",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 56.48921748318098,
+                            "value": 130.48
+                        },
+                        {
+                            "species": {
+                                "species_code": "BLL",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 75.39657350437818,
+                            "value": 604.67
+                        },
+                        {
+                            "species": {
+                                "species_code": "HOM",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 98.69371352099964,
+                            "value": 100.64
+                        },
+                        {
+                            "species": {
+                                "species_code": "SRJ",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 73.38219817165353,
+                            "value": 174.65
+                        },
+                        {
+                            "species": {
+                                "species_code": "HKE",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 0.86991628214216,
+                            "value": 3.5
+                        },
+                        {
+                            "species": {
+                                "species_code": "SAA",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 75.8412533026625,
+                            "value": 65.19
+                        },
+                        {
+                            "species": {
+                                "species_code": "PAC",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 66.62793486684612,
+                            "value": 267.19
+                        },
+                        {
+                            "species": {
+                                "species_code": "MTS",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 4.346931263518145,
+                            "value": 21.64
+                        },
+                        {
+                            "species": {
+                                "species_code": "BRF",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 21.362891966956298,
+                            "value": 66.6
+                        },
+                        {
+                            "species": {
+                                "species_code": "BFT",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 361.1087797610808,
+                            "value": 3820.55
+                        },
+                        {
+                            "species": {
+                                "species_code": "SQM",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 20.292127719777906,
+                            "value": 75.53
+                        },
+                        {
+                            "species": {
+                                "species_code": "BOY",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 415.2854964316035,
+                            "value": 809.77
+                        },
+                        {
+                            "species": {
+                                "species_code": "SCK",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 14.368990497595009,
+                            "value": 96.23
+                        },
+                        {
+                            "species": {
+                                "species_code": "JDP",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 3.5054147745083544,
+                            "value": 3.34
+                        },
+                        {
+                            "species": {
+                                "species_code": "GRQ",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 56.48921748318098,
+                            "value": 221.43
+                        },
+                        {
+                            "species": {
+                                "species_code": "MAC",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 196.92835050758515,
+                            "value": 226.48
+                        },
+                        {
+                            "species": {
+                                "species_code": "ANE",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 0.6903415633175178,
+                            "value": 1.21
+                        },
+                        {
+                            "species": {
+                                "species_code": "WHB",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 29.031838937337042,
+                            "value": 33.1
+                        },
+                        {
+                            "species": {
+                                "species_code": "NEP",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 2.4365012682820235,
+                            "value": 24.16
+                        },
+                        {
+                            "species": {
+                                "species_code": "SBA",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 66.62793486684612,
+                            "value": 175.19
+                        },
+                        {
+                            "species": {
+                                "species_code": "BON",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 30.10952210428011,
+                            "value": 126.69
+                        },
+                        {
+                            "species": {
+                                "species_code": "SPC",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 3.81320111201857,
+                            "value": 12.02
+                        },
+                        {
+                            "species": {
+                                "species_code": "MON",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 8.134257744971901,
+                            "value": 44.71
+                        },
+                        {
+                            "species": {
+                                "species_code": "ARA",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 0.9754935727771219,
+                            "value": 22.13
+                        },
+                        {
+                            "species": {
+                                "species_code": "LXQ",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 3.81320111201857,
+                            "value": 9.68
+                        },
+                        {
+                            "species": {
+                                "species_code": "HKE",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 1.31119354372633,
+                            "value": 5.28
+                        },
+                        {
+                            "species": {
+                                "species_code": "SKM",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 37.299962380455106,
+                            "value": 212.97
+                        },
+                        {
+                            "species": {
+                                "species_code": "JAA",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 98.69371352099964,
+                            "value": 53.32
+                        },
+                        {
+                            "species": {
+                                "species_code": "BOG",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 114.19684280128497,
+                            "value": 75.39
+                        },
+                        {
+                            "species": {
+                                "species_code": "COE",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 128.5285970934724,
+                            "value": 196.66
+                        },
+                        {
+                            "species": {
+                                "species_code": "ANE",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 5.416263243076231,
+                            "value": 9.73
+                        },
+                        {
+                            "species": {
+                                "species_code": "HMM",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 98.69371352099964,
+                            "value": 162.85
+                        },
+                        {
+                            "species": {
+                                "species_code": "TSU",
+                                "length_class": "",
+                                "age": "",
+                                "life_stage": ""
+                            },
+                            "fleet_segment": {
+                                "gear_code": "OTB",
+                                "vessel_length_class": "",
+                                "scale": "",
+                                "country_code": "",
+                                "model": ""
+                            },
+                            "quantity": 21.362891966956298,
+                            "value": 73.88
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+  auth: inherit
