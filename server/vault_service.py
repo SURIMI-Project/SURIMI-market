@@ -31,11 +31,17 @@ class VaultService:
         secret = vault_client.secrets.kv.v2.read_secret_version(
             path=secret_path, mount_point=vault_mount)
 
-        self.aws_bucket_name = secret['data']['data']['AWS_BUCKET_NAME']
-        self.aws_acccess_key_id = secret['data']['data']['AWS_ACCESS_KEY_ID']
-        self.aws_secret_access_key = secret['data']['data']['AWS_SECRET_ACCESS_KEY']
-        self.aws_session_token = secret['data']['data']['AWS_SESSION_TOKEN']
-        self.default_region = secret['data']['data']['AWS_DEFAULT_REGION']
-        self.aws_s3_endpoint = secret['data']['data']['AWS_S3_ENDPOINT']
+        if secret['data']['data'].get('AWS_BUCKET_NAME'):
+            self.aws_bucket_name = secret['data']['data']['AWS_BUCKET_NAME']
+        if secret['data']['data'].get('AWS_ACCESS_KEY_ID'):
+            self.aws_acccess_key_id = secret['data']['data']['AWS_ACCESS_KEY_ID']
+        if secret['data']['data'].get('AWS_SECRET_ACCESS_KEY'):
+            self.aws_secret_access_key = secret['data']['data']['AWS_SECRET_ACCESS_KEY']
+        if secret['data']['data'].get('AWS_SESSION_TOKEN'):
+            self.aws_session_token = secret['data']['data']['AWS_SESSION_TOKEN']
+        if secret['data']['data'].get('AWS_BUCKET_REGION'):
+            self.default_region = secret['data']['data']['AWS_DEFAULT_REGION']
+        if secret['data']['data'].get('AWS_S3_ENDPOINT'):
+            self.aws_s3_endpoint = secret['data']['data']['AWS_S3_ENDPOINT']
 
         print(f"Loaded secrets from Vault.")
