@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import datetime
+from dateutil.relativedelta import *
 from collections import defaultdict
 from typing import Dict, Tuple
 
@@ -21,10 +22,10 @@ def _is_valid_price(price: float | None) -> bool:
 
 class Tick:
     """A per-MarketSystem time tracker."""
-    def __init__(self, start_time: datetime.datetime, step_days=30):
+    def __init__(self, start_time: datetime.datetime, step_months=1):
         self.tick = 0
         self.start_time = start_time
-        self.step_days = step_days
+        self.step_months = step_months
 
     def increase_tick(self):
         self.tick += 1
@@ -33,11 +34,12 @@ class Tick:
         return self.tick
 
     def set_timestep(self, days: int):
-        self.step_days = days
+        self.step_months = days
 
     def get_timestamp(self):
+        # TODO unit test this
         current_time = (self.start_time +
-                        datetime.timedelta(days=self.tick * self.step_days)).isoformat() + "Z"
+                        relativedelta(months=self.tick * self.step_months)).isoformat() + "Z"
         return current_time
 
     def reset(self):
@@ -69,6 +71,8 @@ class GlobalMarket:
 
     def get_global_price(self, species_code: str) -> float | None:
         return self.global_prices.get(species_code)
+    
+    # TODO the global market computations should happen here.
 
 
 class LocalMarket:
@@ -128,7 +132,7 @@ class LocalMarket:
         self.price_state[s_code] = (price, qty)
         self.local_prices[s_code] = price
 
-    def calculate_local_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
+    def calculate_market_influences_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
         """
         Lambda/theta mixing if needed (not used in currenct scenarios).
         Will only apply if global/neighbor prices are valid (not None).
@@ -161,9 +165,11 @@ class MarketSystem:
     """
     Represents the overall simulation environment for dynamic fish markets.
     Combines multiple LocalMarkets and a GlobalMarket for multi-level pricing.
+
+    TODO give the market system a better name?
     """
     def __init__(self, currency: str, start_time: datetime.datetime):
-        self.tick = Tick(step_days=30, start_time=start_time)
+        self.tick = Tick(step_months=1, start_time=start_time)
         self.currency = currency
         self.species_dict: Dict[str, Species] = {}
         self.local_markets: Dict[str, LocalMarket] = {}
@@ -194,9 +200,8 @@ class MarketSystem:
             logger.debug("No catches provided this tick (prices will remain unchanged).")
 
         self._record_catches(catches)
-        self._update_local_prices()
+        self._compute_local_prices()
         self._update_local_history()
-        self._compute_global_prices()
         self.tick.increase_tick()
 
         logger.debug("MarketSystem STEP completed")
@@ -211,8 +216,13 @@ class MarketSystem:
                 except Exception as e:
                     logger.warning(f"Error recording catch for market={m_code}, species={s_code}: {e}")
 
-    def _update_local_prices(self):
-        """Update per-market prices using Elser adjustment based on current catches."""
+    def _compute_local_prices(self):
+        """
+        Update per-market prices using Elser adjustment based on current catches.
+        
+        TODO it seems like this does not do anything, because we only get static
+             prices (issue 34: https://github.com/Official-EwE/SURIMI-market/issues/34)
+        """
         logger.info("Updating local prices using Elser adjustment...")
         for m_code, market in self.local_markets.items():
             for s_code, qty in market.monthly_catch.items():
@@ -244,7 +254,7 @@ class MarketSystem:
             )
             market.monthly_catch.clear()
 
-    def _compute_global_prices(self, save_history=True):
+    def _compute_global_prices(self):
         """
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
@@ -271,6 +281,8 @@ class MarketSystem:
                     total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0)
 
             if valid_prices:
+                # TODO improve this, as it shouldnt just do a mean of the local market prices.
+                # TODO take inflation as a parameter.
                 global_prices[s_code] = sum(valid_prices) / len(valid_prices)
                 valid_global_count += 1
             else:
@@ -282,13 +294,12 @@ class MarketSystem:
 
         self.global_market.global_prices = global_prices
 
-        if save_history:
-            self.global_market.global_price_history.append(
-                (current_tick, {
-                    "avg_prices": global_prices.copy(),
-                    "total_catches": global_catches.copy()
-                })
-            )
+        self.global_market.global_price_history.append(
+            (current_tick, {
+                "avg_prices": global_prices.copy(),
+                "total_catches": global_catches.copy()
+            })
+        )
 
         logger.debug(
             f"Global prices (tick={current_tick}): valid={valid_global_count}, missing={missing_global_count}"
@@ -299,21 +310,23 @@ class MarketSystem:
             else:
                 logger.debug(f"  {s}: None (no valid local prices)")
 
-    def _initialize_baseline_prices_from_csv(self):
+    def initialize_local_markets_baseline_prices(self):
         """
-        Fill local markets with earliest CSV price if available,
-        then compute a global baseline and fill only truly missing prices.
+        TODO Khai: Investigate what this method is doing.
+        TODO fix the naming and improve method description.
+
+        Fill local markets with earliest CSV price if available.
         """
-        logger.info("Initializing baseline prices from earliest CSV config...")
+        logger.info("Initializing baseline prices from earliest price config...")
 
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
             earliest_per_species = {}
 
-            if hasattr(market, "price_time_series") and market.price_time_series:
-                for (species_code, date), price in market.price_time_series.items():
-                    if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
-                        earliest_per_species[species_code] = (date, price)
+            for (species_code, date), price in market.price_time_series.items():
+                # TODO interpolate between the two datapoints that the date falls between.
+                if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
+                    earliest_per_species[species_code] = (date, price)
 
             for s_code in self.species_dict.keys():
                 if s_code in earliest_per_species:
@@ -323,11 +336,20 @@ class MarketSystem:
                     else:
                         logger.warning(f"CSV price is invalid for {market.market_code}/{s_code}, ignoring.")
 
+        logger.info("Local markets baseline prices initialization complete.")
+
+
+    def initialize_global_market_baseline_prices(self):
+        """
+        Compute a global baseline and fill only truly missing prices.
+        """
         # Compute initial GLOBAL baseline without recording history
         logger.info("Computing initial GLOBAL baseline from valid local markets...")
-        self._compute_global_prices(save_history=False)
 
         # Phase 3: fill missing using valid global avg
+        # TODO use actual global value instead of using global mean/avg. This
+        #      code was written probably because our data was
+        #      bad/lacking datapoints/lacking information
         for market in self.local_markets.values():
             for s_code in self.species_dict.keys():
                 if s_code not in market.local_prices:
@@ -339,7 +361,8 @@ class MarketSystem:
                             f"No CSV/global price for {market.market_code}/{s_code}, leaving as missing (None)."
                         )
 
-        logger.info("Baseline initialization complete.")
+        logger.info("Global market baseline prices initialization complete.")
+
 
     def get_species_prices_message(self):
         """

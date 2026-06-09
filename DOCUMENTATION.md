@@ -128,11 +128,13 @@ classDiagram
 
 A simulation proceeds in three phases: **Initialise**, one or more **tick iterations**, and **Finalise**. The external controller orchestrates this sequence.
 
+<!-- Ask third-part person for feedback on this diagram. -->
+
 ```mermaid
 sequenceDiagram
     participant Controller
     participant APP as App
-    participant WF as Vault
+    participant WF as VaultService
     participant MPS as MarketService
     participant SH as SimulationHandler
     participant MS as MarketSystem
@@ -142,7 +144,9 @@ sequenceDiagram
     Controller->>APP: new App()
     Controller->>APP: Initialise(simulation_id, start_date_time, time_step, simulation_contract)
     
-    WF->>WF: Upload S3 secrets to environment variables
+    APP->>WF: new VaultService()
+    WF->>WF: Get AWS S3 secrets from Hashicorp VaultService
+    APP->>MPS: new MarketService()
     MPS->>S3: download_files_from_S3("surimi-market/config")
     S3-->>MPS: config CSVs
     MPS->>SH: new SimulationHandler(simulation_id, ...)
@@ -152,7 +156,8 @@ sequenceDiagram
     SH->>SH: load_ports_from_csv()
     SH->>SH: load_prices_from_csv()
 
-    SH->>MS: _initialize_baseline_prices_from_csv()
+    SH->>MS:initialize_local_markets_baseline_prices()
+    SH->>MS:initialize_global_market_baseline_prices()
     MS->>MS: _compute_global_prices()
     SH-->>MPS: InitialiseSimulationResponse(simulation_id)
     MPS-->>APP: InitialiseSimulationResponse(simulation_id)
@@ -199,7 +204,9 @@ sequenceDiagram
     SH->>MS: export_results(simulation_id, "simulations")
     MS->>MS: write global_prices.csv
     MS->>MS: write local_prices.csv
-    MPS->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
+    MPS->>S3: upload_files_to_S3(simulations/{id}, "surimi-market/simulations/{id}")
+    S3->>WF: Get S3 secrets
+    WF-->>S3: S3 secrets
     MPS-->>APP: FinaliseResponse
     APP-->>Controller: FinaliseResponse
 ```

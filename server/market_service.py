@@ -5,14 +5,16 @@ import grpc
 from surimi.v1 import market_service_pb2_grpc, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, get_protocol_version_pb2, get_species_prices_pb2, update_sales_pb2
 from .common_functions import log_and_abort
 from src.simulation_handling import SimulationHandler
-from server.s3_storage import S3_Storage
+from server import s3_storage
 from logger import get_logger
+from vault_service import VaultService
 
 logger = get_logger("market_service")
 
 
 class MarketService(market_service_pb2_grpc.MarketServiceServicer):
-    def __init__(self, simulation_dictionary: dict[str, SimulationHandler], version: str):
+    def __init__(self, vault_service: VaultService, simulation_dictionary: dict[str, SimulationHandler], version: str):
+        self.vault_service = vault_service
         self.simulation_dictionary = simulation_dictionary
         self.version = version
 
@@ -30,7 +32,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.simulation_dictionary[request.simulation_id] = new_simulation
         logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
-        S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
+        s3_storage.download_files_from_S3(self.vault_service, "surimi-market/config", "config")
 
         return new_simulation.init_simulation(request.simulation)
 
@@ -42,10 +44,11 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
 
         # TODO: validate that the current_date_time in request matches the expected time in the simulation loop. If not, throw an error to prevent out-of-sync simulation steps.
-
+        # TODO we are not doing anything with current_date_time ??
         current_simulation = self.simulation_dictionary[request.simulation_id]
         return current_simulation.simulate_step()
 
+    # TODO why does finalise simulation not remove the simulation from simulation_dictionary?
     def FinaliseSimulation(self, request: finalise_simulation_pb2.FinaliseSimulationRequest, context: grpc.ServicerContext):
         logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
@@ -55,7 +58,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         message = current_simulation.finalise_simulation()
 
         simulation_dir = Path(__file__).parent.parent / "simulations" / request.simulation_id
-        S3_Storage.UploadFilesToS3(str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
+        s3_storage.upload_files_to_S3(self.vault_service, str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
 
         return message
 
@@ -77,14 +80,23 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         )
     
     def GetSpeciesPrices(self, request: get_species_prices_pb2.GetSpeciesPricesRequest, context: grpc.ServicerContext):
+        """
+        Send current prices to the controller.
+        """
         logger.info(f"GetSpeciesPrices for simulation {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        pricesResponse = current_simulation.update_prices()
+        pricesResponse = current_simulation.get_latest_market_prices()
         pricesResponse.simulation_id = current_simulation.simulation_id
+
+        # TODO What is the purpose of date_time if it always returns the most
+        #      recent price? Should it not be the historic time of the provided
+        #      date_time?
         pricesResponse.date_time = request.date_time.ToDatetime()
+
+        logger.info("Prices sent.")
         return pricesResponse
 
     def UpdateSales(self, request: update_sales_pb2.UpdateSalesRequest, context: grpc.ServicerContext):

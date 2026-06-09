@@ -13,18 +13,23 @@ from importlib.metadata import version, PackageNotFoundError
 from logger import get_logger
 from grpc_reflection.v1alpha import reflection
 
+from util import consts
+
 logger = get_logger("app")
 
 
 def serve():
     load_dotenv()
 
+    # TODO Talk to Rik about why the simulation_directionary belongs to app and not
+    # to MarketService
     simulation_dictionary = {}
 
-    VaultService.LoadVaultSecretsInEnvironmentVariables()
+    vault_service = VaultService()
 
-    env_vars = "\n".join(f"  {k}: {v}" for k, v in sorted(os.environ.items()))
-    logger.info(f"Environment variables:\n{env_vars}")
+    # TODO investigate why we want to show env vars
+    # env_vars = "\n".join(f"  {k}: {v}" for k, v in sorted(os.environ.items()))
+    # logger.info(f"Environment variables:\n{env_vars}")
 
     version = load_version("surimi_surimi_protocol_grpc_python")
     logger.info(f"Starting gRPC server with protocol version: {version}")
@@ -34,7 +39,7 @@ def serve():
         interceptors=[ExceptionMetadataInterceptor(), VersionMetadataInterceptor(version)]
     )
 
-    market_service = MarketService(simulation_dictionary, version)
+    market_service = MarketService(vault_service, simulation_dictionary, version)
     market_service_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
 
     # The reflection service will be aware of "MarketService" and "ServerReflection" services.
@@ -44,8 +49,8 @@ def serve():
     )
     reflection.enable_server_reflection(SERVICE_NAMES, server)
 
-    host = os.environ.get("GRPC_HOST", "[::]")
-    port = os.environ.get("GRPC_PORT", "5001")
+    host = os.environ.get("GRPC_HOST", consts.GRPC_HOST)
+    port = os.environ.get("GRPC_PORT", consts.GRPC_PORT)
     server.add_insecure_port(f"{host}:{port}")
     server.start()
 

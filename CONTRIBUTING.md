@@ -72,3 +72,15 @@ fix: add() correctly accepts floats instead of ints
 When two integers are summarised in C, the resulting data type is also an
 integer. Changing to type float correctly returns type float.
 ```
+
+
+## Coding Style
+We follow the Python naming convention. The following applies:
+
+| Keyword | Case | Example |
+|:--|:--|:--|
+| File names | `CamelCase` for class files, otherwise `snake_case` | `ValueError.py or utils.py` |
+| Variables | `snake_case` | `my_list = []` |
+| Constants | `majuscule` | `PI = 3.14` |
+| Functions | `snake_case` | `def my_func` |
+| Classes | `CamelCase` | `MarketModel` |
