@@ -219,9 +219,6 @@ class MarketSystem:
     def _compute_local_prices(self):
         """
         Update per-market prices using Elser adjustment based on current catches.
-        
-        TODO it seems like this does not do anything, because we only get static
-             prices (issue 34: https://github.com/Official-EwE/SURIMI-market/issues/34)
         """
         logger.info("Updating local prices using Elser adjustment...")
         for m_code, market in self.local_markets.items():
