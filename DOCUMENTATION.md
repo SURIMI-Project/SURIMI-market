@@ -144,9 +144,7 @@ sequenceDiagram
     Controller->>APP: new App()
     Controller->>APP: Initialise(simulation_id, start_date_time, time_step, simulation_contract)
     
-    APP->>WF: new VaultService()
-    WF->>WF: Get AWS S3 secrets from Hashicorp VaultService
-    APP->>MPS: new MarketService()
+    WF->>WF: Upload S3 secrets to environment variables
     MPS->>S3: download_files_from_S3("surimi-market/config")
     S3-->>MPS: config CSVs
     MPS->>SH: new SimulationHandler(simulation_id, ...)
@@ -204,9 +202,7 @@ sequenceDiagram
     SH->>MS: export_results(simulation_id, "simulations")
     MS->>MS: write global_prices.csv
     MS->>MS: write local_prices.csv
-    MPS->>S3: upload_files_to_S3(simulations/{id}, "surimi-market/simulations/{id}")
-    S3->>WF: Get S3 secrets
-    WF-->>S3: S3 secrets
+    MPS->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
     MPS-->>APP: FinaliseResponse
     APP-->>Controller: FinaliseResponse
 ```

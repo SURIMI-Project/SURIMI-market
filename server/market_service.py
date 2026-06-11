@@ -5,16 +5,14 @@ import grpc
 from surimi.v1 import market_service_pb2_grpc, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, get_protocol_version_pb2, get_species_prices_pb2, update_sales_pb2
 from .common_functions import log_and_abort
 from src.simulation_handling import SimulationHandler
-from server import s3_storage
+from server.s3_storage import S3_Storage
 from logger import get_logger
-from vault_service import VaultService
 
 logger = get_logger("market_service")
 
 
 class MarketService(market_service_pb2_grpc.MarketServiceServicer):
-    def __init__(self, vault_service: VaultService, simulation_dictionary: dict[str, SimulationHandler], version: str):
-        self.vault_service = vault_service
+    def __init__(self, simulation_dictionary: dict[str, SimulationHandler], version: str):
         self.simulation_dictionary = simulation_dictionary
         self.version = version
 
@@ -32,7 +30,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.simulation_dictionary[request.simulation_id] = new_simulation
         logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
-        s3_storage.download_files_from_S3(self.vault_service, "surimi-market/config", "config")
+        S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
 
         return new_simulation.init_simulation(request.simulation)
 
@@ -57,7 +55,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         message = current_simulation.finalise_simulation()
 
         simulation_dir = Path(__file__).parent.parent / "simulations" / request.simulation_id
-        s3_storage.upload_files_to_S3(self.vault_service, str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
+        S3_Storage.UploadFilesToS3(str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
 
         del self.simulation_dictionary[request.simulation_id]
 
