@@ -12,6 +12,7 @@ from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import market_service_pb2, simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, update_sales_pb2
 from logger import get_logger
 from util import consts
+from util.MarketError import MarketError
 
 class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -153,6 +154,19 @@ class SimulationHandler:
 
         new_entries = 0
 
+
+        # Validate the markets' existence.
+        market_sales = request.sales_summary.market_sales
+        markets_existence = [s.market_code in self.local_market_dict
+                             for s in request.sales_summary.market_sales]
+
+
+        if not all(markets_existence):
+            return None, MarketError(
+                status_code=grpc.StatusCode.FAILED_PRECONDITION,
+                message="At least one local market does not exist."
+            )
+
         for summary in request.sales_summary.market_sales:
             market_code = summary.market_code
 
@@ -173,7 +187,7 @@ class SimulationHandler:
         self.logger.info(f"Processed {new_entries} sales.")
         self.logger.info(f"Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
-        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
+        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), None
 
     def load_species_from_csv(self):
         """

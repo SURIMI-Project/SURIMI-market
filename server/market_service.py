@@ -104,4 +104,8 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        return current_simulation.update_sales(request)
+        val, err = current_simulation.update_sales(request)
+        if err is not None:
+            log_and_abort(context, err.status_code, err.message)
+        else:
+            return val
