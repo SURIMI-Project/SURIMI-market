@@ -4,6 +4,7 @@ import datetime
 from dateutil.relativedelta import *
 from collections import defaultdict
 from typing import Dict, Tuple
+from itertools import product
 
 from surimi.v1 import species_price_pb2, market_service_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -66,11 +67,11 @@ class GlobalMarket:
     """
     def __init__(self, species_dict):
         self.species_dict = species_dict
-        self.global_prices: Dict[str, float | None] = {}
+        self.global_prices: Dict[tuple[str, str], float | None] = {}
         self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
-    def get_global_price(self, species_code: str) -> float | None:
-        return self.global_prices.get(species_code)
+    def get_global_price(self, species_code: str, gear_code: str) -> float | None:
+        return self.global_prices.get((species_code, gear_code))
     
     # TODO the global market computations should happen here.
 
@@ -103,11 +104,11 @@ class LocalMarket:
         self.theta_mix = theta_mix
 
         self.species_dict = global_market.species_dict  # shared reference
-        self.monthly_catch: Dict[str, float] = defaultdict(float)
-        self.local_prices: Dict[str, float | None] = {}  # species_code -> price or None
+        self.monthly_catch: Dict[tuple[str, str], float] = defaultdict(float)
+        self.local_prices: Dict[tuple[str, str], float | None] = {}  # species_code -> price or None
 
         # Price memory for Elser adjustment
-        self.price_state: Dict[str, Tuple[float, float]] = {}  # species_code -> (last_price, last_quantity)
+        self.price_state: Dict[tuple[str, str], Tuple[float, float]] = {}  # species_code -> (last_price, last_quantity)
 
         # History
         self.price_history = []  # [(tick, {"prices": {...}, "catches": {...}})]
@@ -115,19 +116,19 @@ class LocalMarket:
         # Holds historical CSV prices: (species_code, date) -> price
         self.price_time_series = {}
 
-    def get_last_state(self, s_code: str) -> Tuple[float, float]:
+    def get_last_state(self, s_code: str, g_code) -> Tuple[float, float]:
         """
         If no price state yet, fallback to initial price if available, otherwise price=1.0, qty=1.
         """
-        if s_code not in self.price_state:
-            init_price = self.local_prices.get(s_code, 1.0)
+        if (s_code, g_code) not in self.price_state:
+            init_price = self.local_prices.get((s_code, g_code), 1.0)
             return init_price, 1.0
-        return self.price_state[s_code]
+        return self.price_state[(s_code, g_code)]
 
-    def set_new_state(self, s_code: str, price: float, qty: float):
+    def set_new_state(self, s_code: str, g_code: str, price: float, qty: float):
         """Save updated price state for next tick."""
-        self.price_state[s_code] = (price, qty)
-        self.local_prices[s_code] = price
+        self.price_state[(s_code, g_code)] = (price, qty)
+        self.local_prices[(s_code, g_code)] = price
 
     def calculate_market_influences_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
         """
@@ -196,34 +197,23 @@ class MarketSystem:
         if not catches:
             logger.debug("No catches provided this tick (prices will remain unchanged).")
 
-        self._compute_local_prices()
+        self.compute_local_prices()
         self._update_local_history()
         self.tick.increase_tick()
 
         logger.debug("MarketSystem STEP completed")
 
-    def _record_catches(self, catches: list):
-        """Record monthly catches from a list of tuples: (market_code, species_code, qty)"""
-        logger.info("Recording monthly catches...")
-        for m_code, s_code, qty in catches:
-            if m_code in self.local_markets:
-                try:
-                    self.local_markets[m_code].record_monthly_catch(s_code, qty)
-                except Exception as e:
-                    logger.warning(f"Error recording catch for market={m_code}, species={s_code}: {e}")
-
-    def _compute_local_prices(self):
+    def compute_local_prices(self):
         """
         Update per-market prices using Elser adjustment based on current catches.
         """
         logger.info("Updating local prices using Elser adjustment...")
         for m_code, market in self.local_markets.items():
-            for s_code, qty in market.monthly_catch.items():
+            for (s_code, g_code), qty in market.monthly_catch.items():
                 try:
-                    last_price, last_qty = market.get_last_state(s_code)
-                    epsilon = self.species_dict[s_code].epsilon
+                    last_price, last_qty = market.get_last_state(s_code, g_code)
                     new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
-                    market.set_new_state(s_code, new_price, qty)
+                    market.set_new_state(s_code, g_code, new_price, qty)
                 except Exception as e:
                     logger.warning(f"Error updating price for market={m_code}, species={s_code}: {e}")
 
@@ -247,7 +237,7 @@ class MarketSystem:
             )
             market.monthly_catch.clear()
 
-    def _compute_global_prices(self):
+    def compute_global_prices(self, gear_codes: list[str]):
         """
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
@@ -261,29 +251,36 @@ class MarketSystem:
         valid_global_count = 0
         missing_global_count = 0
 
-        for s_code in self.species_dict.keys():
+        # Species prices depend on the gear code, so we a use Cartesian product
+        # to combine them.
+        lookup_keys = list(product(self.species_dict.keys(), gear_codes))
+
+        for key in lookup_keys:
+            # key[n] = (species_code, gear_code)
             valid_prices = []
             total_catch = 0.0
 
             for m in self.local_markets.values():
-                price = m.local_prices.get(s_code)
+                price = m.local_prices.get(key)
                 if _is_valid_price(price):
                     valid_prices.append(price)
 
-                if m.price_history:
-                    total_catch += m.price_history[-1][1]["catches"].get(s_code, 0.0)
+                if len(m.price_history) > 0:
+                    # TODO investigate whether this actually works.
+                    # TODO if the price is invalid, why do we still append to total catches?
+                    total_catch += m.price_history[-1][1]["catches"].get(key, 0.0)
 
-            if valid_prices:
+            if len(valid_prices) > 0:
                 # TODO improve this, as it shouldnt just do a mean of the local market prices.
                 # TODO take inflation as a parameter.
-                global_prices[s_code] = sum(valid_prices) / len(valid_prices)
+                global_prices[key] = sum(valid_prices) / len(valid_prices)
                 valid_global_count += 1
             else:
-                global_prices[s_code] = None
+                global_prices[key] = None
                 missing_global_count += 1
 
             if total_catch > 0:
-                global_catches[s_code] = total_catch
+                global_catches[key] = total_catch
 
         self.global_market.global_prices = global_prices
 
@@ -303,7 +300,7 @@ class MarketSystem:
             else:
                 logger.debug(f"  {s}: None (no valid local prices)")
 
-    def initialize_local_markets_baseline_prices(self):
+    def initialize_local_markets_baseline_prices(self, gear_codes: list[str]):
         """
         TODO Khai: Investigate what this method is doing.
         TODO fix the naming and improve method description.
@@ -312,27 +309,31 @@ class MarketSystem:
         """
         logger.info("Initializing baseline prices from earliest price config...")
 
+        # Species prices depend on the gear code, so we a use Cartesian product
+        # to combine them.
+        lookup_keys = list(product(self.species_dict.keys(), gear_codes))
+
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
             earliest_per_species = {}
 
-            for (species_code, date), price in market.price_time_series.items():
+            for (species_code, gear_code, date), price in market.price_time_series.items():
                 # TODO interpolate between the two datapoints that the date falls between.
                 if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
-                    earliest_per_species[species_code] = (date, price)
+                    earliest_per_species[(species_code, gear_code)] = (date, price)
 
-            for s_code in self.species_dict.keys():
-                if s_code in earliest_per_species:
-                    _, price = earliest_per_species[s_code]
+            for lookup_key in lookup_keys:
+                if lookup_key in earliest_per_species:
+                    _, price = earliest_per_species[lookup_key]
                     if _is_valid_price(price):
-                        market.local_prices[s_code] = price
+                        market.local_prices[lookup_key] = price
                     else:
-                        logger.warning(f"CSV price is invalid for {market.market_code}/{s_code}, ignoring.")
+                        logger.warning(f"CSV price is invalid for {market.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
 
         logger.info("Local markets baseline prices initialization complete.")
 
 
-    def initialize_global_market_baseline_prices(self):
+    def populate_missing_local_prices(self, gear_codes: list[str]):
         """
         Compute a global baseline and fill only truly missing prices.
         """
@@ -344,17 +345,17 @@ class MarketSystem:
         #      code was written probably because our data was
         #      bad/lacking datapoints/lacking information
         for market in self.local_markets.values():
-            for s_code in self.species_dict.keys():
-                if s_code not in market.local_prices:
-                    global_fallback = self.global_market.get_global_price(s_code)
+            for (s_code, g_code) in product(self.species_dict.keys(), gear_codes):
+                if (s_code, g_code) not in market.local_prices:
+                    global_fallback = self.global_market.get_global_price(s_code, g_code)
                     if _is_valid_price(global_fallback):
-                        market.local_prices[s_code] = global_fallback
+                        market.local_prices[(s_code, g_code)] = global_fallback
                     else:
                         logger.warning(
                             f"No CSV/global price for {market.market_code}/{s_code}, leaving as missing (None)."
                         )
 
-        logger.info("Global market baseline prices initialization complete.")
+        logger.info("Missing local prices are populated with global prices.")
 
 
     def get_species_prices_message(self):
@@ -408,26 +409,26 @@ class MarketSystem:
         # 1) Export GLOBAL prices
         global_path = output_folder / "global_prices.csv"
         with global_path.open("w", newline="") as f:
-            f.write("tick,species,avg_price,total_catch\n")
+            f.write("tick,species,gear_code,avg_price,total_catch\n")
             for tick_id, data in self.global_market.global_price_history:
                 avg_prices = data["avg_prices"]
                 total_catches = data["total_catches"]
-                for s_code, avg_price in avg_prices.items():
+                for (s_code, gear_code), avg_price in avg_prices.items():
                     total_catch = total_catches.get(s_code, 0.0)
                     avg_price_str = "" if avg_price is None else f"{avg_price:.4f}"
-                    f.write(f"{tick_id},{s_code},{avg_price_str},{total_catch:.4f}\n")
+                    f.write(f"{tick_id},{s_code},{gear_code},{avg_price_str},{total_catch:.4f}\n")
 
         # 2) Export LOCAL market history
         local_path = output_folder / "local_prices.csv"
         with local_path.open("w", newline="") as f:
-            f.write("tick,market,species,price,catch\n")
+            f.write("tick,market,species,gear_code,price,catch\n")
             for m_code, market in self.local_markets.items():
                 for tick_id, snapshot in market.price_history:
                     prices = snapshot["prices"]
                     catches = snapshot["catches"]
-                    for s_code, price in prices.items():
+                    for (s_code, gear_code), price in prices.items():
                         catch_val = catches.get(s_code, 0.0)
                         price_str = "" if price is None else f"{price:.4f}"
-                        f.write(f"{tick_id},{m_code},{s_code},{price_str},{catch_val:.4f}\n")
+                        f.write(f"{tick_id},{m_code},{s_code},{gear_code},{price_str},{catch_val:.4f}\n")
 
         logger.info(f"Export complete for simulation {simulation_id}")
