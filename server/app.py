@@ -1,6 +1,10 @@
 import os
 import signal
 import grpc
+import argparse
+import sys
+from pathlib import Path
+
 
 from concurrent import futures
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
@@ -10,16 +14,16 @@ from surimi.v1 import market_service_pb2_grpc, market_service_pb2
 from vault_service import VaultService
 from dotenv import load_dotenv
 from importlib.metadata import version, PackageNotFoundError
-from logger import get_logger
+import logging
+
 from grpc_reflection.v1alpha import reflection
 
 from util import consts
 
-logger = get_logger("app")
-
-
 def serve():
     load_dotenv()
+    logger = logging.getLogger("app")
+
 
     # TODO Talk to Rik about why the simulation_directionary belongs to app and not
     # to MarketService
@@ -29,7 +33,7 @@ def serve():
 
     # TODO investigate why we want to show env vars
     env_vars = "\n".join(f"  {k}: {v}" for k, v in sorted(os.environ.items()))
-    logger.info(f"Environment variables:\n{env_vars}")
+    logger.debug(f"Environment variables:\n{env_vars}")
 
     version = load_version("surimi_surimi_protocol_grpc_python")
     logger.info(f"Starting gRPC server with protocol version: {version}")
@@ -77,6 +81,54 @@ def load_version(package_name: str) -> str:
     except PackageNotFoundError:
         return "unknown"
 
-    
+def configure_logging(is_debug_enabled: bool):
+    print("Configuring logger.basicConfig()")
+    _LOG_DIR = Path(__file__).resolve().parent / "logs"
+    _LOG_DIR.mkdir(exist_ok=True)
+
+    _FORMAT = "%(asctime)s %(levelname)-8s %(name)s - %(message)s"
+    _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+    logging.basicConfig(
+        level=logging.DEBUG if is_debug_enabled else logging.INFO,
+        format=_FORMAT,
+        datefmt=_DATE_FORMAT,
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(_LOG_DIR / "surimi.log"),
+        ],
+    )
+
+def parse_cli():
+    parser = argparse.ArgumentParser(
+        description="""The Market model is a dynamic, supply driven model.
+        
+        The primary goal of this interface is to enable the debug mode."""
+    )
+
+    parser.add_argument(
+        "-v", "--version",
+        help="Print the current version",
+        action="store_true"
+    )
+
+    parser.add_argument(
+        "-d", "--debug",
+        help="Enable debug mode. This prints verbose debug messages",
+        action="store_true"
+    )
+
+    args = parser.parse_args()
+
+    if args.version:
+        print(load_version("surimi_surimi_protocol_grpc_python"))
+        sys.exit(0)
+
+
+    else:
+        configure_logging(args.debug)
+        serve()
+
+
 if __name__ == "__main__":
-    serve()
+    parse_cli()

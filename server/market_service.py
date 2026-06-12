@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
@@ -6,18 +7,18 @@ from surimi.v1 import market_service_pb2_grpc, initialise_simulation_pb2, simula
 from .common_functions import log_and_abort
 from src.simulation_handling import SimulationHandler
 from server.s3_storage import S3_Storage
-from logger import get_logger
 
-logger = get_logger("market_service")
+LOGGER_NAME = "market_service"
 
 
 class MarketService(market_service_pb2_grpc.MarketServiceServicer):
     def __init__(self, simulation_dictionary: dict[str, SimulationHandler], version: str):
         self.simulation_dictionary = simulation_dictionary
         self.version = version
+        self.logger = logging.getLogger(LOGGER_NAME)
 
     def InitialiseSimulation(self, request: initialise_simulation_pb2.InitialiseSimulationRequest, context: grpc.ServicerContext):
-        logger.info("Initialise...")
+        self.logger.info("Initialise...")
         if request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.simulation_id} already exists.")
 
@@ -28,18 +29,18 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         new_simulation = SimulationHandler(request.simulation_id, request.scenario_name, request.simulation.start_date_time.ToDatetime(), request.simulation.time_step)
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
-        logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
+        self.logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
         S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
 
         return new_simulation.init_simulation(request.simulation)
 
     def SimulateStep(self, request: simulate_step_pb2.SimulateStepRequest, context: grpc.ServicerContext):
-        logger.info(f"SimulateStep of Simulation ID: {request.simulation_id}.")
+        self.logger.info(f"SimulateStep of Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
-        logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
+        self.logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
 
         # TODO: validate that the current_date_time in request matches the expected time in the simulation loop. If not, throw an error to prevent out-of-sync simulation steps.
         # TODO we are not doing anything with current_date_time ??
@@ -47,7 +48,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         return current_simulation.simulate_step()
 
     def FinaliseSimulation(self, request: finalise_simulation_pb2.FinaliseSimulationRequest, context: grpc.ServicerContext):
-        logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
+        self.logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
@@ -62,7 +63,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         return message
 
     def CancelSimulation(self, request: cancel_simulation_pb2.CancelSimulationRequest, context: grpc.ServicerContext):
-        logger.info(f"Cancel Simulation ID: {request.simulation_id}.")
+        self.logger.info(f"Cancel Simulation ID: {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
@@ -82,7 +83,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         """
         Send current prices to the controller.
         """
-        logger.info(f"GetSpeciesPrices for simulation {request.simulation_id}.")
+        self.logger.info(f"GetSpeciesPrices for simulation {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
 
@@ -95,11 +96,11 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         #      date_time?
         pricesResponse.date_time = request.date_time.ToDatetime()
 
-        logger.info("Prices sent.")
+        self.logger.info("Prices sent.")
         return pricesResponse
 
     def UpdateSales(self, request: update_sales_pb2.UpdateSalesRequest, context: grpc.ServicerContext):
-        logger.info(f"UpdateSales for simulation {request.simulation_id}.")
+        self.logger.info(f"UpdateSales for simulation {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
             log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
 

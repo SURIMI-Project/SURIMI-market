@@ -5,12 +5,12 @@ import threading
 import csv
 import os
 from collections import defaultdict
+import logging
 
 import grpc
 
 from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import market_service_pb2, simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, update_sales_pb2
-from logger import get_logger
 from util import consts
 from util.MarketError import MarketError
 
@@ -27,7 +27,7 @@ class SimulationHandler:
         self.start_time = start_time
         self.step_size = step_size
 
-        self.logger = get_logger(f"simulation.{simulation_id}")
+        self.logger = logging.getLogger(f"simulation.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
@@ -192,7 +192,9 @@ class SimulationHandler:
                 local_market.add_monthly_catch(species_code, gear_code, quantity)
                 new_entries += 1
 
-                self.logger.info(
+                # Use only for debugging. This is a very expensive operation.
+                # Optionally, comment it out.
+                self.logger.debug(
                     f"Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg"
                 )
 

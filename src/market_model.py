@@ -6,17 +6,16 @@ from collections import defaultdict
 from typing import Dict, Tuple
 from itertools import product
 import threading
+import logging
 
-from surimi.v1 import species_price_pb2, market_service_pb2, species_pb2, get_species_prices_pb2
+from surimi.v1 import species_price_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
-from logger import get_logger
 
 # Define repo root & setup import/export paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "pb"))
 
-logger = get_logger("market_model")
-
+LOGGER_NAME = "market_model"
 
 def _is_valid_price(price: float | None) -> bool:
     return price is not None and price > 0
@@ -187,6 +186,7 @@ class MarketSystem:
         self.species_dict: Dict[str, Species] = {}
         self.local_markets: Dict[str, LocalMarket] = {}
         self.global_market = GlobalMarket(self.species_dict)
+        self.logger = logging.getLogger(LOGGER_NAME)
 
     def add_species(self, species: Species):
         self.species_dict[species.code] = species
@@ -203,17 +203,18 @@ class MarketSystem:
         4) Compute global prices
         5) Advance simulation tick
         """
-        logger.debug(f"MarketSystem STEP triggered — {len(catches)} catch entries")
+        self.logger.debug(f"MarketSystem STEP triggered — {len(catches)} catch entries")
+
         for m, s, q in catches:
-            logger.debug(f"  Market={m}, Species={s}, Qty={q:.2f} kg")
+            self.logger.debug(f"  Market={m}, Species={s}, Qty={q:.2f} kg")
         if not catches:
-            logger.debug("No catches provided this tick (prices will remain unchanged).")
+            self.logger.debug("No catches provided this tick (prices will remain unchanged).")
 
         self.compute_local_prices()
         self._update_local_history()
         self.tick.increase_tick()
 
-        logger.debug("MarketSystem STEP completed")
+        self.logger.debug("MarketSystem STEP completed")
 
     def compute_local_prices(self):
         """
@@ -227,7 +228,7 @@ class MarketSystem:
                     new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
                     market.set_new_state(s_code, g_code, new_price, qty)
                 except Exception as e:
-                    logger.warning(f"Error updating price for market={m_code}, species={s_code}: {e}")
+                    self.logger.warning(f"Error updating price for market={m_code}, species={s_code}: {e}")
 
     def _update_local_history(self):
         """
@@ -235,7 +236,7 @@ class MarketSystem:
         for each local market at the current tick,
         then clear monthly_catch for the next month.
         """
-        logger.info("Snapshotting local history and clearing monthly catches...")
+        self.logger.info("Snapshotting local history and clearing monthly catches...")
         current_tick = self.tick.get_tick()
         for market in self.local_markets.values():
             market.price_history.append(
@@ -255,7 +256,7 @@ class MarketSystem:
         - Ignores markets with missing prices (None).
         - If no valid local prices exist, global price = None.
         """
-        logger.info("Computing global average prices...")
+        self.logger.info("Computing global average prices...")
         current_tick = self.tick.get_tick()
         global_prices = {}
         global_catches = {}
@@ -303,14 +304,14 @@ class MarketSystem:
             })
         )
 
-        logger.debug(
+        self.logger.debug(
             f"Global prices (tick={current_tick}): valid={valid_global_count}, missing={missing_global_count}"
         )
         for s, p in global_prices.items():
             if p is not None:
-                logger.debug(f"  {s}: {p:.2f} EUR/kg")
+                self.logger.debug(f"  {s}: {p:.2f} EUR/kg")
             else:
-                logger.debug(f"  {s}: None (no valid local prices)")
+                self.logger.debug(f"  {s}: None (no valid local prices)")
 
     def initialize_local_markets_baseline_prices(self, gear_codes: list[str]):
         """
@@ -319,7 +320,7 @@ class MarketSystem:
 
         Fill local markets with earliest CSV price if available.
         """
-        logger.info("Initializing baseline prices from earliest price config...")
+        self.logger.info("Initializing baseline prices from earliest price config...")
 
         # Species prices depend on the gear code, so we a use Cartesian product
         # to combine them.
@@ -340,9 +341,9 @@ class MarketSystem:
                     if _is_valid_price(price):
                         market.local_prices[lookup_key] = price
                     else:
-                        logger.warning(f"CSV price is invalid for {market.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
+                        self.logger.warning(f"CSV price is invalid for {market.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
 
-        logger.info("Local markets baseline prices initialization complete.")
+        self.logger.info("Local markets baseline prices initialization complete.")
 
 
     def populate_missing_local_prices(self, gear_codes: list[str]):
@@ -350,7 +351,7 @@ class MarketSystem:
         Compute a global baseline and fill only truly missing prices.
         """
         # Compute initial GLOBAL baseline without recording history
-        logger.info("Computing initial GLOBAL baseline from valid local markets...")
+        self.logger.info("Computing initial GLOBAL baseline from valid local markets...")
 
         # Phase 3: fill missing using valid global avg
         # TODO use actual global value instead of using global mean/avg. This
@@ -363,11 +364,11 @@ class MarketSystem:
                     if _is_valid_price(global_fallback):
                         market.local_prices[(s_code, g_code)] = global_fallback
                     else:
-                        logger.warning(
+                        self.logger.debug(
                             f"No CSV/global price for {market.market_code}/{s_code}, leaving as missing (None)."
                         )
 
-        logger.info("Missing local prices are populated with global prices.")
+        self.logger.info("Missing local prices are populated with global prices.")
 
 
     def get_species_prices_message(self):
@@ -397,11 +398,11 @@ class MarketSystem:
                     messages.append(message)
                 else:
                     missing_count += 1
-                    logger.debug(f"{species.code}@{market.market_code} has no valid price, skipped")
+                    self.logger.debug(f"{species.code}@{market.market_code} has no valid price, skipped")
 
         total_species = len(self.species_dict)
         total_markets = len(self.local_markets)
-        logger.info(
+        self.logger.info(
             f"Price summary — species: {total_species}, markets: {total_markets}, "
             f"combinations: {total_species * total_markets}, valid: {valid_count}, missing: {missing_count}"
         )
@@ -443,4 +444,4 @@ class MarketSystem:
                         price_str = "" if price is None else f"{price:.4f}"
                         f.write(f"{tick_id},{m_code},{s_code},{gear_code},{price_str},{catch_val:.4f}\n")
 
-        logger.info(f"Export complete for simulation {simulation_id}")
+        self.logger.info(f"Export complete for simulation {simulation_id}")
