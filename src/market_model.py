@@ -5,6 +5,7 @@ from dateutil.relativedelta import *
 from collections import defaultdict
 from typing import Dict, Tuple
 from itertools import product
+import threading
 
 from surimi.v1 import species_price_pb2, market_service_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -104,7 +105,7 @@ class LocalMarket:
         self.theta_mix = theta_mix
 
         self.species_dict = global_market.species_dict  # shared reference
-        self.monthly_catch: Dict[tuple[str, str], float] = defaultdict(float)
+        self._monthly_catch: Dict[tuple[str, str], float] = defaultdict(float)
         self.local_prices: Dict[tuple[str, str], float | None] = {}  # species_code -> price or None
 
         # Price memory for Elser adjustment
@@ -115,6 +116,20 @@ class LocalMarket:
 
         # Holds historical CSV prices: (species_code, date) -> price
         self.price_time_series = {}
+
+        self.lock = threading.Lock()
+
+    def add_monthly_catch(self, species_code, gear_code, quantity):
+        with self.lock:
+            self._monthly_catch[(species_code, gear_code)] += quantity
+
+    def clear_monthly_catch(self):
+        with self.lock:
+            self._monthly_catch.clear()
+    
+    def get_monthly_catch_snapshot(self):
+        with self.lock:
+            return self._monthly_catch.copy()
 
     def get_last_state(self, s_code: str, g_code) -> Tuple[float, float]:
         """
@@ -179,9 +194,6 @@ class MarketSystem:
     def add_local_market(self, market: object):
         self.local_markets[market.market_code] = market
 
-    def catch_by_species(self, market_code: str, species_code: str, quantity: float):
-        self.local_markets[market_code].record_monthly_catch(species_code, quantity)
-
     def step(self, catches: list):
         """
         One monthly update step:
@@ -231,11 +243,11 @@ class MarketSystem:
                     current_tick,
                     {
                         "prices": market.local_prices.copy(),
-                        "catches": market.monthly_catch.copy()
+                        "catches": market.get_monthly_catch_snapshot()
                     }
                 )
             )
-            market.monthly_catch.clear()
+            market.clear_monthly_catch()
 
     def compute_global_prices(self, gear_codes: list[str]):
         """

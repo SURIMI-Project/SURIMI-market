@@ -189,9 +189,7 @@ class SimulationHandler:
                 quantity = sale.quantity
                 gear_code = sale.fleet_segment.gear_code
 
-
-                # TODO re: race condition. Not threadsafe.
-                self.local_market.monthly_catch[species_code] += quantity
+                local_market.add_monthly_catch(species_code, gear_code, quantity)
                 new_entries += 1
 
                 self.logger.info(
