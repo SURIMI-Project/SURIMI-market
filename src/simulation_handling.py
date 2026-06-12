@@ -169,15 +169,20 @@ class SimulationHandler:
 
         for summary in request.sales_summary.market_sales:
             market_code = summary.market_code
+            local_market = self.local_market_dict.get(market_code)
+
+            if local_market is None:
+                assert local_market, f"Local market {local_market} does not exist. This should not happen."
+                continue
 
             for sale in summary.sales:
                 species_code = sale.species.species_code
                 quantity = sale.quantity
                 gear_code = sale.fleet_segment.gear_code
 
-                key = (market_code, species_code)
+
                 # TODO re: race condition. Not threadsafe.
-                self.pending_catch_dict[key] += quantity
+                self.local_market.monthly_catch[species_code] += quantity
                 new_entries += 1
 
                 self.logger.info(

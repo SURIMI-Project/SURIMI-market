@@ -103,7 +103,7 @@ class LocalMarket:
         self.theta_mix = theta_mix
 
         self.species_dict = global_market.species_dict  # shared reference
-        self.monthly_catch = defaultdict(float)
+        self.monthly_catch: Dict[str, float] = defaultdict(float)
         self.local_prices: Dict[str, float | None] = {}  # species_code -> price or None
 
         # Price memory for Elser adjustment
@@ -114,9 +114,6 @@ class LocalMarket:
 
         # Holds historical CSV prices: (species_code, date) -> price
         self.price_time_series = {}
-
-    def record_monthly_catch(self, species_code: str, quantity: float):
-        self.monthly_catch[species_code] += quantity
 
     def get_last_state(self, s_code: str) -> Tuple[float, float]:
         """
@@ -199,7 +196,6 @@ class MarketSystem:
         if not catches:
             logger.debug("No catches provided this tick (prices will remain unchanged).")
 
-        self._record_catches(catches)
         self._compute_local_prices()
         self._update_local_history()
         self.tick.increase_tick()
