@@ -1,10 +1,8 @@
 import os
 import hvac
+import logging
 
-from logger import get_logger
-
-logger = get_logger("VaultService")
-
+LOGGER_NAME = "VaultService"
 
 class VaultService:
     """
@@ -24,6 +22,8 @@ class VaultService:
         The other secrets are from the `.env` file or retrieved by other means,
         e.g. users manually configuring them in the shell.
         """
+        logger = logging.getLogger(LOGGER_NAME)
+        
         vault_addr = os.environ.get("VAULT_ADDR")
         vault_token = os.environ.get("VAULT_TOKEN")
         vault_top_dir = os.environ.get("VAULT_TOP_DIR")
