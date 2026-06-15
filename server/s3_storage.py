@@ -5,46 +5,6 @@ import boto3
 class S3_Storage:
     # TODO there is no reason why need a class. If the requirements in fact tell
     #      us to include a class, then there is no need to create a static class
-    # TODO design and implement an approach to skip S3 connection alltogether
-    def UploadFilesToS3(self, source_directory, destination_directory):
-        if not os.environ.get('AWS_BUCKET_NAME'):
-            print("AWS_BUCKET_NAME environment variable not set. Aborting S3 upload.")
-            return
-
-        if not os.environ.get('AWS_ACCESS_KEY_ID'):
-            print("AWS_ACCESS_KEY_ID environment variable not set. Aborting S3 upload.")
-            return
-
-        bucket_name = os.environ.get('AWS_BUCKET_NAME') 
-
-        print(f"Uploading files from {source_directory} to S3...")
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-            aws_session_token = os.environ.get('AWS_SESSION_TOKEN'),
-            region_name=os.environ.get('AWS_DEFAULT_REGION'),
-            endpoint_url= "https://" + os.environ.get('AWS_S3_ENDPOINT')
-        )
-
-        print(f"Using S3 bucket: {bucket_name} and S3 directory: {destination_directory} and local output directory: {source_directory}")
-
-        try:
-            for root, dirs, files in os.walk(source_directory):
-                for file in files:
-                    if file.endswith(".bin"):
-                        continue  # Skip .bin files
-                    print(f"Uploading {file} from {root} to S3...")
-                    local_path = Path(root) / file
-                    # Compute the S3 key by replacing the local_sim_dir part with s3_sim_dir
-                    relative_path = local_path.relative_to(source_directory)
-                    s3_key = f"{destination_directory}/{relative_path.as_posix()}"
-                    print(f"Upload {local_path} to s3://{bucket_name}/{s3_key}")
-                    s3.upload_file(str(local_path), bucket_name, s3_key)
-        except Exception as e:
-            print(f"Error uploading files to S3: {e}")
-
-
     def DownloadFilesFromS3(source_directory, destination_directory):
         """
         Download all files from the given S3 source_directory (prefix) to the local destination_directory.
