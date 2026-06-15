@@ -5,13 +5,14 @@ import threading
 import csv
 import os
 from collections import defaultdict
+import logging
 
 import grpc
 
 from src.market_model import MarketSystem, LocalMarket, Species
 from surimi.v1 import market_service_pb2, simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, update_sales_pb2
-from logger import get_logger
 from util import consts
+from util.MarketError import MarketError
 
 class SimulationHandler:
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
@@ -26,7 +27,7 @@ class SimulationHandler:
         self.start_time = start_time
         self.step_size = step_size
 
-        self.logger = get_logger(f"simulation.{simulation_id}")
+        self.logger = logging.getLogger(f"simulation.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
@@ -34,6 +35,7 @@ class SimulationHandler:
         # Internal dictionaries for quick reference
         self.species_dict = {}
         self.local_market_dict = {}
+        self.gear_codes = []
 
         # Threading event for blocking control
         self.update_event = threading.Event()
@@ -73,12 +75,16 @@ class SimulationHandler:
         self.load_ports_from_csv()
         self.load_prices_from_csv()
 
+        # Get all unique gear codes from the contract.
+        gear_codes = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
+        gear_codes = set(gear_codes)
+        
         # Initialise baseline prices
-        self.market_system.initialize_local_markets_baseline_prices()
-        self.market_system.initialize_global_market_baseline_prices()
+        self.market_system.initialize_local_markets_baseline_prices(gear_codes)
         
         # Elser et al. assumes that the global market price is static.
-        self.market_system._compute_global_prices()
+        self.market_system.compute_global_prices(gear_codes)
+        self.market_system.populate_missing_local_prices(gear_codes)
 
         # Checks if the species in the configs are in the contract. If some
         # aren't, then fill these in so no species are missing.
@@ -92,6 +98,10 @@ class SimulationHandler:
             raise ValueError(
                 f"Species codes from simulation contract not found in loaded species configuration: {missing_species}"
             )
+        
+        # Tick 0, i.e. the initial tick, stores the prices from configuration.
+        self.market_system._update_local_history()
+        self.market_system.tick.increase_tick()
 
         self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
         return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id)
@@ -114,10 +124,10 @@ class SimulationHandler:
         self.logger.info("Simulate step triggered...")
         self._step_in_progress = True
         try:
-            catches = [(m, s, qty) for (m, s), qty in self.pending_catch_dict.items()]
+            catches = [(m, s, gc, qty) for (m, s, gc), qty in self.pending_catch_dict.items()]
             self.market_system.step(catches)
 
-            total_qty = sum(qty for _, _, qty in catches)
+            total_qty = sum(qty for _, _, _, qty in catches)
             self.logger.info(f"Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
 
             # TODO need to make sure that values are nullified
@@ -138,7 +148,7 @@ class SimulationHandler:
         self.latest_market_prices = self.market_system.get_species_prices_message()
         return self.latest_market_prices
 
-    def update_sales(self, request: update_sales_pb2.UpdateSalesRequest):
+    def update_sales(self, request: update_sales_pb2.UpdateSalesRequest) -> tuple[update_sales_pb2.UpdateSalesResponse, MarketError]:
         """
         Receives external sales (catches) from controller.
         Aggregates them into pending_catch_dict for this tick.
@@ -153,27 +163,45 @@ class SimulationHandler:
 
         new_entries = 0
 
+
+        # Validate the markets' existence.
+        market_sales = request.sales_summary.market_sales
+        markets_existence = [s.market_code in self.local_market_dict
+                             for s in request.sales_summary.market_sales]
+
+
+        if not all(markets_existence):
+            return None, MarketError(
+                status_code=grpc.StatusCode.FAILED_PRECONDITION,
+                message="At least one local market does not exist."
+            )
+
         for summary in request.sales_summary.market_sales:
             market_code = summary.market_code
+            local_market = self.local_market_dict.get(market_code)
+
+            if local_market is None:
+                assert local_market, f"Local market {local_market} does not exist. This should not happen."
+                continue
 
             for sale in summary.sales:
                 species_code = sale.species.species_code
                 quantity = sale.quantity
                 gear_code = sale.fleet_segment.gear_code
 
-                key = (market_code, species_code)
-                # TODO re: race condition. Not threadsafe.
-                self.pending_catch_dict[key] += quantity
+                local_market.add_monthly_catch(species_code, gear_code, quantity)
                 new_entries += 1
 
-                self.logger.info(
+                # Use only for debugging. This is a very expensive operation.
+                # Optionally, comment it out.
+                self.logger.debug(
                     f"Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg"
                 )
 
         self.logger.info(f"Processed {new_entries} sales.")
         self.logger.info(f"Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
-        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id)
+        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), None
 
     def load_species_from_csv(self):
         """
@@ -256,6 +284,9 @@ class SimulationHandler:
                 price = float(row["price"])
                 currency = row["currency"].strip()
 
+                # TODO include gear code in the calculation.
+                gear_code = row["gear_code"].strip()
+
                 # TODO check if this is broken.
                 if currency != consts.SUPPORTED_CURRENCY:
                     self.logger.warning(f"SimulationHandler.load_prices_from_csv(): Currency {currency} was loaded, but only {consts.SUPPORTED_CURRENCY} is supported!")
@@ -266,8 +297,8 @@ class SimulationHandler:
                     self.logger.warning(f"Market '{market_code}' not found. Skipping price row.")
                     continue
 
-                market.price_time_series[(species_code, date)] = price
-
+                # TODO include gear code
+                market.price_time_series[(species_code, gear_code, date)] = price
 
 def ignore_non_csv(dir, files):
     return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}
