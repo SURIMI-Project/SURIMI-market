@@ -9,8 +9,10 @@ import logging
 
 import grpc
 
-from src.market_model import MarketSystem, LocalMarket, Species
-from surimi.v1 import market_service_pb2, simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, update_sales_pb2
+from src.MarketSystem import MarketSystem
+from src.Species import Species
+from src.LocalMarket import LocalMarket
+from surimi.v1 import simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, update_sales_pb2
 from util import consts
 from util.MarketError import MarketError
 

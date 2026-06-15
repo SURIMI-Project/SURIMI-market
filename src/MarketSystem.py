@@ -1,206 +1,16 @@
 import sys
 from pathlib import Path
 import datetime
-from dateutil.relativedelta import *
-from collections import defaultdict
-from typing import Dict, Tuple
-from itertools import product
-import threading
 import logging
+from itertools import product
 
 from surimi.v1 import species_price_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
-# Define repo root & setup import/export paths
-BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(BASE_DIR / "pb"))
-
-LOGGER_NAME = "market_model"
-
-def _is_valid_price(price: float | None) -> bool:
-    return price is not None and price > 0
-
-
-class Tick:
-    """A per-MarketSystem time tracker."""
-    def __init__(self, start_time: datetime.datetime, step_months=1):
-        self.tick = 0
-        self.start_time = start_time
-        self.step_months = step_months
-
-    def increase_tick(self):
-        self.tick += 1
-
-    def get_tick(self):
-        return self.tick
-
-    def set_timestep(self, days: int):
-        self.step_months = days
-
-    def get_timestamp(self):
-        # TODO unit test this
-        current_time = (self.start_time +
-                        relativedelta(months=self.tick * self.step_months)).isoformat() + "Z"
-        return current_time
-
-    def reset(self):
-        self.tick = 0
-        self.start_time = datetime.datetime.utcnow()
-
-
-class Species:
-    """
-    Represents a species traded in the market.
-    Maintains epsilon for price elasticity.
-    Price path memory is handled per LocalMarket.
-    """
-    def __init__(self, species_name: str, species_code: str, epsilon=0.5):
-        self.name = species_name
-        self.code = species_code
-        self.epsilon = epsilon
-
-
-class GlobalMarket:
-    """
-    Represents the global market context, computing global species prices
-    as an average of valid local prices (preliminary solution).
-    """
-    def __init__(self, species_dict):
-        self.species_dict = species_dict
-        self.global_prices: Dict[tuple[str, str], float | None] = {}
-        self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
-
-    def get_global_price(self, species_code: str, gear_code: str) -> float | None:
-        return self.global_prices.get((species_code, gear_code))
-    
-    # TODO the global market computations should happen here.
-
-
-class LocalMarket:
-    """
-    Represents a local fish market identified by a market code (UN/LOCODE).
-    Computes local prices influenced by local supply, global prices (lambda_mix),
-    and neighboring markets (theta_mix).
-
-    Attributes:
-        market_code (str): ISO 3166-1 alpha-2 + 3-letter port code.
-        global_market (GlobalMarket): Reference to the shared global market.
-        lambda_mix (float): Influence of global price on local price [0, 1].
-        theta_mix (float): Influence of neighboring markets on local price [0, 1].
-        Todo: Think about how to calibrate market influence through
-            - lambda_mix: this will be especially relevant when dealing with the fleets from EwE, as they are not selling to specific local markets at the moment.
-            - theta_mix: this might require some spatial representation of the market locations.
-    """
-
-    def __init__(self, market_code: str, global_market: object,
-                 name: str = None, lon: float = None, lat: float = None,
-                 lambda_mix=0.0, theta_mix=0.0):
-        self.market_code = market_code
-        self.market_name = name
-        self.lon = lon
-        self.lat = lat
-        self.global_market = global_market
-        self.lambda_mix = lambda_mix
-        self.theta_mix = theta_mix
-
-        self.species_dict = global_market.species_dict  # shared reference
-        self._monthly_catch: Dict[tuple[str, str], float] = defaultdict(float)
-        self.local_prices: Dict[tuple[str, str], float | None] = {}  # species_code -> price or None
-
-        # Price memory for Elser adjustment
-        self.price_state: Dict[tuple[str, str], Tuple[float, float]] = {}  # species_code -> (last_price, last_quantity)
-
-        # History
-        self.price_history = []  # [(tick, {"prices": {...}, "catches": {...}})]
-
-        # Holds historical CSV prices: (species_code, date) -> price
-        self.price_time_series = {}
-
-        self.lock = threading.Lock()
-        self.logger = logging.getLogger("LocalMarket")
-
-    def add_monthly_catch(self, species_code, gear_code, quantity):
-        with self.lock:
-            self._monthly_catch[(species_code, gear_code)] += quantity
-
-    def clear_monthly_catch(self):
-        with self.lock:
-            self._monthly_catch.clear()
-    
-    def get_monthly_catch_snapshot(self):
-        with self.lock:
-            return self._monthly_catch.copy()
-
-    def get_last_state(self, s_code: str, g_code) -> Tuple[float, float]:
-        """
-        If no price state yet, fallback to initial price if available, otherwise price=1.0, qty=1.
-        """
-        if (s_code, g_code) not in self.price_state:
-            init_price = self.local_prices.get((s_code, g_code), 1.0)
-            return init_price, 1.0
-        return self.price_state[(s_code, g_code)]
-
-    def set_new_state(self, s_code: str, g_code: str, price: float, qty: float):
-        """Save updated price state for next tick."""
-        self.price_state[(s_code, g_code)] = (price, qty)
-        self.local_prices[(s_code, g_code)] = price
-
-    def calculate_market_influences_price(self, species_code: str = None, other_market_avg: Dict[str, float] = None):
-        """
-        Lambda/theta mixing if needed (not used in currenct scenarios).
-        Will only apply if global/neighbor prices are valid (not None).
-        """
-        prices = {}
-        species_to_process = [species_code] if species_code else list(self.species_dict.keys())
-        for code in species_to_process:
-            p_local = self.local_prices.get(code)
-            if p_local is None:
-                continue
-
-            if self.lambda_mix > 0:
-                p_global = self.global_market.get_global_price(code)
-                if _is_valid_price(p_global):
-                    p_local = (1 - self.lambda_mix) * p_local + self.lambda_mix * p_global
-
-            if other_market_avg and self.theta_mix > 0:
-                p_other = other_market_avg.get(code, p_local)
-                if _is_valid_price(p_other):
-                    p_local = (1 - self.theta_mix) * p_local + self.theta_mix * p_other
-
-            self.local_prices[code] = p_local
-            prices[code] = p_local
-
-        self.price_history.append((len(self.price_history), {"prices": self.local_prices.copy()}))
-        return prices
-    
-    def set_initial_price_to_earliest_available(self, species: list[str], gear_codes: list[str]):
-        """
-        Fill local markets with earliest price if available.
-
-        On initialising the local market, we receive a list of datapoints for
-        this market. The purpose of this method is to 
-        """
-        self.logger.info("Initializing baseline prices from earliest price config...")
-
-        # Species prices depend on the gear code, so we a use Cartesian product
-        # to combine them.
-        lookup_keys = list(product(species, gear_codes))
-
-        # Phase 1: fill from CSV if available
-        earliest_per_species = {}
-
-        for (species_code, gear_code, date), price in self.price_time_series.items():
-            # TODO interpolate between the two datapoints that the date falls between.
-            if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
-                earliest_per_species[(species_code, gear_code)] = (date, price)
-
-        for lookup_key in lookup_keys:
-            if lookup_key in earliest_per_species:
-                _, price = earliest_per_species[lookup_key]
-                if _is_valid_price(price):
-                    self.local_prices[lookup_key] = price
-                else:
-                    self.logger.warning(f"CSV price is invalid for {self.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
+from .Species import Species
+from .Tick import Tick
+from .LocalMarket import LocalMarket
+from .GlobalMarket import GlobalMarket
 
 class MarketSystem:
     """
@@ -212,10 +22,10 @@ class MarketSystem:
     def __init__(self, currency: str, start_time: datetime.datetime):
         self.tick = Tick(step_months=1, start_time=start_time)
         self.currency = currency
-        self.species_dict: Dict[str, Species] = {}
-        self.local_markets: Dict[str, LocalMarket] = {}
+        self.species_dict: dict[str, Species] = {}
+        self.local_markets: dict[str, LocalMarket] = {}
         self.global_market = GlobalMarket(self.species_dict)
-        self.logger = logging.getLogger(LOGGER_NAME)
+        self.logger = logging.getLogger("MarketSystem")
 
     def add_species(self, species: Species):
         self.species_dict[species.code] = species
@@ -305,7 +115,7 @@ class MarketSystem:
 
             for m in self.local_markets.values():
                 price = m.local_prices.get(key)
-                if _is_valid_price(price):
+                if price is not None and price > 0:
                     valid_prices.append(price)
 
                 if len(m.price_history) > 0:
@@ -375,7 +185,7 @@ class MarketSystem:
             for (s_code, g_code) in product(self.species_dict.keys(), gear_codes):
                 if (s_code, g_code) not in market.local_prices:
                     global_fallback = self.global_market.get_global_price(s_code, g_code)
-                    if _is_valid_price(global_fallback):
+                    if global_fallback is not None and global_fallback > 0:
                         market.local_prices[(s_code, g_code)] = global_fallback
                     else:
                         self.logger.debug(
@@ -430,7 +240,11 @@ class MarketSystem:
         Export final simulation results to:
         <BASE_DIR>/<folder_path>/<simulation_id>/global_prices.csv
         """
-        output_folder = BASE_DIR / folder_path / simulation_id
+        # Define repo root & setup import/export paths
+        base_dir = Path(__file__).resolve().parent.parent
+        sys.path.insert(0, str(base_dir / "pb"))
+
+        output_folder = base_dir / folder_path / simulation_id
         output_folder.mkdir(parents=True, exist_ok=True)
 
         # 1) Export GLOBAL prices
