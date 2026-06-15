@@ -5,12 +5,19 @@ It holds the source code of the SURIMI Market model
 ## Contents:
 - [gRPC interface in BSR](#grpc-interface-in-buf-schemaregistry)
 - [Create a docker image](#create-a-docker-image)
+- [SDK notice](#watch-out-check-that-you-are-using-the-sdk-version-v1701)
+- [Usage](#usage)
+- [Create a Docker image](#create-a-docker-image)
+- [Config files Synchronisation from the SURIMI-western_med repo](#config-files-synchronisation-from-the-surimi-western_med-repo)
+- [Virtual Environment](#virtual-environment)
 - [SURIMI](#surimi)
   - [Market Model](#market-model)
     - [Object Graph](#object-graph)
     - [Notation](#notation)
     - [Hypothesis](#hypothesis)
   - [Links](#links)
+- [Troubleshooting](#troubleshooting)
+
 
 ## gRPC interface in Buf Schema Registry
 The gRPC interface is descibed by  protobuf files that are stored in https://github.com/Official-EwE/SURIMI-protocol
@@ -27,7 +34,6 @@ To use the interface in this Python project you have to use the generated proxy 
 When you want to install a new version of the gRPC interface you go to https://buf.build/surimi/surimi-protocol/sdks/main:grpc/python?version=v1.70.1
 Copy the line, but without the "python3 -m " part and run in a terminal.
 
-
 For example
 ```bash
 PS C:\Users\Rik\source\repos\SURIMI-market> pip install surimi-surimi-protocol-grpc-python==1.70.1.1.20250626155734+d9c7c394022e --extra-index-url https://buf.build/gen/python
@@ -36,7 +42,34 @@ PS C:\Users\Rik\source\repos\SURIMI-market> pip install surimi-surimi-protocol-g
 The layout of the version number is explained in https://buf.build/docs/bsr/generated-sdks/python/?h=python#full-syntax
 
 
-Remember to also update the requirements file.txt.
+Remember to also update the `requirements.txt`.
+
+## Usage
+The program can be executed as follows:
+
+1. Activate the virtual environment and install dependencies (more details in [Virtual Environment](#virtual-environment)).
+2. Run the program:
+   Windows:
+   ```
+   $env:PYTHONPATH="."
+   python -u server/app.py
+   ```
+   
+   MacOS/Linux:
+   ```
+   PYTHONPATH='.' python -u server/app.py
+   ```
+
+> It is important that the PYTHONPATH environment variable is defined.
+
+The project provides a set of convinience scripts, e.g. creating virtual environments and executing the program. They are found in [`scripts/`](./scripts/).
+
+You can run the program with verbose output using the `--debug` flag. This can be useful for troubleshooting. Example:
+
+```
+python server/app.py --debug
+```
+
 
 ## Create a docker image
 
@@ -155,11 +188,11 @@ The European Union’s (EU) Mission ‘Restore our Ocean and Waters’ by 2030, 
 
 SURIMI is a 3-year project (2024-2027) that will feed into the EU DTO. SURIMI’s mission is to build partnerships with stakeholders from industry, science, policy, and society to develop nine socio-ecological models for integration into the EU DTO. With access to ecological and fisheries data alongside economic and social data, SURIMI will use Large Language Models to improve the EU DTO’s ability to support informed decision-making and policy development in marine management strategy evaluation analyses in European waters.
 
-# Market Model
+## Market Model
 
 Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
 
-## Object Graph
+### Object Graph
 
 ```tree
 ── MarketModel   
@@ -171,7 +204,7 @@ Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
             └── species_price_params, catch, etc.  
 ```
 
-## Notation
+### Notation
 
 - *N* = Biomass
 - *C* = Catch
@@ -183,7 +216,7 @@ Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
 - *d* = price for fish on local market
 - *ϵ* = elasticity of demand
 
-## Hypothesis  
+### Hypothesis  
 
 - Global market is assumed to have constant prices with prices, as price does not change when catch quantity changes.  
 *P*<sub>*ig*</sub> = *p*
@@ -192,13 +225,13 @@ Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
 - The local market have an elasticity of *ϵ* = 1 / ln( *p* / *d* )
 
 
-## Links
+### Links
 
 - [Project website](www.surimi-project.eu)
 - [Twitter](https://x.com/surimi_project)
 - [LinkedIn](https://www.linkedin.com/company/surimi-project/)
 
-## Notes from Ernesto
+### Notes from Ernesto
 
 log(p) = elasticity*log(q) + C
 log(p) = alpha*log(catch_local) + beta * log(catch_total) + C
@@ -216,4 +249,14 @@ P = MC (perfect competition)
 - Attention --> pricing might be affected by processing (tons of fish after skinning etc.), there is not a 1 to 1 from bought to sold
   - there are tables from the european union on this, something. Check if there is paper Brian reed powers (ask nick)
  
-## 
+## Troubleshooting
+Problem: I get the following error:
+
+```
+Traceback (most recent call last):
+  File "path\to\SURIMI-market\server\app.py", line 3, in <module>
+    import grpc
+ModuleNotFoundError: No module named 'grpc'
+```
+
+Ensure that the virtual environment is activated and dependencies from `requirements.txt` are installed. The `PYTHONPATH` virtual environment must also be defined.
