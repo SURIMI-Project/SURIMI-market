@@ -90,68 +90,27 @@ class MarketSystem:
             )
             market.clear_monthly_catch()
 
-    def compute_global_prices(self, gear_codes: list[str]):
+    def update_global_price_history(self,  gear_codes: list[str]):
         """
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
         - If no valid local prices exist, global price = None.
         """
         self.logger.info("Computing global average prices...")
+
+        prices, catches = self.global_market.compute_prices(
+            local_markets=self.local_markets,
+            species_codes=self.species_dict.keys(),
+            gear_codes=gear_codes
+        )
+
         current_tick = self.tick.get_tick()
-        global_prices = {}
-        global_catches = {}
-
-        valid_global_count = 0
-        missing_global_count = 0
-
-        # Species prices depend on the gear code, so we a use Cartesian product
-        # to combine them.
-        lookup_keys = list(product(self.species_dict.keys(), gear_codes))
-
-        for key in lookup_keys:
-            # key[n] = (species_code, gear_code)
-            valid_prices = []
-            total_catch = 0.0
-
-            for m in self.local_markets.values():
-                price = m.local_prices.get(key)
-                if price is not None and price > 0:
-                    valid_prices.append(price)
-
-                if len(m.price_history) > 0:
-                    # TODO investigate whether this actually works.
-                    # TODO if the price is invalid, why do we still append to total catches?
-                    total_catch += m.price_history[-1][1]["catches"].get(key, 0.0)
-
-            if len(valid_prices) > 0:
-                # TODO improve this, as it shouldnt just do a mean of the local market prices.
-                # TODO take inflation as a parameter.
-                global_prices[key] = sum(valid_prices) / len(valid_prices)
-                valid_global_count += 1
-            else:
-                global_prices[key] = None
-                missing_global_count += 1
-
-            if total_catch > 0:
-                global_catches[key] = total_catch
-
-        self.global_market.global_prices = global_prices
-
         self.global_market.global_price_history.append(
             (current_tick, {
-                "avg_prices": global_prices.copy(),
-                "total_catches": global_catches.copy()
+                "avg_prices": prices,
+                "total_catches": catches
             })
         )
-
-        self.logger.debug(
-            f"Global prices (tick={current_tick}): valid={valid_global_count}, missing={missing_global_count}"
-        )
-        for s, p in global_prices.items():
-            if p is not None:
-                self.logger.debug(f"  {s}: {p:.2f} EUR/kg")
-            else:
-                self.logger.debug(f"  {s}: None (no valid local prices)")
 
     def set_local_market_initial_price(self, gear_codes: list[str]):
         """
@@ -170,21 +129,23 @@ class MarketSystem:
         self.logger.info("Local markets baseline prices initialization complete.")
 
 
-    def populate_missing_local_prices(self, gear_codes: list[str]):
+    def set_missing_local_prices_with_global_fallback(self, gear_codes: list[str]):
         """
-        Compute a global baseline and fill only truly missing prices.
-        """
-        # Compute initial GLOBAL baseline without recording history
-        self.logger.info("Computing initial GLOBAL baseline from valid local markets...")
+        If there is no local price for a species, use the global price as
+        a fallback.
 
+        The most recent global price is used as the fallback price.
+        """
         # Phase 3: fill missing using valid global avg
         # TODO use actual global value instead of using global mean/avg. This
         #      code was written probably because our data was
         #      bad/lacking datapoints/lacking information
         for market in self.local_markets.values():
+
+            # Prices depend on both species code and gear code
             for (s_code, g_code) in product(self.species_dict.keys(), gear_codes):
                 if (s_code, g_code) not in market.local_prices:
-                    global_fallback = self.global_market.get_global_price(s_code, g_code)
+                    global_fallback = self.global_market.get_most_recent_price(s_code, g_code)
                     if global_fallback is not None and global_fallback > 0:
                         market.local_prices[(s_code, g_code)] = global_fallback
                     else:

@@ -87,8 +87,8 @@ class SimulationHandler:
         self.market_system.set_local_market_initial_price(gear_codes)
         
         # Elser et al. assumes that the global market price is static.
-        self.market_system.compute_global_prices(gear_codes)
-        self.market_system.populate_missing_local_prices(gear_codes)
+        self.market_system.update_global_price_history(gear_codes)
+        self.market_system.set_missing_local_prices_with_global_fallback(gear_codes)
 
         # Checks if the species in the configs are in the contract. If some
         # aren't, then fill these in so no species are missing.
