@@ -55,9 +55,6 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         current_simulation = self.simulation_dictionary[request.simulation_id]
         message = current_simulation.finalise_simulation()
 
-        simulation_dir = Path(__file__).parent.parent / "simulations" / request.simulation_id
-        S3_Storage.UploadFilesToS3(str(simulation_dir), f"surimi-market/simulations/{request.simulation_id}")
-
         del self.simulation_dictionary[request.simulation_id]
 
         return message
