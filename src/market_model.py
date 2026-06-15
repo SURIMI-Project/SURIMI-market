@@ -117,6 +117,7 @@ class LocalMarket:
         self.price_time_series = {}
 
         self.lock = threading.Lock()
+        self.logger = logging.getLogger("LocalMarket")
 
     def add_monthly_catch(self, species_code, gear_code, quantity):
         with self.lock:
@@ -171,7 +172,35 @@ class LocalMarket:
 
         self.price_history.append((len(self.price_history), {"prices": self.local_prices.copy()}))
         return prices
+    
+    def set_initial_price_to_earliest_available(self, species: list[str], gear_codes: list[str]):
+        """
+        Fill local markets with earliest price if available.
 
+        On initialising the local market, we receive a list of datapoints for
+        this market. The purpose of this method is to 
+        """
+        self.logger.info("Initializing baseline prices from earliest price config...")
+
+        # Species prices depend on the gear code, so we a use Cartesian product
+        # to combine them.
+        lookup_keys = list(product(species, gear_codes))
+
+        # Phase 1: fill from CSV if available
+        earliest_per_species = {}
+
+        for (species_code, gear_code, date), price in self.price_time_series.items():
+            # TODO interpolate between the two datapoints that the date falls between.
+            if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
+                earliest_per_species[(species_code, gear_code)] = (date, price)
+
+        for lookup_key in lookup_keys:
+            if lookup_key in earliest_per_species:
+                _, price = earliest_per_species[lookup_key]
+                if _is_valid_price(price):
+                    self.local_prices[lookup_key] = price
+                else:
+                    self.logger.warning(f"CSV price is invalid for {self.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
 
 class MarketSystem:
     """
@@ -222,7 +251,7 @@ class MarketSystem:
         """
         self.logger.info("Updating local prices using Elser adjustment...")
         for m_code, market in self.local_markets.items():
-            for (s_code, g_code), qty in market.monthly_catch.items():
+            for (s_code, g_code), qty in market.get_monthly_catch_snapshot().items():
                 try:
                     last_price, last_qty = market.get_last_state(s_code, g_code)
                     epsilon = self.species_dict[s_code].epsilon
@@ -314,35 +343,19 @@ class MarketSystem:
             else:
                 self.logger.debug(f"  {s}: None (no valid local prices)")
 
-    def initialize_local_markets_baseline_prices(self, gear_codes: list[str]):
+    def set_local_market_initial_price(self, gear_codes: list[str]):
         """
-        TODO Khai: Investigate what this method is doing.
-        TODO fix the naming and improve method description.
+        Set local markets with earliest price if available.
 
-        Fill local markets with earliest CSV price if available.
+        On initialising a local market, we receive a list of datapoints for
+        this market. The purpose of this method is to set each local market's
+        initial species price to the earliest available.
         """
         self.logger.info("Initializing baseline prices from earliest price config...")
 
-        # Species prices depend on the gear code, so we a use Cartesian product
-        # to combine them.
-        lookup_keys = list(product(self.species_dict.keys(), gear_codes))
-
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
-            earliest_per_species = {}
-
-            for (species_code, gear_code, date), price in market.price_time_series.items():
-                # TODO interpolate between the two datapoints that the date falls between.
-                if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
-                    earliest_per_species[(species_code, gear_code)] = (date, price)
-
-            for lookup_key in lookup_keys:
-                if lookup_key in earliest_per_species:
-                    _, price = earliest_per_species[lookup_key]
-                    if _is_valid_price(price):
-                        market.local_prices[lookup_key] = price
-                    else:
-                        self.logger.warning(f"CSV price is invalid for {market.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
+            market.set_initial_price_to_earliest_available(self.species_dict.keys(), gear_codes)
 
         self.logger.info("Local markets baseline prices initialization complete.")
 

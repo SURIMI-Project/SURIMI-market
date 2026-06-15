@@ -82,7 +82,7 @@ class SimulationHandler:
         gear_codes = set(gear_codes)
         
         # Initialise baseline prices
-        self.market_system.initialize_local_markets_baseline_prices(gear_codes)
+        self.market_system.set_local_market_initial_price(gear_codes)
         
         # Elser et al. assumes that the global market price is static.
         self.market_system.compute_global_prices(gear_codes)
