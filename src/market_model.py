@@ -220,11 +220,12 @@ class MarketSystem:
         """
         Update per-market prices using Elser adjustment based on current catches.
         """
-        logger.info("Updating local prices using Elser adjustment...")
+        self.logger.info("Updating local prices using Elser adjustment...")
         for m_code, market in self.local_markets.items():
             for (s_code, g_code), qty in market.monthly_catch.items():
                 try:
                     last_price, last_qty = market.get_last_state(s_code, g_code)
+                    epsilon = self.species_dict[s_code].epsilon
                     new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
                     market.set_new_state(s_code, g_code, new_price, qty)
                 except Exception as e:
