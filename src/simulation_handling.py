@@ -256,7 +256,7 @@ class SimulationHandler:
 
                 market = LocalMarket(
                     market_code=code,
-                    global_market=self.market_system.global_market,
+                    species_dict=self.species_dict,
                     name=name,
                     lon=lon,
                     lat=lat
