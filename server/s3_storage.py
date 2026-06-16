@@ -18,10 +18,10 @@ class S3_Storage:
         logger = logging.getLogger(LOGGER_NAME)
 
         bucket_name = os.environ.get('AWS_BUCKET_NAME')
-        access_key_id = os.environ.get('AWS_ACCESS_KEY_ID'),
-        secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY'),
-        session_token = os.environ.get('AWS_SESSION_TOKEN'),
-        default_region = os.environ.get('AWS_DEFAULT_REGION'),
+        access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+        secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+        session_token = os.environ.get('AWS_SESSION_TOKEN')
+        default_region = os.environ.get('AWS_DEFAULT_REGION')
         s3_endpoint = os.environ.get('AWS_S3_ENDPOINT')
 
         # Mandatory variable
@@ -66,7 +66,8 @@ class S3_Storage:
 
 
         # Optional variable
-        if len(session_token.strip()) <= 0:
+        # Note: session token can be None
+        if session_token is not None and len(session_token.strip()) <= 0:
             # The session token is optional, but if it is empty, it is a sign that
             # something went wrong.
             assert True, "Environment variable 'AWS_SESSION_TOKEN' is empty. Even though it is optional, it should not white characters only."
@@ -82,7 +83,7 @@ class S3_Storage:
             region_name=default_region,
             endpoint_url="https://" + s3_endpoint
         )
-
+ 
         paginator = s3.get_paginator('list_objects_v2')
         try:
             for page in paginator.paginate(Bucket=bucket_name, Prefix=source_directory):
