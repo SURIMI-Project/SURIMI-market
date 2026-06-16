@@ -4,7 +4,6 @@ import shutil
 import threading
 import csv
 import os
-from collections import defaultdict
 import logging
 
 import grpc
@@ -42,10 +41,6 @@ class SimulationHandler:
         # Cached message for latest prices
         # TODO what is the purpose of this?
         self.latest_market_prices = None
-
-        # Aggregated catches for the current tick
-        # key = (market_code, species_code) -> total quantity
-        self.pending_catch_dict = defaultdict(float)
 
         # Flag to detect concurrent SimulateStep and UpdateSales calls
         # TODO why not use mutex?
@@ -131,14 +126,8 @@ class SimulationHandler:
         self.logger.info("Simulate step triggered...")
         self._step_in_progress = True
         try:
-            catches = [(m, s, gc, qty) for (m, s, gc), qty in self.pending_catch_dict.items()]
-            self.market_system.step(catches)
+            self.market_system.step()
 
-            total_qty = sum(qty for _, _, _, qty in catches)
-            self.logger.info(f"Processed {len(catches)} market/species pairs, total_qty={total_qty:.2f} kg")
-
-            # TODO need to make sure that values are nullified
-            self.pending_catch_dict.clear()
         finally:
             self._step_in_progress = False
 
@@ -158,22 +147,13 @@ class SimulationHandler:
     def update_sales(self, request: update_sales_pb2.UpdateSalesRequest) -> tuple[update_sales_pb2.UpdateSalesResponse, MarketError]:
         """
         Receives external sales (catches) from controller.
-        Aggregates them into pending_catch_dict for this tick.
         """
         self.logger.info("Sales update received...")
-
-        # TODO handle race condition gracefully.
-        if self._step_in_progress:
-            self.logger.warning(
-                "UpdateSales called while SimulateStep is in progress. Sale may be lost."
-            )
-
         new_entries = 0
-
 
         # Validate the markets' existence.
         market_sales = request.sales_summary.market_sales
-        markets_existence = [s.market_code in self.local_market_dict
+        markets_existence = [s.market_code in self.market_system.local_markets
                              for s in request.sales_summary.market_sales]
 
 
@@ -206,7 +186,6 @@ class SimulationHandler:
                 )
 
         self.logger.info(f"Processed {new_entries} sales.")
-        self.logger.info(f"Currently buffered {len(self.pending_catch_dict)} unique market/species combos.")
 
         return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), None
 
