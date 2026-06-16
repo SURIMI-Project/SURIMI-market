@@ -7,7 +7,6 @@ from itertools import product
 from surimi.v1 import species_price_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from .Species import Species
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .GlobalMarket import GlobalMarket
@@ -22,13 +21,11 @@ class MarketSystem:
     def __init__(self, currency: str, start_time: datetime.datetime):
         self.tick = Tick(step_months=1, start_time=start_time)
         self.currency = currency
-        self.species_dict: dict[str, Species] = {}
+        self.species_codes: list[str] = {}
         self.local_markets: dict[str, LocalMarket] = {}
-        self.global_market = GlobalMarket(self.species_dict)
+        self.global_market = GlobalMarket()
+        self.gear_codes_contract: list[str] = []
         self.logger = logging.getLogger("MarketSystem")
-
-    def add_species(self, species: Species):
-        self.species_dict[species.code] = species
 
     def add_local_market(self, market: object):
         self.local_markets[market.market_code] = market
@@ -50,7 +47,7 @@ class MarketSystem:
             self.logger.debug("No catches provided this tick (prices will remain unchanged).")
 
         self.compute_local_prices()
-        self._update_local_history()
+        self.update_local_history()
         self.tick.increase_tick()
 
         self.logger.debug("MarketSystem STEP completed")
@@ -60,17 +57,17 @@ class MarketSystem:
         Update per-market prices using Elser adjustment based on current catches.
         """
         self.logger.info("Updating local prices using Elser adjustment...")
+        epsilon = 0.5
         for m_code, market in self.local_markets.items():
             for (s_code, g_code), qty in market.get_monthly_catch_snapshot().items():
                 try:
                     last_price, last_qty = market.get_last_state(s_code, g_code)
-                    epsilon = self.species_dict[s_code].epsilon
                     new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
                     market.set_new_state(s_code, g_code, new_price, qty)
                 except Exception as e:
                     self.logger.warning(f"Error updating price for market={m_code}, species={s_code}: {e}")
 
-    def _update_local_history(self):
+    def update_local_history(self):
         """
         After updating prices, snapshot both prices and catches
         for each local market at the current tick,
@@ -90,7 +87,7 @@ class MarketSystem:
             )
             market.clear_monthly_catch()
 
-    def update_global_price_history(self,  gear_codes: list[str]):
+    def update_global_price_history(self):
         """
         Compute global average prices and total catches across all local markets.
         - Ignores markets with missing prices (None).
@@ -100,8 +97,8 @@ class MarketSystem:
 
         prices, catches = self.global_market.compute_prices(
             local_markets=self.local_markets,
-            species_codes=self.species_dict.keys(),
-            gear_codes=gear_codes
+            species_codes=self.species_codes,
+            gear_codes=self.gear_codes_contract
         )
 
         current_tick = self.tick.get_tick()
@@ -112,7 +109,7 @@ class MarketSystem:
             })
         )
 
-    def set_local_market_initial_price(self, gear_codes: list[str]):
+    def set_local_market_initial_price(self):
         """
         Set local markets with earliest price if available.
 
@@ -124,12 +121,12 @@ class MarketSystem:
 
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
-            market.set_initial_price_to_earliest_available(self.species_dict.keys(), gear_codes)
+            market.set_initial_price_to_earliest_available(self.species_codes, self.gear_codes_contract)
 
         self.logger.info("Local markets baseline prices initialization complete.")
 
 
-    def set_missing_local_prices_with_global_fallback(self, gear_codes: list[str]):
+    def set_missing_local_prices_with_global_fallback(self):
         """
         If there is no local price for a species, use the global price as
         a fallback.
@@ -143,7 +140,7 @@ class MarketSystem:
         for market in self.local_markets.values():
 
             # Prices depend on both species code and gear code
-            for (s_code, g_code) in product(self.species_dict.keys(), gear_codes):
+            for (s_code, g_code) in product(self.species_codes, self.gear_codes_contract):
                 if (s_code, g_code) not in market.local_prices:
                     global_fallback = self.global_market.get_most_recent_price(s_code, g_code)
                     if global_fallback is not None and global_fallback > 0:
@@ -168,14 +165,14 @@ class MarketSystem:
         valid_count = 0
         missing_count = 0
 
-        for species in self.species_dict.values():
+        for s_code in self.species_codes:
             for market in self.local_markets.values():
-                price = market.local_prices.get(species.code)
+                price = market.local_prices.get(s_code)
 
                 if price is not None:
                     valid_count += 1
                     message = species_price_pb2.SpeciesPrice(
-                        species=species_pb2.Species(species_code=species.code),
+                        species=species_pb2.Species(species_code=s_code),
                         market_code=market.market_code,
                         price=price,
                         currency=self.currency
@@ -183,9 +180,9 @@ class MarketSystem:
                     messages.append(message)
                 else:
                     missing_count += 1
-                    self.logger.debug(f"{species.code}@{market.market_code} has no valid price, skipped")
+                    self.logger.debug(f"{s_code}@{market.market_code} has no valid price, skipped")
 
-        total_species = len(self.species_dict)
+        total_species = len(self.species_codes)
         total_markets = len(self.local_markets)
         self.logger.info(
             f"Price summary — species: {total_species}, markets: {total_markets}, "

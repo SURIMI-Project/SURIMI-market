@@ -13,7 +13,6 @@ class LocalMarket:
 
     Attributes:
         market_code (str): ISO 3166-1 alpha-2 + 3-letter port code.
-        global_market (GlobalMarket): Reference to the shared global market.
         lambda_mix (float): Influence of global price on local price [0, 1].
         theta_mix (float): Influence of neighboring markets on local price [0, 1].
         Todo: Think about how to calibrate market influence through
@@ -21,7 +20,7 @@ class LocalMarket:
             - theta_mix: this might require some spatial representation of the market locations.
     """
 
-    def __init__(self, market_code: str, species_dict: dict[str, Species],
+    def __init__(self, market_code: str,
                  name: str = None, lon: float = None, lat: float = None,
                  lambda_mix=0.0, theta_mix=0.0):
         self.market_code = market_code
@@ -31,7 +30,6 @@ class LocalMarket:
         self.lambda_mix = lambda_mix
         self.theta_mix = theta_mix
 
-        self.species_dict = species_dict  # shared reference
         self._monthly_catch: dict[tuple[str, str], float] = defaultdict(float)
         self.local_prices: dict[tuple[str, str], float | None] = {}  # species_code -> price or None
 

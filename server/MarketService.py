@@ -4,7 +4,7 @@ import logging
 from google.protobuf.timestamp_pb2 import Timestamp
 import grpc
 from surimi.v1 import market_service_pb2_grpc, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, get_protocol_version_pb2, get_species_prices_pb2, update_sales_pb2
-from src.simulation_handling import SimulationHandler
+from src.SimulationHandler import SimulationHandler
 from server.s3_storage import S3_Storage
 
 LOGGER_NAME = "market_service"

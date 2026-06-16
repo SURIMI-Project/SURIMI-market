@@ -10,7 +10,6 @@ import logging
 import grpc
 
 from src.MarketSystem import MarketSystem
-from src.Species import Species
 from src.LocalMarket import LocalMarket
 from surimi.v1 import simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, update_sales_pb2
 from util import consts
@@ -35,8 +34,6 @@ class SimulationHandler:
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
 
         # Internal dictionaries for quick reference
-        self.species_dict = {}
-        self.local_market_dict = {}
         self.gear_codes = []
 
         # Threading event for blocking control
@@ -75,27 +72,32 @@ class SimulationHandler:
 
         # TODO add unit testing for each of the three actions.
         # Load configurations and data from CSV 
-        self.load_species_from_csv()
-        self.load_ports_from_csv()
-        self.load_prices_from_csv()
+        loaded_species = self.load_species_from_csv()
+        loaded_markets = self.load_ports_from_csv()
+        self.set_local_markets_prices_from_csv(loaded_markets)
 
         # Get all unique gear codes from the contract.
-        gear_codes = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
-        gear_codes = set(gear_codes)
-        
+        gear_contract = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
+        gear_contract = set(gear_contract)
+
+        # Transfer ownerships of loaded data to the MarketSystem
+        self.market_system.species_codes = loaded_species
+        self.market_system.local_markets = loaded_markets
+        self.market_system.gear_codes_contract = gear_contract
+
         # Initialise baseline prices
-        self.market_system.set_local_market_initial_price(gear_codes)
+        self.market_system.set_local_market_initial_price()
         
         # Elser et al. assumes that the global market price is static.
-        self.market_system.update_global_price_history(gear_codes)
-        self.market_system.set_missing_local_prices_with_global_fallback(gear_codes)
+        self.market_system.update_global_price_history()
+        self.market_system.set_missing_local_prices_with_global_fallback()
 
         # Checks if the species in the configs are in the contract. If some
         # aren't, then fill these in so no species are missing.
         # TODO add unit test.
         missing_species = []
         for species in simulation.items.species:
-            if species.species_code not in self.species_dict:
+            if species.species_code not in loaded_species:
                 missing_species.append(species.species_code)
 
         if missing_species:
@@ -103,8 +105,9 @@ class SimulationHandler:
                 f"Species codes from simulation contract not found in loaded species configuration: {missing_species}"
             )
         
-        # Tick 0, i.e. the initial tick, stores the prices from configuration.
-        self.market_system._update_local_history()
+        # Set the initial tick 0 price history, using prices from the
+        # configuration files.
+        self.market_system.update_local_history()
         self.market_system.tick.increase_tick()
 
         self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
@@ -180,9 +183,9 @@ class SimulationHandler:
                 message="At least one local market does not exist."
             )
 
-        for summary in request.sales_summary.market_sales:
+        for summary in market_sales:
             market_code = summary.market_code
-            local_market = self.local_market_dict.get(market_code)
+            local_market = self.market_system.local_markets.get(market_code)
 
             if local_market is None:
                 assert local_market, f"Local market {local_market} does not exist. This should not happen."
@@ -207,15 +210,23 @@ class SimulationHandler:
 
         return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), None
 
-    def load_species_from_csv(self):
+    def load_species_from_csv(self) -> list[str]:
         """
         Load species definitions from CSV file into the market system.
 
         CSV columns: species_code, species_name
+
+        Returns
+        -------
+            loaded_species : Collection of all species by their code found in
+                             the CSV file.
         """
         app_directory = Path(__file__).parent.parent.resolve()
         folder_path = str(Path(app_directory) / "config")
         species_path = os.path.join(folder_path, consts.SPECIES_CSV)
+
+        # Return value
+        loaded_species = []
 
         if os.path.exists(species_path):
             self.logger.info(f"Loading species from {species_path}")
@@ -226,12 +237,11 @@ class SimulationHandler:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 code = row["species_code"].strip()
-                name = row["species_name"].strip()
-                species = Species(species_name=name, species_code=code)
-                self.market_system.add_species(species)
-                self.species_dict[code] = species
+                loaded_species.append(code)
 
-    def load_ports_from_csv(self):
+        return loaded_species
+
+    def load_ports_from_csv(self) -> dict[str, LocalMarket]:
         """
         Load local market (port) definitions from CSV into the market system.
 
@@ -240,6 +250,9 @@ class SimulationHandler:
         app_directory = Path(__file__).parent.parent.resolve()
         folder_path = str(Path(app_directory) / "config")
         ports_path = os.path.join(folder_path, consts.PORTS_CSV)
+
+        # Return value
+        loaded_markets = {}
 
         if os.path.exists(ports_path):
             self.logger.info(f"Loading species from {ports_path}")
@@ -256,15 +269,16 @@ class SimulationHandler:
 
                 market = LocalMarket(
                     market_code=code,
-                    species_dict=self.species_dict,
                     name=name,
                     lon=lon,
                     lat=lat
                 )
-                self.market_system.add_local_market(market)
-                self.local_market_dict[code] = market
 
-    def load_prices_from_csv(self):
+                loaded_markets[code] = market
+
+        return loaded_markets
+
+    def set_local_markets_prices_from_csv(self, markets: dict[str, LocalMarket]):
         """
         Load time-series prices into each local market from CSV file.
 
@@ -296,7 +310,7 @@ class SimulationHandler:
                     self.logger.warning(f"SimulationHandler.load_prices_from_csv(): Currency {currency} was loaded, but only {consts.SUPPORTED_CURRENCY} is supported!")
                     continue
 
-                market = self.local_market_dict.get(market_code)
+                market = markets.get(market_code)
                 if not market:
                     self.logger.warning(f"Market '{market_code}' not found. Skipping price row.")
                     continue

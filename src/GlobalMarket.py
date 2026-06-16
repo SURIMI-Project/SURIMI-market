@@ -11,8 +11,7 @@ class GlobalMarket:
     Represents the global market context, computing global species prices
     as an average of valid local prices (preliminary solution).
     """
-    def __init__(self, species_dict):
-        self.species_dict = species_dict
+    def __init__(self):
         self.logger = logging.getLogger("GlobalMarket")
         self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
