@@ -4,7 +4,6 @@ import logging
 
 # Src modules
 from .LocalMarket import LocalMarket
-from .Species import Species
 
 class GlobalMarket:
     """
@@ -29,7 +28,7 @@ class GlobalMarket:
     
     def compute_prices(self,
                        local_markets: dict[str, LocalMarket], 
-                       species_codes: list[Species],
+                       species_codes: list[str],
                        gear_codes: list[str]) -> tuple[dict, dict]:
         """
         Set the current global species prices using the mean of species price.

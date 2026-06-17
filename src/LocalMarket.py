@@ -3,8 +3,6 @@ import threading
 import logging
 from itertools import product
 
-from .Species import Species
-
 class LocalMarket:
     """
     Represents a local fish market identified by a market code (UN/LOCODE).
