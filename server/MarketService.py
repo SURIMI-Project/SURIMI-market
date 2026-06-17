@@ -86,6 +86,9 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
     def GetSpeciesPrices(self, request: get_species_prices_pb2.GetSpeciesPricesRequest, context: grpc.ServicerContext):
         """
         Send current prices to the controller.
+
+        # BUG we do not have a mechanism to report whether a local market
+        #     originates from the global price.
         """
         self.logger.info(f"GetSpeciesPrices for simulation {request.simulation_id}.")
         if not request.simulation_id in self.simulation_dictionary.keys():
