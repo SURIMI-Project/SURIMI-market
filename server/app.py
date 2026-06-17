@@ -20,9 +20,11 @@ from grpc_reflection.v1alpha import reflection
 
 from util import consts
 
+LOGGER_NAME = "app"
+
 def serve():
     load_dotenv()
-    logger = logging.getLogger("app")
+    logger = logging.getLogger(LOGGER_NAME)
 
 
     # TODO Talk to Rik about why the simulation_directionary belongs to app and not
@@ -82,7 +84,6 @@ def load_version(package_name: str) -> str:
         return "unknown"
 
 def configure_logging(is_debug_enabled: bool):
-    print("Configuring logger.basicConfig()")
     _LOG_DIR = Path(__file__).resolve().parent / "logs"
     _LOG_DIR.mkdir(exist_ok=True)
 
@@ -98,6 +99,8 @@ def configure_logging(is_debug_enabled: bool):
             logging.FileHandler(_LOG_DIR / "surimi.log"),
         ],
     )
+
+    logging.getLogger(LOGGER_NAME).debug("Configuring logger")
 
 def parse_cli():
     parser = argparse.ArgumentParser(
