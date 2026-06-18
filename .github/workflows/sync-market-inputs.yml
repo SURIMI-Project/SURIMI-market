@@ -11,6 +11,7 @@ on:
 # Needed to push commits to SURIMI-market
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: sync-surimi-inputs
@@ -77,16 +78,40 @@ jobs:
           done
 
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
+    
+      - name: Generate branch name
+        if: steps.sync.outputs.changed == '1'
+        id: branch
+        run: |
+          echo "name=sync-config-csv-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Create new branch
+        if: steps.sync.outputs.changed == '1'
+        run: |
+          git checkout -b "${{ steps.branch.outputs.name }}"
 
       - name: Commit and push (only if changes)
         if: steps.sync.outputs.changed == '1'
-        shell: bash
         run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: sync from SURIMI-western_med (ports.csv, prices.csv, species.csv)"
-          git push
+
+      - name: Push
+        if: steps.sync.outputs.changed == '1'
+        run: |
+          git push --set-upstream origin "${{ steps.branch.outputs.name }}"
+
+      - name: Create pull request
+        if: steps.sync.outputs.changed == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base update-gh-ci \
+            --head "${{ steps.branch.outputs.name }}" \
+            --title "Sync datasets from SURIMI-western-med with SURIMI-market" \
+            --body "Automated sync from SURIMI-western-med with GitHub Actions"
 
       - name: No changes
         if: steps.sync.outputs.changed != '1'
