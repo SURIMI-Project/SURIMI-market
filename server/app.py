@@ -8,7 +8,7 @@ from pathlib import Path
 
 from concurrent import futures
 from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
-from server.market_service import MarketService
+from server.MarketService import MarketService
 from server.version_metadata_interceptor import VersionMetadataInterceptor
 from surimi.v1 import market_service_pb2_grpc, market_service_pb2
 from vault_service import VaultService
