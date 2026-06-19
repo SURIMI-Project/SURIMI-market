@@ -7,6 +7,7 @@ It holds the source code of the SURIMI Market model
 - [Create a docker image](#create-a-docker-image)
 - [SDK notice](#watch-out-check-that-you-are-using-the-sdk-version-v1701)
 - [Usage](#usage)
+- [Testing](#testing)
 - [Create a Docker image](#create-a-docker-image)
 - [Config files Synchronisation from the SURIMI-western_med repo](#config-files-synchronisation-from-the-surimi-western_med-repo)
 - [Virtual Environment](#virtual-environment)
@@ -70,6 +71,51 @@ You can run the program with verbose output using the `--debug` flag. This can b
 python server/app.py --debug
 ```
 
+## Testing
+We include a few tools for testing purpose. They are the following
+| Test type | Name |
+|:--|:--|
+| Unit test | [pytest](https://docs.pytest.org/en/stable/) |
+| Static code analyser | [pyflakes](https://github.com/PyCQA/pyflakes) |
+| Dynamic code analyser | [Coverage](https://coverage.readthedocs.io/en/7.14.1/) |
+
+Unit tests primarily provide the following benefits to the Market model:
+- Testing small units, ensuring that small building blocks that make larger systems work.
+- Write code in a readable and cognitively comprehensive way.
+- We have more confidence when refactoring code.
+
+Pyflakes is a static analyser that help e.g. finding unused imports.
+
+Coverage requires us to run the program and execute all possible branches. On the flip side, it provides more accurate analysis and comprehensive reports, enabling us to couple it with pytest.
+
+### Manual Testing
+Each of the tests can be executed manually with the command-line interface.
+
+*Unit test:*
+```
+pytest
+```
+
+*Static analysis:*
+```
+pyflakes ./src ./server
+```
+
+*Dynamic analysis:*
+```
+coverage run -m app/server.py
+```
+
+Note that with `coverage`, the `PYTHONPATH` environment variable must be configured. We can also run `coverage` with `pytest`:
+```
+coverage -m pytest
+```
+
+### Automated Testing
+A script is provided in `scripts/test.py` that executes Coverage with PyTest. You can execute it as follows:
+```
+python ./scripts/test.py
+```
 
 ## Create a docker image
 
