@@ -10,6 +10,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .GlobalMarket import GlobalMarket
+from util import consts
 
 class MarketSystem:
     """
@@ -25,7 +26,7 @@ class MarketSystem:
         self.local_markets: dict[str, LocalMarket] = {}
         self.global_market = GlobalMarket()
         self.gear_codes_contract: list[str] = []
-        self.logger = logging.getLogger("MarketSystem")
+        self.logger = logging.getLogger(consts.MARKET_SYSTEM_LOGGER_NAME)
 
     def add_local_market(self, market: object):
         self.local_markets[market.market_code] = market

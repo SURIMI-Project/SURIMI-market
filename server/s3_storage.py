@@ -2,8 +2,7 @@ import os
 from pathlib import Path
 import boto3
 import logging
-
-LOGGER_NAME = "S3_Storage"
+from util import consts
 
 class S3_Storage:
     # TODO there is no reason why need a class. If the requirements in fact tell
@@ -15,7 +14,7 @@ class S3_Storage:
         If `AWS_BUCKET_NAME` is defined and non-empty, then we assume that the
         config files should be downloaded from S3.
         """
-        logger = logging.getLogger(LOGGER_NAME)
+        logger = logging.getLogger(consts.S3_LOGGER_NAME)
 
         bucket_name = os.environ.get('AWS_BUCKET_NAME')
         access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')

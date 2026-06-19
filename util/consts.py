@@ -15,3 +15,13 @@ PRICES_CSV = "prices.csv"
 SUPPORTED_CURRENCY = "EUR"
 
 # TODO add supported measurement unit
+
+# Logging
+APP_LOGGER_NAME = "app"
+VAULT_LOGGER_NAME = "VaultService"
+MARKET_SERVICE_LOGGER_NAME = "MarketService"
+MARKET_SYSTEM_LOGGER_NAME = "MarketSystem"
+S3_LOGGER_NAME = "S3_Storage"
+GLOBAL_MARKET_LOGGER_NAME = "GlobalMarket"
+LOCAL_MARKET_LOGGER_NAME = "LocalMarket"
+SIMULATION_HANDLER_LOGGER_NAME = "simulation"

@@ -27,7 +27,7 @@ class SimulationHandler:
         self.start_time = start_time
         self.step_size = step_size
 
-        self.logger = logging.getLogger(f"simulation.{simulation_id}")
+        self.logger = logging.getLogger(f"{consts.SIMULATION_HANDLER_LOGGER_NAME}.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)

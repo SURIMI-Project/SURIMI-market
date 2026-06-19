@@ -3,6 +3,8 @@ import threading
 import logging
 from itertools import product
 
+from util import consts
+
 class LocalMarket:
     """
     Represents a local fish market identified by a market code (UN/LOCODE).
@@ -41,7 +43,7 @@ class LocalMarket:
         self.price_time_series = {}
 
         self.lock = threading.Lock()
-        self.logger = logging.getLogger("LocalMarket")
+        self.logger = logging.getLogger(consts.LOCAL_MARKET_LOGGER_NAME)
 
     def add_monthly_catch(self, species_code, gear_code, quantity):
         with self.lock:
