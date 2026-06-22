@@ -127,6 +127,7 @@ class SimulationHandler:
         """
         self.logger.info("Simulate step triggered...")
         self._step_in_progress = True
+        # TODO investigate how this can fail
         try:
             self.market_system.step()
 
