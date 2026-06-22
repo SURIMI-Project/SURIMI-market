@@ -132,79 +132,102 @@ A simulation proceeds in three phases: **Initialise**, one or more **tick iterat
 
 ```mermaid
 sequenceDiagram
-    participant Controller
+    participant CTL as Controller
     participant APP as App
     participant WF as VaultService
     participant MPS as MarketService
     participant SH as SimulationHandler
     participant MS as MarketSystem
+    participant LM as LocalMarket[*]
+    Note over LM: for each local market
+    participant GM as GlobalMarket
     participant S3 as AWS S3
 
-    Note over Controller,S3: Initialise
-    Controller->>APP: new App()
-    Controller->>APP: Initialise(simulation_id, start_date_time, time_step, simulation_contract)
+    %% Start the gRPC server
+    CTL->>APP: start_market_model_app()
+    APP->>WF: load_secrets_from_vault()
+
+    Note over CTL,S3: Initialise Simulation
+    CTL->>APP: initialise_simulation(simulation_id, contract)
+    APP->>MPS: initialise_simulation(simulation_id, contract)
     
-    WF->>WF: Upload S3 secrets to environment variables
-    MPS->>S3: download_files_from_S3("surimi-market/config")
-    S3-->>MPS: config CSVs
-    MPS->>SH: new SimulationHandler(simulation_id, ...)
-    MPS->>SH: init_simulation(simulation)
-    SH->>SH: copy config/ to simulations/{id}/config/
-    SH->>SH: load_species_from_csv()
-    SH->>SH: load_ports_from_csv()
-    SH->>SH: load_prices_from_csv()
-
-    SH->>MS:initialize_local_markets_baseline_prices()
-    SH->>MS:initialize_global_market_baseline_prices()
-    MS->>MS: _compute_global_prices()
-    SH-->>MPS: InitialiseSimulationResponse(simulation_id)
-    MPS-->>APP: InitialiseSimulationResponse(simulation_id)
-    APP-->>Controller: InitialiseSimulationResponse(simulation_id)
-
-    Note over Controller,S3: Per Tick (repeated N times)
-    loop each simulation month
-        Controller->>APP: UpdateSales(simulation_id, sales_summaries)
-        Note right of APP: May be called multiple times per tick, catches are buffered
-        APP->>MPS: UpdateSales(simulation_id, sales_summaries)
-        MPS->>SH: update_sales(request)
-        SH->>SH: Add pending catch quantity
-        SH-->>MPS: UpdateSalesResponse
-        MPS-->>APP: UpdateSalesResponse
-        APP-->>Controller: UpdateSalesResponse
-
-        Controller->>APP: SimulateStep(simulation_id, current_date_time)
-        APP->>MPS: SimulateStep(simulation_id, current_date_time)
-        MPS->>SH: SimulateStep(simulation_id, current_date_time)
-        SH->>MS: step(catches)
-        MS->>MS: _record_catches()
-        MS->>MS: _update_local_prices()
-        MS->>MS: _update_local_history()
-        MS->>MS: tick.increase_tick()
-        SH->>SH: pending_catch_dict.clear()
-        SH-->>WF: SimulateStepResponse
-        WF-->>APP: SimulateStepResponse
-        APP-->>Controller: SimulateStepResponse
-
-        Controller->>APP: GetSpeciesPrices(simulation_id)
-        APP->>MPS: GetSpeciesPrices(simulation_id)
-        MPS->>SH: update_prices()
-        SH->>MS: get_species_prices_message()
-        MS-->>SH: GetSpeciesPricesResponse
-        SH-->>MPS: GetSpeciesPricesResponse
-        MPS-->>APP: GetSpeciesPricesResponse
-        APP-->>Controller: GetSpeciesPricesResponse
+    %% Note: We already have the config CSVs in the repository. This only
+    %%       updates them.
+    alt Enable downloading from S3
+        MPS->>S3: download_files_from_S3("surimi-market/config")
+        S3-->>MPS: return_config_csv_files()
+        MPS->>MPS: update_local_config(csv_files)
     end
 
-    Note over Controller,S3: Finalise
-    Controller->>APP: Finalise(simulation_id)
-    APP->>MPS: MS(simulation_id)
+    MPS->>SH: init_simulation(simulation_id)
+
+    SH->>SH: copy config/ to simulations/{id}/config/
+    SH->>SH: load_config_csvs()
+    
+    SH->>MS: set_initial_local_prices()
+    MS->>LM: set_initial_prices()
+
+    SH->>MS: set_initial_global_prices()
+    MS->>GM: set_initial_price()
+    MS->>GM: update_history()
+
+    SH->>LM: update_local_histories()
+    
+    SH->>MS: increase_tick()
+
+    SH-->>MPS: return simulation_pb2.InitialiseSimulationResponse(simulation_id)
+    MPS-->>APP: return simulation_pb2.InitialiseSimulationResponse(simulation_id)
+    APP-->>CTL: return simulation_pb2.InitialiseSimulationResponse(simulation_id)
+
+    Note over CTL,S3: Per Tick (repeated N times)
+    loop for each simulation month
+        %% UpdateSales
+        CTL->>APP: update_sales(simulation_id, sales_summaries)
+        Note over APP,MPS: May be called multiple times per tick, catches are buffered
+        APP->>MPS: update_sales(simulation_id, sales_summaries)
+        MPS->>SH: update_sales(request)
+        SH->>MS: update_sales(market_sales)
+
+        MS->>LM: add_monthly_catch(species_code, gear_code, quantity)
+        MS->>SH: return successor_or_fail
+        SH-->>MPS: return (update_sales_pb2.UpdateSalesResponse, MarketError)
+        MPS-->>APP: update_sales_pb2.UpdateSalesResponse
+        APP-->>CTL: update_sales_pb2.UpdateSalesResponse
+
+        %% Step
+        CTL->>APP: simulate_step(simulation_id, current_date_time)
+        APP->>MPS: simulate_step(simulation_id, current_date_time)
+        MPS->>SH: simulate_step(simulation_id, current_date_time)
+        SH->>MS: step()
+        MS->>LM: compute_and_set_local_price(species_codes, gear_codes)
+        MS->>LM: update_local_history()
+        MS->>MS: increase_tick()
+        SH-->>WF: simulate_step_pb2.SimulateStepResponse(simulation_id)
+        WF-->>APP: simulate_step_pb2.SimulateStepResponse(simulation_id)
+        APP-->>CTL: simulate_step_pb2.SimulateStepResponse(simulation_id)
+
+        %% GetSpeciesPrices
+        CTL->>APP: get_species_prices(simulation_id, date_time)
+        APP->>MPS: get_species_prices(simulation_id, date_time)
+        MPS->>SH: get_latest_market_prices()
+        SH->>MS: get_local_market_prices()
+        MS->>LM: get_prices(species_codes, gear_codes)
+        LM-->>MS: return price or None
+        MS-->>SH: return get_species_prices_pb2.GetSpeciesPricesResponse(price_summary)
+        SH-->>MPS: return get_species_prices_pb2.GetSpeciesPricesResponse(price_summary)
+        MPS-->>APP: return get_species_prices_pb2.GetSpeciesPricesResponse(price_summary)
+        APP-->>CTL: return get_species_prices_pb2.GetSpeciesPricesResponse(price_summary)
+    end
+
+    Note over CTL,S3: Finalise
+    CTL->>APP: finalise_simulation(simulation_id)
+    APP->>MPS: finalise_simulation(simulation_id)
     MPS->>SH: finalise_simulation()
     SH->>MS: export_results(simulation_id, "simulations")
-    MS->>MS: write global_prices.csv
-    MS->>MS: write local_prices.csv
-    MPS->>S3: UploadFilesToS3(simulations/{id}, "surimi-market/simulations/{id}")
-    MPS-->>APP: FinaliseResponse
-    APP-->>Controller: FinaliseResponse
+    MS->>MS: write_global_prices(filepath)
+    MS->>MS: write_local_prices(filepath)
+    MPS-->>APP: return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id)
+    APP-->>CTL: return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id)
 ```
 
 ---
