@@ -103,7 +103,7 @@ pyflakes ./src ./server
 
 *Dynamic analysis:*
 ```
-coverage run -m server/app.py
+coverage run server/app.py
 ```
 
 Note that with `coverage`, the `PYTHONPATH` environment variable must be configured. We can also run `coverage` with `pytest`:
