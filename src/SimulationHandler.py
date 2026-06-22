@@ -150,46 +150,13 @@ class SimulationHandler:
         """
         Receives external sales (catches) from controller.
         """
-        self.logger.info("Sales update received...")
-        new_entries = 0
-
-        # Validate the markets' existence.
-        market_sales = request.sales_summary.market_sales
-        markets_existence = [s.market_code in self.market_system.local_markets
-                             for s in request.sales_summary.market_sales]
-
-
-        if not all(markets_existence):
-            return None, MarketError(
+        err = None
+        if not self.market_system.update_sales(request.sales_summary.market_sales):
+            err = MarketError(
                 status_code=grpc.StatusCode.FAILED_PRECONDITION,
                 message="At least one local market does not exist."
             )
-
-        for summary in market_sales:
-            market_code = summary.market_code
-            local_market = self.market_system.local_markets.get(market_code)
-
-            if local_market is None:
-                assert local_market, f"Local market {local_market} does not exist. This should not happen."
-                continue
-
-            for sale in summary.sales:
-                species_code = sale.species.species_code
-                quantity = sale.quantity
-                gear_code = sale.fleet_segment.gear_code
-
-                local_market.add_monthly_catch(species_code, gear_code, quantity)
-                new_entries += 1
-
-                # Use only for debugging. This is a very expensive operation.
-                # Optionally, comment it out.
-                self.logger.debug(
-                    f"Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg"
-                )
-
-        self.logger.info(f"Processed {new_entries} sales.")
-
-        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), None
+        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), err
 
     def load_species_from_csv(self) -> list[str]:
         """
