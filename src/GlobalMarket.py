@@ -2,6 +2,9 @@
 from itertools import product
 import logging
 
+# Util modules
+from util import consts
+
 # Src modules
 from .LocalMarket import LocalMarket
 
@@ -11,7 +14,7 @@ class GlobalMarket:
     as an average of valid local prices (preliminary solution).
     """
     def __init__(self):
-        self.logger = logging.getLogger("GlobalMarket")
+        self.logger = logging.getLogger(consts.GLOBAL_MARKET_LOGGER_NAME)
         self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
     def get_most_recent_price(self, species_code: str, gear_code: str) -> float | None:

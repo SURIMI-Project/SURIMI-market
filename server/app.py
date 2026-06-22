@@ -20,11 +20,9 @@ from grpc_reflection.v1alpha import reflection
 
 from util import consts
 
-LOGGER_NAME = "app"
-
 def serve():
     load_dotenv()
-    logger = logging.getLogger(LOGGER_NAME)
+    logger = logging.getLogger(consts.APP_LOGGER_NAME)
 
 
     # TODO Talk to Rik about why the simulation_directionary belongs to app and not
@@ -100,7 +98,7 @@ def configure_logging(is_debug_enabled: bool):
         ],
     )
 
-    logging.getLogger(LOGGER_NAME).debug("Configuring logger")
+    logging.getLogger(consts.APP_LOGGER_NAME).debug("Configuring logger")
 
 def parse_cli():
     parser = argparse.ArgumentParser(

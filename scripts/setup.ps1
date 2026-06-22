@@ -45,4 +45,6 @@ if (-Not (Test-Path $venvPath)) {
     & "$venvPath\Scripts\Activate.ps1"
 }
 
+Write-Host "Setting PYTHONPATH..."
+$env:PYTHONPATH = "."
 Write-Host "Success! Virtual environment activated"

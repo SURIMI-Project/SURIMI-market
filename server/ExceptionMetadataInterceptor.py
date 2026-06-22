@@ -23,7 +23,7 @@ class ExceptionMetadataInterceptor(ServerInterceptor):
 
         except Exception as e:
             print(f"🔴 Exception in {method_name}: {type(e).__name__}: {str(e)}")
-            print(f"   Traceback:")
+            print("   Traceback:")
             traceback.print_exc()
             
             metadata = [

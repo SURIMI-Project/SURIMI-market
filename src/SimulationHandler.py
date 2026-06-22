@@ -7,6 +7,7 @@ import os
 import logging
 
 import grpc
+import pandas as pd
 
 from src.MarketSystem import MarketSystem
 from src.LocalMarket import LocalMarket
@@ -27,7 +28,7 @@ class SimulationHandler:
         self.start_time = start_time
         self.step_size = step_size
 
-        self.logger = logging.getLogger(f"simulation.{simulation_id}")
+        self.logger = logging.getLogger(f"{consts.SIMULATION_HANDLER_LOGGER_NAME}.{simulation_id}")
 
         # Initialize market system with default currency and measurement unit
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
@@ -69,7 +70,8 @@ class SimulationHandler:
         # Load configurations and data from CSV 
         loaded_species = self.load_species_from_csv()
         loaded_markets = self.load_ports_from_csv()
-        self.set_local_markets_prices_from_csv(loaded_markets)
+        loaded_prices = self.load_prices_from_csv()
+        self.load_local_market_price_history(loaded_markets, loaded_prices)
 
         # Get all unique gear codes from the contract.
         gear_contract = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
@@ -257,45 +259,32 @@ class SimulationHandler:
 
         return loaded_markets
 
-    def set_local_markets_prices_from_csv(self, markets: dict[str, LocalMarket]):
+    def load_prices_from_csv(self) -> pd.DataFrame:
+        app_directory = Path(__file__).parent.parent.resolve()
+        folder_path = str(Path(app_directory) / "config")
+        prices_path = os.path.join(folder_path, consts.PRICES_CSV)
+        
+        # Test what happens if the file does not exist.
+        self.logger.info(f"Loading species from {prices_path}")
+        return pd.read_csv(prices_path)
+
+    def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
         """
         Load time-series prices into each local market from CSV file.
 
         CSV columns: date, market_code, species_code, category_code, price, currency, measurement_unit
         """
-        app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = str(Path(app_directory) / "config")
-        prices_path = os.path.join(folder_path, consts.PRICES_CSV)
+        # TODO add check when price is not supported
+        for code, found_markets in data.groupby("market_code"):
+            market = markets.get(code)
+            if markets.get(code) is not None:
+                for row in found_markets.itertuples(index=False):
+                    date = row[0]
+                    species_code = row[2]
+                    gear_code = row[3]
+                    price = row[4]
 
-        if os.path.exists(prices_path):
-            self.logger.info(f"Loading species from {prices_path}")
-        else:
-            self.logger.warning(f"{consts.PRICES_CSV} not found in {folder_path}")
-
-        with open(prices_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                date = row["date"].strip()
-                market_code = row["market_code"].strip()
-                species_code = row["species_code"].strip()
-                price = float(row["price"])
-                currency = row["currency"].strip()
-
-                # TODO include gear code in the calculation.
-                gear_code = row["gear_code"].strip()
-
-                # TODO check if this is broken.
-                if currency != consts.SUPPORTED_CURRENCY:
-                    self.logger.warning(f"SimulationHandler.load_prices_from_csv(): Currency {currency} was loaded, but only {consts.SUPPORTED_CURRENCY} is supported!")
-                    continue
-
-                market = markets.get(market_code)
-                if not market:
-                    self.logger.warning(f"Market '{market_code}' not found. Skipping price row.")
-                    continue
-
-                # TODO include gear code
-                market.price_time_series[(species_code, gear_code, date)] = price
+                    market.price_time_series[(species_code, gear_code, date)] = price
 
 def ignore_non_csv(dir, files):
     return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}

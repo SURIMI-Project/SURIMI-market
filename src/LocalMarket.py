@@ -3,6 +3,8 @@ import threading
 import logging
 from itertools import product
 
+from util import consts
+
 class LocalMarket:
     """
     Represents a local fish market identified by a market code (UN/LOCODE).
@@ -41,7 +43,7 @@ class LocalMarket:
         self.price_time_series = {}
 
         self.lock = threading.Lock()
-        self.logger = logging.getLogger("LocalMarket")
+        self.logger = logging.getLogger(consts.LOCAL_MARKET_LOGGER_NAME)
 
     def add_monthly_catch(self, species_code, gear_code, quantity):
         with self.lock:
@@ -113,15 +115,19 @@ class LocalMarket:
         # Phase 1: fill from CSV if available
         earliest_per_species = {}
 
+        # Add the price if (species_code, gear_code) is not registered or an
+        # earlier entry is found. Prevent invalid price (None or <=) to be
+        # added.
         for (species_code, gear_code, date), price in self.price_time_series.items():
             # TODO interpolate between the two datapoints that the date falls between.
-            if species_code not in earliest_per_species or date < earliest_per_species[species_code][0]:
-                earliest_per_species[(species_code, gear_code)] = (date, price)
+            is_earliest = species_code not in earliest_per_species or \
+                date < earliest_per_species[species_code][0]
+            is_valid = price is not None and price > 0.0001
+            if is_earliest and is_valid:
+                self.local_prices[(species_code, gear_code)] = price
 
+        # Finally, add the price
         for lookup_key in lookup_keys:
             if lookup_key in earliest_per_species:
                 _, price = earliest_per_species[lookup_key]
-                if price is not None and price > 0:
-                    self.local_prices[lookup_key] = price
-                else:
-                    self.logger.warning(f"CSV price is invalid for {self.market_code}/{lookup_key[0]} with gear code {lookup_key[1]}, ignoring.")
+                self.local_prices[lookup_key] = price
