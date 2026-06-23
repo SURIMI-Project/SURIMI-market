@@ -45,10 +45,12 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
 
         self.logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
 
-        # TODO: validate that the current_date_time in request matches the expected time in the simulation loop. If not, throw an error to prevent out-of-sync simulation steps.
-        # TODO we are not doing anything with current_date_time ??
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        return current_simulation.simulate_step()
+        response, err = current_simulation.simulate_step(request.current_date_time.ToDatetime())
+        if err is not None:
+            self.log_and_abort(context, err.status_code, err.message)
+        else:
+            return response
 
     def FinaliseSimulation(self, request: finalise_simulation_pb2.FinaliseSimulationRequest, context: grpc.ServicerContext):
         self.logger.info(f"Finalise Simulation ID: {request.simulation_id}.")
