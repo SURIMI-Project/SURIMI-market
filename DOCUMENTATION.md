@@ -166,12 +166,13 @@ sequenceDiagram
     
     SH->>MS: set_initial_local_prices()
     MS->>LM: set_initial_prices()
+    MS->>LM: update_local_histories()
 
     SH->>MS: set_initial_global_prices()
-    MS->>GM: set_initial_price()
+    MS->>GM: set_initial_price(local_markets)
     MS->>GM: update_history()
 
-    SH->>LM: update_local_histories()
+    MS->>LM: set_fallback_prices(global_market_prices)
     
     SH->>MS: increase_tick()
 

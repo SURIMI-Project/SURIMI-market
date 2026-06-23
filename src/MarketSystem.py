@@ -6,6 +6,7 @@ from itertools import product
 
 from surimi.v1 import species_price_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
+import pandas as pd
 
 from .Tick import Tick
 from .LocalMarket import LocalMarket
@@ -272,3 +273,21 @@ class MarketSystem:
         self.logger.info(f"Processed {new_entries} sales.")
 
         return True
+
+    def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
+        """
+        Load time-series prices into each local market from CSV file.
+
+        CSV columns: date, market_code, species_code, category_code, price, currency, measurement_unit
+        """
+        # TODO add check when price is not supported
+        for code, found_markets in data.groupby("market_code"):
+            market = markets.get(code)
+            if markets.get(code) is not None:
+                for row in found_markets.itertuples(index=False):
+                    date = row[0]
+                    species_code = row[2]
+                    gear_code = row[3]
+                    price = row[4]
+
+                    market.price_time_series[(species_code, gear_code, date)] = price

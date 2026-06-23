@@ -71,7 +71,7 @@ class SimulationHandler:
         loaded_species = self.load_species_from_csv()
         loaded_markets = self.load_ports_from_csv()
         loaded_prices = self.load_prices_from_csv()
-        self.load_local_market_price_history(loaded_markets, loaded_prices)
+        self.market_system.load_local_market_price_history(loaded_markets, loaded_prices)
 
         # Get all unique gear codes from the contract.
         gear_contract = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
@@ -235,24 +235,6 @@ class SimulationHandler:
         # Test what happens if the file does not exist.
         self.logger.info(f"Loading species from {prices_path}")
         return pd.read_csv(prices_path)
-
-    def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
-        """
-        Load time-series prices into each local market from CSV file.
-
-        CSV columns: date, market_code, species_code, category_code, price, currency, measurement_unit
-        """
-        # TODO add check when price is not supported
-        for code, found_markets in data.groupby("market_code"):
-            market = markets.get(code)
-            if markets.get(code) is not None:
-                for row in found_markets.itertuples(index=False):
-                    date = row[0]
-                    species_code = row[2]
-                    gear_code = row[3]
-                    price = row[4]
-
-                    market.price_time_series[(species_code, gear_code, date)] = price
 
 def ignore_non_csv(dir, files):
     return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}
