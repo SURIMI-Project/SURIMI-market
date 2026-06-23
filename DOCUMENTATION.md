@@ -200,10 +200,14 @@ sequenceDiagram
         APP->>MPS: simulate_step(simulation_id, current_date_time)
         MPS->>SH: simulate_step(simulation_id, current_date_time)
         SH->>MS: step()
-        loop for each local market
-            MS->>MS: compute_local_prices()
+        alt if real price is available
+            MS->>LM: set_local_price(species_codes, gear_codes,real_prices)
+        else
+            loop for each local market
+                MS->>MS: compute_local_prices()
+                MS->>LM: set_local_price(species_codes, gear_codes,computed_prices)
+            end
         end
-        MS->>LM: set_local_price(species_codes, gear_codes, computed_local_prices)
         MS->>LM: update_local_history()
         MS->>MS: increase_tick()
         SH-->>WF: simulate_step_pb2.SimulateStepResponse(simulation_id)
