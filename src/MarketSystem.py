@@ -7,11 +7,13 @@ from itertools import product
 from surimi.v1 import species_price_pb2, species_pb2, get_species_prices_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 import pandas as pd
+import grpc
 
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .GlobalMarket import GlobalMarket
-from util import consts
+from util import consts, MarketError
+
 
 class MarketSystem:
     """
@@ -223,7 +225,7 @@ class MarketSystem:
 
         self.logger.info(f"Export complete for simulation {simulation_id}")
 
-    def update_sales(self, market_sales) -> bool:
+    def update_sales(self, market_sales) -> MarketError:
         """
         Receives external sales (catches) from controller.
 
@@ -244,7 +246,10 @@ class MarketSystem:
 
 
         if not all(markets_existence):
-            return False
+            return MarketError.MarketError(
+                status_code=grpc.StatusCode.FAILED_PRECONDITION,
+                message="At least one local market does not exist."
+            )
 
         for summary in market_sales:
             market_code = summary.market_code
@@ -259,6 +264,12 @@ class MarketSystem:
                 quantity = sale.quantity
                 gear_code = sale.fleet_segment.gear_code
 
+                if quantity < 0.0001:
+                    return MarketError.MarketError(
+                        status_code=grpc.StatusCode.INVALID_ARGUMENT,
+                        message=f"Quantity for market {market_code}, species {species_code} and gear code {gear_code} is {quantity}. It cannot be negative."
+                    )
+                
                 local_market.add_monthly_catch(species_code, gear_code, quantity)
                 new_entries += 1
 
@@ -270,7 +281,7 @@ class MarketSystem:
 
         self.logger.info(f"Processed {new_entries} sales.")
 
-        return True
+        return None
 
     def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
         """
