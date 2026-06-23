@@ -164,15 +164,15 @@ sequenceDiagram
     SH->>SH: copy config/ to simulations/{id}/config/
     SH->>SH: load_config_csvs()
     
-    SH->>MS: set_initial_local_prices()
-    MS->>LM: set_initial_prices()
-    MS->>LM: update_local_histories()
+    SH->>MS: set_initial_local_price()
+    MS->>LM: set_initial_price()
+    MS->>LM: update_local_history()
 
     SH->>MS: set_initial_global_prices()
-    MS->>GM: set_initial_price(local_markets)
+    MS->>GM: set_initial_prices(local_markets)
     MS->>GM: update_history()
 
-    MS->>LM: set_fallback_prices(global_market_prices)
+    MS->>LM: set_fallback_price(global_market_prices)
     
     SH->>MS: increase_tick()
 
@@ -183,24 +183,28 @@ sequenceDiagram
     Note over CTL,S3: Per Tick (repeated N times)
     loop for each simulation month
         %% UpdateSales
-        CTL->>APP: update_sales(simulation_id, sales_summaries)
-        Note over APP,MPS: May be called multiple times per tick, catches are buffered
-        APP->>MPS: update_sales(simulation_id, sales_summaries)
-        MPS->>SH: update_sales(request)
-        SH->>MS: update_sales(market_sales)
+        loop for each update sales request
+            Note over APP,MPS: Each iteration buffers the catches 
+            CTL->>APP: update_sales(simulation_id, sales_summaries)
+            APP->>MPS: update_sales(simulation_id, sales_summaries)
+            MPS->>SH: update_sales(request)
+            SH->>MS: update_sales(market_sales)
 
-        MS->>LM: add_monthly_catch(species_code, gear_code, quantity)
-        MS->>SH: return successor_or_fail
-        SH-->>MPS: return (update_sales_pb2.UpdateSalesResponse, MarketError)
-        MPS-->>APP: update_sales_pb2.UpdateSalesResponse
-        APP-->>CTL: update_sales_pb2.UpdateSalesResponse
-
+            MS->>LM: add_monthly_catch(species_code, gear_code, quantity)
+            MS->>SH: return successor_or_fail
+            SH-->>MPS: return (update_sales_pb2.UpdateSalesResponse, MarketError)
+            MPS-->>APP: update_sales_pb2.UpdateSalesResponse
+            APP-->>CTL: update_sales_pb2.UpdateSalesResponse
+        end
         %% Step
         CTL->>APP: simulate_step(simulation_id, current_date_time)
         APP->>MPS: simulate_step(simulation_id, current_date_time)
         MPS->>SH: simulate_step(simulation_id, current_date_time)
         SH->>MS: step()
-        MS->>LM: compute_and_set_local_price(species_codes, gear_codes)
+        loop for each local market
+            MS->>MS: compute_local_prices()
+        end
+        MS->>LM: set_local_price(species_codes, gear_codes, computed_local_prices)
         MS->>LM: update_local_history()
         MS->>MS: increase_tick()
         SH-->>WF: simulate_step_pb2.SimulateStepResponse(simulation_id)
@@ -210,7 +214,7 @@ sequenceDiagram
         %% GetSpeciesPrices
         CTL->>APP: get_species_prices(simulation_id, date_time)
         APP->>MPS: get_species_prices(simulation_id, date_time)
-        MPS->>SH: get_latest_market_prices()
+        MPS->>SH: get_market_prices(datetime)
         SH->>MS: get_local_market_prices()
         MS->>LM: get_prices(species_codes, gear_codes)
         LM-->>MS: return price or None
