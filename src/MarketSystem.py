@@ -29,8 +29,6 @@ class MarketSystem:
         self.gear_codes_contract: list[str] = []
         self.logger = logging.getLogger(consts.MARKET_SYSTEM_LOGGER_NAME)
 
-    def add_local_market(self, market: object):
-        self.local_markets[market.market_code] = market
 
     def step(self):
         """

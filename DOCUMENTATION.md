@@ -67,7 +67,6 @@ classDiagram
         -global_market: GlobalMarket
         -tick: Tick
         +add_species(s: Species)
-        +add_local_market(m: LocalMarket)
         +step(catches: list)
         +export_results(simulation_id, folder_path)
         +get_species_prices_message() GetSpeciesPricesResponse
