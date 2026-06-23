@@ -169,12 +169,9 @@ sequenceDiagram
 
     SH->>MS: set_initial_global_prices()
     MS->>GM: set_initial_prices(local_markets)
-    MS->>GM: update_history()
 
     MS->>LM: set_fallback_price(global_market_prices)
     
-    SH->>MS: increase_tick()
-
     SH-->>MPS: return simulation_pb2.InitialiseSimulationResponse(simulation_id)
     MPS-->>APP: return simulation_pb2.InitialiseSimulationResponse(simulation_id)
     APP-->>CTL: return simulation_pb2.InitialiseSimulationResponse(simulation_id)
