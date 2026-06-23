@@ -71,7 +71,7 @@ class SimulationHandler:
         loaded_species = self.load_species_from_csv()
         loaded_markets = self.load_ports_from_csv()
         loaded_prices = self.load_prices_from_csv()
-        self.load_local_market_price_history(loaded_markets, loaded_prices)
+        self.market_system.load_local_market_price_history(loaded_markets, loaded_prices)
 
         # Get all unique gear codes from the contract.
         gear_contract = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
@@ -127,6 +127,7 @@ class SimulationHandler:
         """
         self.logger.info("Simulate step triggered...")
         self._step_in_progress = True
+        # TODO investigate how this can fail
         try:
             self.market_system.step()
 
@@ -150,46 +151,13 @@ class SimulationHandler:
         """
         Receives external sales (catches) from controller.
         """
-        self.logger.info("Sales update received...")
-        new_entries = 0
-
-        # Validate the markets' existence.
-        market_sales = request.sales_summary.market_sales
-        markets_existence = [s.market_code in self.market_system.local_markets
-                             for s in request.sales_summary.market_sales]
-
-
-        if not all(markets_existence):
-            return None, MarketError(
+        err = None
+        if not self.market_system.update_sales(request.sales_summary.market_sales):
+            err = MarketError(
                 status_code=grpc.StatusCode.FAILED_PRECONDITION,
                 message="At least one local market does not exist."
             )
-
-        for summary in market_sales:
-            market_code = summary.market_code
-            local_market = self.market_system.local_markets.get(market_code)
-
-            if local_market is None:
-                assert local_market, f"Local market {local_market} does not exist. This should not happen."
-                continue
-
-            for sale in summary.sales:
-                species_code = sale.species.species_code
-                quantity = sale.quantity
-                gear_code = sale.fleet_segment.gear_code
-
-                local_market.add_monthly_catch(species_code, gear_code, quantity)
-                new_entries += 1
-
-                # Use only for debugging. This is a very expensive operation.
-                # Optionally, comment it out.
-                self.logger.debug(
-                    f"Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg"
-                )
-
-        self.logger.info(f"Processed {new_entries} sales.")
-
-        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), None
+        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), err
 
     def load_species_from_csv(self) -> list[str]:
         """
@@ -267,24 +235,6 @@ class SimulationHandler:
         # Test what happens if the file does not exist.
         self.logger.info(f"Loading species from {prices_path}")
         return pd.read_csv(prices_path)
-
-    def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
-        """
-        Load time-series prices into each local market from CSV file.
-
-        CSV columns: date, market_code, species_code, category_code, price, currency, measurement_unit
-        """
-        # TODO add check when price is not supported
-        for code, found_markets in data.groupby("market_code"):
-            market = markets.get(code)
-            if markets.get(code) is not None:
-                for row in found_markets.itertuples(index=False):
-                    date = row[0]
-                    species_code = row[2]
-                    gear_code = row[3]
-                    price = row[4]
-
-                    market.price_time_series[(species_code, gear_code, date)] = price
 
 def ignore_non_csv(dir, files):
     return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}
