@@ -12,7 +12,7 @@ from datetime import datetime
 # Constants
 HOST = "localhost"
 PORT = 5001
-STEPS = 20
+STEPS = 5
 
 # Get gRPC messages dir, as used by third-party clients, e.g. Bruno. Strategy:
 # find the project's root in the filesystem, and get the messages' parent
@@ -159,11 +159,13 @@ def send_grpc_message(message_id):
 
 channel=f"{HOST}:{PORT}"
 
-# send_grpc_message("initialise_simulation")
+send_grpc_message("initialise_simulation")
 
 for i in range(STEPS):
     print(f"Iteration: {i}")
     send_grpc_message("simulate_step")
     send_grpc_message("update_sales")
+    send_grpc_message("get_species_prices")
 
 send_grpc_message("get_species_prices")
+send_grpc_message("finalise_simulation")
