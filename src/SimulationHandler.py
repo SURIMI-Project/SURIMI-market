@@ -73,6 +73,10 @@ class SimulationHandler:
         loaded_prices = self.load_prices_from_csv()
         self.market_system.load_local_market_price_history(loaded_markets, loaded_prices)
 
+        # Define months that we have real data for. Used to decide whether to
+        # predict or use real prices.
+        self.market_system.real_data_months = list(set(loaded_prices["date"]))
+
         # Get all unique gear codes from the contract.
         gear_contract = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
         gear_contract = set(gear_contract)
