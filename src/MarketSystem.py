@@ -235,7 +235,7 @@ class MarketSystem:
     
         Returns
         -------
-            bool : True if the operation is successful. Otherwise False.
+            MarketError : If an error occurred, then the MarketError is returned
         """
         self.logger.info("Sales update received...")
         new_entries = 0
