@@ -64,7 +64,7 @@ def gear_codes():
 
 def test_set_initial_price_to_earliest_available(markets, dataset, species_codes, gear_codes):
     sh = SimulationHandler.SimulationHandler("0000", "", "", 0)
-    sh.load_local_market_price_history(markets, dataset)
+    sh.market_system.load_local_market_price_history(markets, dataset)
 
     for market in markets.values():
         market.set_initial_price_to_earliest_available(species_codes, gear_codes)
