@@ -150,7 +150,10 @@ class SimulationHandler:
         """
         Receives external sales (catches) from controller.
         """
-        err = self.market_system.update_sales(request.sales_summary.market_sales)
+        err = self.market_system.update_sales(
+            request.sales_summary.market_sales,
+            request.start_date_time.seconds
+        )
         return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), err
 
     def load_species_from_csv(self) -> list[str]:

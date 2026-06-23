@@ -1,7 +1,7 @@
 info:
-  name: UpdateSales(Extended)
+  name: UpdateSales4_(2013_04)
   type: grpc
-  seq: 6
+  seq: 4
 
 grpc:
   url: localhost:5001
@@ -11,7 +11,7 @@ grpc:
     {
         "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
         "start_date_time": {
-          "seconds": 1777593600,
+          "seconds": 1364774400,
           "nanos": 0
         },
         "end_date_time": {
@@ -38490,7 +38490,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 3.841647547101671E-05
+                            "quantity": 3.841647547101671
                         },
                         {
                             "species": {

@@ -28,6 +28,10 @@ class Tick:
                         relativedelta(months=self.tick * self.step_months)
         return current_time.date()
 
+    def get_datetime(self):
+        return self.start_time + \
+                relativedelta(months=self.tick * self.step_months)
+    
     def reset(self):
         self.tick = 0
         self.start_time = datetime.datetime.utcnow()
