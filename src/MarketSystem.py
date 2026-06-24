@@ -272,13 +272,13 @@ class MarketSystem:
                 )
 
             for sale in summary.sales:
-                if sale.quantity < 0.0001:
+                if sale.quantity < 1e-323:
                     return MarketError.MarketError(
                         status_code=grpc.StatusCode.INVALID_ARGUMENT,
                         message=f"Quantity for market {summary.market_code}," + \
                                 f"species {sale.species.species_code} and" + \
                                 f"gear code {sale.fleet_segment.gear_code} is " + \
-                                f"{sale.quantity}. It cannot be negative."
+                                f"{sale.quantity}. It must be positive"
                     )
             
         # If the start_date_time occurs at a later stage, then save it. If it
