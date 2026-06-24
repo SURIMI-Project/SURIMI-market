@@ -135,4 +135,4 @@ class LocalMarket:
     def use_real_price(self, real_price_months):
         for s_code, g_code, date in self.price_time_series:
             if date in real_price_months:
-                self.local_prices[(s_code, g_code)] = self.price_time_series.get([(s_code, g_code, date)])
+                self.local_prices[(s_code, g_code)] = self.price_time_series.get((s_code, g_code, date))
