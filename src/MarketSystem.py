@@ -40,11 +40,13 @@ class MarketSystem:
     def step(self):
         """
         One monthly update step:
-        1) Compute local prices
-        2) Save history (prices + catches) and clear monthly catches
-        3) Advance simulation tick
+        1) Check if there are pending catches that should occur in this month
+        2) Check if we have the real price. If so,
+          2a) Compute local prices
+        3) Save history (prices + catches) and clear monthly catches
+        4) Advance simulation tick
         """
-        # If there are pending catches for this month, collect and use them
+        # 1) If there are pending catches for this month, collect and use them
         for date in list(self.pending_sales_summary.keys()):
             if date == self.tick.get_datetime().strftime("%Y-%m-%d"):
                 for sale in self.pending_sales_summary[date]:
@@ -52,15 +54,16 @@ class MarketSystem:
                 
                 del self.pending_sales_summary[date]
 
-        self.compute_local_prices()
+        # 2) Use real data if we have it
         stepped_month = str(self.tick.get_date())
         if stepped_month in self.real_data_months:
-            # Use real prices
+            # 2a) Use real prices
             for market in self.local_markets.values():
                 market.use_real_price(self.real_data_months)
         else:
             # Predict prices
             self.compute_local_prices()
+
         self.update_local_history()
         self.tick.increase_tick()
 
