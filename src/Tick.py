@@ -22,6 +22,11 @@ class Tick:
         current_time = (self.start_time +
                         relativedelta(months=self.tick * self.step_months)).isoformat() + "Z"
         return current_time
+    
+    def get_date(self):
+        current_time = self.start_time + \
+                        relativedelta(months=self.tick * self.step_months)
+        return current_time.date()
 
     def reset(self):
         self.tick = 0

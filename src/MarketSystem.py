@@ -31,6 +31,9 @@ class MarketSystem:
         self.gear_codes_contract: list[str] = []
         self.logger = logging.getLogger(consts.MARKET_SYSTEM_LOGGER_NAME)
 
+        # Collection of months that we have real data for. Used to compute
+        # species price if real data is available.
+        self.real_data_months = []
 
     def step(self):
         """
@@ -39,7 +42,14 @@ class MarketSystem:
         2) Save history (prices + catches) and clear monthly catches
         3) Advance simulation tick
         """
-        self.compute_local_prices()
+        stepped_month = str(self.tick.get_date())
+        if stepped_month in self.real_data_months:
+            # Use real prices
+            for market in self.local_markets.values():
+                market.use_real_price(self.real_data_months)
+        else:
+            # Predict prices
+            self.compute_local_prices()
         self.update_local_history()
         self.tick.increase_tick()
 
