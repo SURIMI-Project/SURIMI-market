@@ -34,22 +34,36 @@ class MarketSystem:
         # Collection of months that we have real data for. Used to compute
         # species price if real data is available.
         self.real_data_months = []
+        self.pending_sales_summary = {}
+
 
     def step(self):
         """
         One monthly update step:
-        1) Compute local prices
-        2) Save history (prices + catches) and clear monthly catches
-        3) Advance simulation tick
+        1) Check if there are pending catches that should occur in this month
+        2) Check if we have the real price. If so,
+          2a) Compute local prices
+        3) Save history (prices + catches) and clear monthly catches
+        4) Advance simulation tick
         """
+        # 1) If there are pending catches for this month, collect and use them
+        for date in list(self.pending_sales_summary.keys()):
+            if date == self.tick.get_datetime().strftime("%Y-%m-%d"):
+                for sale in self.pending_sales_summary[date]:
+                    self._accumulate_local_market_catches(sale)
+                
+                del self.pending_sales_summary[date]
+
+        # 2) Use real data if we have it
         stepped_month = str(self.tick.get_date())
         if stepped_month in self.real_data_months:
-            # Use real prices
+            # 2a) Use real prices
             for market in self.local_markets.values():
                 market.use_real_price(self.real_data_months)
         else:
             # Predict prices
             self.compute_local_prices()
+
         self.update_local_history()
         self.tick.increase_tick()
 
@@ -235,7 +249,7 @@ class MarketSystem:
 
         self.logger.info(f"Export complete for simulation {simulation_id}")
 
-    def update_sales(self, market_sales) -> MarketError:
+    def update_sales(self, market_sales, start_date_time: int) -> MarketError.MarketError:
         """
         Receives external sales (catches) from controller.
 
@@ -248,18 +262,54 @@ class MarketSystem:
             MarketError : If an error occurred, then the MarketError is returned
         """
         self.logger.info("Sales update received...")
-        new_entries = 0
 
-        # Validate the markets' existence.
-        markets_existence = [s.market_code in self.local_markets
-                             for s in market_sales]
+        # Validate input
+        for summary in market_sales:
+            if summary.market_code not in self.local_markets:
+                return MarketError.MarketError(
+                    status_code=grpc.StatusCode.FAILED_PRECONDITION,
+                    message="At least one local market does not exist."
+                )
 
-
-        if not all(markets_existence):
+            for sale in summary.sales:
+                if sale.quantity < 0.0001:
+                    return MarketError.MarketError(
+                        status_code=grpc.StatusCode.INVALID_ARGUMENT,
+                        message=f"Quantity for market {summary.market_code}," + \
+                                f"species {sale.species.species_code} and" + \
+                                f"gear code {sale.fleet_segment.gear_code} is " + \
+                                f"{sale.quantity}. It cannot be negative."
+                    )
+            
+        # If the start_date_time occurs at a later stage, then save it. If it
+        # occurs before the current tick, return an error about it.
+        requested_time = datetime \
+                        .datetime \
+                        .fromtimestamp(start_date_time)
+        current_time = self.tick.get_datetime()
+        
+        if requested_time > current_time:
+            # Post current time
+            date: str = requested_time.strftime("%Y-%m-%d")
+            if self.pending_sales_summary.get(date) is None:
+                self.pending_sales_summary[date] = []
+            self.pending_sales_summary[date].append(market_sales)
+            return None
+        elif requested_time < current_time:
+            # Pre current time
             return MarketError.MarketError(
-                status_code=grpc.StatusCode.FAILED_PRECONDITION,
-                message="At least one local market does not exist."
+                status_code=grpc.StatusCode.INVALID_ARGUMENT,
+                message="'start_date_time cannot be earlier than the current time'" 
             )
+        else:
+            # Same time as current time
+            self._accumulate_local_market_catches(market_sales)
+
+        return None
+    
+
+    def _accumulate_local_market_catches(self, market_sales):
+        new_entries = 0
 
         for summary in market_sales:
             market_code = summary.market_code
@@ -273,12 +323,6 @@ class MarketSystem:
                 species_code = sale.species.species_code
                 quantity = sale.quantity
                 gear_code = sale.fleet_segment.gear_code
-
-                if quantity < 0.0001:
-                    return MarketError.MarketError(
-                        status_code=grpc.StatusCode.INVALID_ARGUMENT,
-                        message=f"Quantity for market {market_code}, species {species_code} and gear code {gear_code} is {quantity}. It cannot be negative."
-                    )
                 
                 local_market.add_monthly_catch(species_code, gear_code, quantity)
                 new_entries += 1
@@ -290,8 +334,6 @@ class MarketSystem:
                 )
 
         self.logger.info(f"Processed {new_entries} sales.")
-
-        return None
 
     def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
         """

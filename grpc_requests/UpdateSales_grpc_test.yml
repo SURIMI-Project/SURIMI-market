@@ -1,7 +1,7 @@
 info:
-  name: UpdateSales_small_test_sample
+  name: UpdateSales_grpc_test
   type: grpc
-  seq: 7
+  seq: 8
 
 grpc:
   url: localhost:5001

@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from src.MarketSystem import MarketSystem
@@ -63,11 +65,13 @@ def test_negative_input_quantity(
         correct_market_sales,
         negative_market_sales_catch
 ):
-    market_system = MarketSystem("EUR", "0")
+    dt = datetime.datetime(2013, 1, 1)
+    dt_in_seconds = int(dt.timestamp())
+    market_system = MarketSystem("EUR", dt)
     market_system.local_markets["ESBRX"] = LocalMarket("ESBRX")
 
-    err = market_system.update_sales(correct_market_sales)
-    assert err is None
+    err = market_system.update_sales(correct_market_sales, dt_in_seconds)
+    assert err is None, err.message
 
-    err = market_system.update_sales(negative_market_sales_catch)
-    assert err is not None
+    err = market_system.update_sales(negative_market_sales_catch, dt_in_seconds)
+    assert err is not None, "Error should not be None"
