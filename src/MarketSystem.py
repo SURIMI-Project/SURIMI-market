@@ -218,7 +218,7 @@ class MarketSystem:
                 for (s_code, g_code), avg_price in avg_prices.items():
                     total_catch = total_catches.get((s_code, g_code), 0.0)
                     avg_price_str = "" if avg_price is None else f"{avg_price:.4f}"
-                    f.write(f"{tick_id},{s_code},{g_code},{avg_price_str},{total_catch:.4f}\n")
+                    f.write(f"{tick_id+1},{s_code},{g_code},{avg_price_str},{total_catch:.4f}\n")
 
         # 2) Export LOCAL market history
         local_path = output_folder / "local_prices.csv"
@@ -231,7 +231,7 @@ class MarketSystem:
                     for (s_code, g_code), price in prices.items():
                         catch_val = catches.get((s_code, g_code), 0.0)
                         price_str = "" if price is None else f"{price:.4f}"
-                        f.write(f"{tick_id},{m_code},{s_code},{g_code},{price_str},{catch_val:.4f}\n")
+                        f.write(f"{tick_id+1},{m_code},{s_code},{g_code},{price_str},{catch_val:.4f}\n")
 
         self.logger.info(f"Export complete for simulation {simulation_id}")
 

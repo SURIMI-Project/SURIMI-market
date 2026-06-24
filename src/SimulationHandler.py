@@ -106,11 +106,6 @@ class SimulationHandler:
                 f"Species codes from simulation contract not found in loaded species configuration: {missing_species}"
             )
         
-        # Set the initial tick 0 price history, using prices from the
-        # configuration files.
-        self.market_system.update_local_history()
-        self.market_system.tick.increase_tick()
-
         self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
         return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id)
 
