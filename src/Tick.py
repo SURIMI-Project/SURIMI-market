@@ -18,6 +18,13 @@ class Tick:
         self.step_months = days
 
     def get_timestamp(self):
+        """
+        Get the current time in ISO format.
+
+        Examples:
+        - Tick 1 corresponds to 2013-01-01T00:00:00Z
+        - Tick 2 corresponds to 2013-02-01T00:00:00Z
+        """
         # TODO unit test this
         current_time = (self.start_time +
                         relativedelta(months=self.tick * self.step_months)).isoformat() + "Z"

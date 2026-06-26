@@ -5,6 +5,7 @@ import threading
 import csv
 import os
 import logging
+import datetime
 
 import grpc
 import pandas as pd
@@ -42,10 +43,6 @@ class SimulationHandler:
         # Cached message for latest prices
         # TODO what is the purpose of this?
         self.latest_market_prices = None
-
-        # Flag to detect concurrent SimulateStep and UpdateSales calls
-        # TODO why not use mutex?
-        self._step_in_progress = False
 
     def init_simulation(self, simulation: simulation_pb2.Simulation):
         """
@@ -119,25 +116,25 @@ class SimulationHandler:
         self.logger.info(f"Results saved in simulations/{self.simulation_id}")
         return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id=self.simulation_id)
 
-    def simulate_step(self):
+    def simulate_step(self, controller_simulation_time: datetime.datetime) \
+        -> tuple[simulate_step_pb2.SimulateStepResponse, MarketError]:
         """
         Trigger a simulation step.
         Uses all buffered sales for this tick.
         """
         self.logger.info("Simulate step triggered...")
-        self._step_in_progress = True
-        # TODO investigate how this can fail
-        try:
-            self.market_system.step()
-
-        finally:
-            self._step_in_progress = False
+        if controller_simulation_time != self.market_system.tick.get_datetime():
+            return None, MarketError(
+                status_code=grpc.StatusCode.NOT_FOUND,
+                message=f"The MarketService's time, {self.market_system.tick.get_timestamp()} does not match the input time of {controller_simulation_time.isoformat() + "Z"}"
+            )
+        self.market_system.step()
 
         tick = self.market_system.tick.get_tick()
         current_date = self.market_system.tick.get_timestamp()[:10]
         self.logger.info(f"Tick {tick} ({current_date}) completed.")
 
-        return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id)
+        return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id), None
 
     def get_latest_market_prices(self):
         """
