@@ -1,0 +1,17 @@
+info:
+  name: SimulateStep08_(2013_08)
+  type: grpc
+  seq: 8
+
+grpc:
+  url: localhost:5001
+  method: ""
+  message: |-
+    {
+        "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
+        "current_date_time": {
+          "seconds": 1375315200,
+          "nanos": 0
+        }
+    }
+  auth: inherit

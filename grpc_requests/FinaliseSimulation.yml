@@ -1,7 +1,7 @@
 info:
   name: FinaliseSimulation
   type: grpc
-  seq: 6
+  seq: 5
 
 grpc:
   url: localhost:5001

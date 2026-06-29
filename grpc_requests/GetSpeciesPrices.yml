@@ -1,7 +1,7 @@
 info:
   name: GetSpeciesPrices
   type: grpc
-  seq: 5
+  seq: 4
 
 grpc:
   url: localhost:5001

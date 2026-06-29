@@ -1,17 +1,16 @@
 info:
-  name: SimulateStep
+  name: SimulateStep02_(2013_02)
   type: grpc
-  seq: 3
+  seq: 2
 
 grpc:
   url: localhost:5001
-  method: /surimi.v1.MarketService/SimulateStep
-  methodType: unary
+  method: ""
   message: |-
     {
         "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
         "current_date_time": {
-          "seconds": 1777593600,
+          "seconds": 1359676800,
           "nanos": 0
         }
     }
