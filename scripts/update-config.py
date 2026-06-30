@@ -122,7 +122,7 @@ print("Checking dependencies and pre-requisites...")
 env_file = ".env"
 print("Checking .env file...")
 if not os.path.isfile(env_file):
-    print(f"{env_file} was not found. You should create it and fill the field UPDATE_CONFIG_TOKEN.", file=sys.stderr)
+    print(f"{env_file} was not found. Create a new '.env' using the template '.env.template.'", file=sys.stderr)
     sys.exit(1)
 
 with open(env_file) as f:
