@@ -71,6 +71,19 @@ You can run the program with verbose output using the `--debug` flag. This can b
 python server/app.py --debug
 ```
 
+### Updating Config Files
+The Market model uses three datasets as its configuration files, namely:
+- prices.csv
+- species.csv
+- ports.csv
+These are synchronised with the upstream [SURIMI-western_med](https://github.com/Official-EwE/SURIMI-western_med) repository. A small, interactive script is provided to check against the upstream and update if necessary.
+
+```
+python ./scripts/update-config.py
+```
+
+> Note: the script prompts for the username. This is your local device's username and should be the same as the output of the `whoami` command. It is used to find the path to Visual Studio Code.
+
 ## Testing
 We include a few tools for testing purpose. They are the following
 | Test type | Name |
