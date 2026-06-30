@@ -252,7 +252,7 @@ for i, file in enumerate(local_config_dir.iterdir()):
         if show_diff == "y":
             print("Opening a new tab in VSCode to show the diff...")
             print("Come back to the terminal once you have finished reviewing the diff.")
-            execute_command([VSCODE_PATH, "--diff", file, Path("config/", FILES[i])])
+            execute_command([VSCODE_PATH, "--diff", Path("config/", FILES[i]), file])
 
 # Prompt for committing changes
 print("The following files are different:")
