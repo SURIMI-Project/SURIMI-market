@@ -4,7 +4,7 @@ info:
   seq: 3
 
 grpc:
-  url: localhost:5001
+  url: localhost:{{PORT}}
   method: /surimi.v1.MarketService/UpdateSales
   methodType: unary
   message: |-

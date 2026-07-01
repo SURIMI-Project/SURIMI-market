@@ -4,7 +4,7 @@ info:
   seq: 1
 
 grpc:
-  url: http://localhost:5001
+  url: http://localhost:{{PORT}}
   method: /surimi.v1.MarketService/GetProtocolVersion
   methodType: unary
   message: "{}"

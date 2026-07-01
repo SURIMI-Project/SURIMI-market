@@ -4,7 +4,7 @@ info:
   seq: 2
 
 grpc:
-  url: http://localhost:5001
+  url: http://localhost:{{PORT}}
   method: /surimi.v1.MarketService/InitialiseSimulation
   methodType: unary
   message: |-
@@ -786,6 +786,6 @@ grpc:
           ]
         }
       },
-      "scenario_name": "asd"
+      "scenario_name": "western_med"
     }
   auth: inherit

@@ -7,6 +7,8 @@ It holds the source code of the SURIMI Market model
 - [Create a docker image](#create-a-docker-image)
 - [SDK notice](#watch-out-check-that-you-are-using-the-sdk-version-v1701)
 - [Usage](#usage)
+  - [Updating Config Files](#updating-config-files)
+  - [Bruno](#bruno)
 - [Testing](#testing)
 - [Create a Docker image](#create-a-docker-image)
 - [Config files Synchronisation from the SURIMI-western_med repo](#config-files-synchronisation-from-the-surimi-western_med-repo)
@@ -83,6 +85,15 @@ python ./scripts/update-config.py
 ```
 
 > Note: the script prompts for the username. This is your local device's username and should be the same as the output of the `whoami` command. It is used to find the path to Visual Studio Code.
+
+### Bruno
+We use Bruno for testing and sending gRPC requests. The requests are stored in [grpc_requests/](./grpc_requests/). To use Bruno for testing, open this directory in the application. The files should already be configured and ready to use out-of-the-box.
+
+By default, the project opens port `5001` for the gRPC service. This port is sometimes used by other processes. To solve this problem on the client side, we have configured the "SURIMI" environment that you can use in Bruno:
+- On the upper right hand corner of the client, there is a "No Environment" button. Press this to open the dropdown menu.
+- There should be a "SURIMI" entry. Press this.
+
+At this point, the `{{PORT}}` variable in the requests' address bar will be replaced the corresponding environment variable. From the same drop-down menu, press "Configure" to change this variable.
 
 ## Testing
 We include a few tools for testing purpose. They are the following
