@@ -65,7 +65,7 @@ def test_negative_input_quantity(
         correct_market_sales,
         negative_market_sales_catch
 ):
-    dt = datetime.datetime(2013, 1, 1)
+    dt = datetime.datetime(2013, 1, 1, tzinfo=datetime.UTC)
     dt_in_seconds = int(dt.timestamp())
     market_system = MarketSystem("EUR", dt)
     market_system.local_markets["ESBRX"] = LocalMarket("ESBRX")

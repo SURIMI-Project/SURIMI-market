@@ -283,9 +283,7 @@ class MarketSystem:
             
         # If the start_date_time occurs at a later stage, then save it. If it
         # occurs before the current tick, return an error about it.
-        requested_time = datetime \
-                        .datetime \
-                        .fromtimestamp(start_date_time)
+        requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
         current_time = self.tick.get_datetime()
         
         if requested_time > current_time:

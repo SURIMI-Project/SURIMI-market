@@ -27,7 +27,7 @@ class Tick:
         """
         # TODO unit test this
         current_time = (self.start_time +
-                        relativedelta(months=self.tick * self.step_months)).isoformat() + "Z"
+                        relativedelta(months=self.tick * self.step_months)).isoformat()
         return current_time
     
     def get_date(self):
@@ -36,8 +36,8 @@ class Tick:
         return current_time.date()
 
     def get_datetime(self):
-        return self.start_time + \
-                relativedelta(months=self.tick * self.step_months)
+        return (self.start_time + \
+                relativedelta(months=self.tick * self.step_months))
     
     def reset(self):
         self.tick = 0
