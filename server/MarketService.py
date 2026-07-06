@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 import grpc
@@ -29,14 +30,23 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         # e.g. check if market codes and species codes exist in files etc.
         # If you don't throw an error here, the server will crash later when trying to access unknown data.
 
-        new_simulation = SimulationHandler(request.simulation_id, request.scenario_name, request.simulation.start_date_time.ToDatetime(), request.simulation.time_step)
+        new_simulation = SimulationHandler(
+            request.simulation_id, 
+            request.scenario_name, 
+            request.simulation.start_date_time.ToDatetime(datetime.UTC),
+            request.simulation.time_step)
 
         self.simulation_dictionary[request.simulation_id] = new_simulation
         self.logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
         S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
 
-        return new_simulation.init_simulation(request.simulation)
+        response, err = new_simulation.init_simulation(request.simulation)
+        if response is None:
+            self.log_and_abort(context, err.status_code, err.message)
+            return None
+        else:
+            return response
 
     def SimulateStep(self, request: simulate_step_pb2.SimulateStepRequest, context: grpc.ServicerContext):
         self.logger.info(f"SimulateStep of Simulation ID: {request.simulation_id}.")
@@ -46,7 +56,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.logger.info(f"Current time: {request.current_date_time.ToDatetime()}")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        response, err = current_simulation.simulate_step(request.current_date_time.ToDatetime())
+        response, err = current_simulation.simulate_step(request.current_date_time.ToDatetime(datetime.UTC))
         if err is not None:
             self.log_and_abort(context, err.status_code, err.message)
         else:

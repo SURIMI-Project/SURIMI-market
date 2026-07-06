@@ -55,14 +55,14 @@ class MarketSystem:
                 del self.pending_sales_summary[date]
 
         # 2) Use real data if we have it
-        stepped_month = str(self.tick.get_date())
-        if stepped_month in self.real_data_months:
-            # 2a) Use real prices
-            for market in self.local_markets.values():
-                market.use_real_price(self.real_data_months)
-        else:
-            # Predict prices
-            self.compute_local_prices()
+        # stepped_month = str(self.tick.get_date())
+        # if stepped_month in self.real_data_months:
+        #     # 2a) Use real prices
+        #     for market in self.local_markets.values():
+        #         market.use_real_price(self.real_data_months)
+        # else:
+        # Predict prices
+        self.compute_local_prices()
 
         self.update_local_history()
         self.tick.increase_tick()
@@ -283,9 +283,7 @@ class MarketSystem:
             
         # If the start_date_time occurs at a later stage, then save it. If it
         # occurs before the current tick, return an error about it.
-        requested_time = datetime \
-                        .datetime \
-                        .fromtimestamp(start_date_time)
+        requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
         current_time = self.tick.get_datetime()
         
         if requested_time > current_time:
