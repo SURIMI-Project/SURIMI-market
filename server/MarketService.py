@@ -41,7 +41,12 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
 
         S3_Storage.DownloadFilesFromS3("surimi-market/config", "config")
 
-        return new_simulation.init_simulation(request.simulation)
+        response, err = new_simulation.init_simulation(request.simulation)
+        if response is None:
+            self.log_and_abort(context, err.status_code, err.message)
+            return None
+        else:
+            return response
 
     def SimulateStep(self, request: simulate_step_pb2.SimulateStepRequest, context: grpc.ServicerContext):
         self.logger.info(f"SimulateStep of Simulation ID: {request.simulation_id}.")

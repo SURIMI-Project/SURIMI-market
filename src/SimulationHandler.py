@@ -44,7 +44,7 @@ class SimulationHandler:
         # TODO what is the purpose of this?
         self.latest_market_prices = None
 
-    def init_simulation(self, simulation: simulation_pb2.Simulation):
+    def init_simulation(self, simulation: simulation_pb2.Simulation) -> tuple[initialise_simulation_pb2.InitialiseSimulationResponse, MarketError]:
         """
         Trigger simulation initialization and respond to controller.
         Loads initialization config (species, ports, historical prices)
@@ -63,13 +63,72 @@ class SimulationHandler:
             shutil.rmtree(config_dst)
         shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
-        # TODO add unit testing for each of the three actions.
-        # Load configurations and data from CSV 
-        loaded_species = self.load_species_from_csv()
-        loaded_markets = self.load_ports_from_csv()
-        loaded_prices = self.load_prices_from_csv()
-        self.market_system.load_local_market_price_history(loaded_markets, loaded_prices)
+        # Load configurations and data from CSV
+        app_directory = Path(__file__).parent.parent.resolve()
+        folder_path = Path(app_directory, "config")
 
+        # Load species configs
+        species_path = Path(folder_path, consts.SPECIES_CSV)
+        if os.path.exists(species_path):
+            self.logger.info(f"Loading species from {species_path}")
+        else:
+            self.logger.critical(f"{consts.SPECIES_CSV} not found in {folder_path}")
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.SPECIES_CSV} was not found.")
+        loaded_species: list[str] = load_species_from_csv(species_path)
+
+        # Load ports configs
+        ports_path = Path(folder_path, consts.PORTS_CSV)
+        if os.path.exists(ports_path):
+            self.logger.info(f"Loading ports from {ports_path}")
+        else:
+            self.logger.critical(f"{consts.PORTS_CSV} not found in {folder_path}")
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PORTS_CSV} was not found.")
+        loaded_markets: dict[str,tuple] = load_ports_from_csv(ports_path)
+
+        # Load prices configs
+        prices_path = Path(folder_path, consts.PRICES_CSV)
+        if os.path.exists(prices_path):
+            self.logger.info(f"Loading ports from {prices_path}")
+        else:
+            self.logger.critical(f"{consts.PRICES_CSV} not found in {folder_path}")
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PRICES_CSV} was not found.")
+        loaded_prices = pd.read_csv(prices_path)
+
+        # Validate ports
+        contract_ports = set([port.market_code for port in simulation.items.markets])
+        missing_ports = find_missing_ports(contract_ports=contract_ports,
+                                           market_ports=set(loaded_markets.keys()))
+        initialised_ports = {}
+        if len(missing_ports) > 0:
+            self.logger.critical(f"Missing the following ports: {missing_ports}")
+            err_msg = "The market is missing the following ports:\n"
+            for port in missing_ports:
+                err_msg = f"  - {port}\n"
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
+        else:
+            # Remove excessive ports
+            valid_ports: set = get_valid_ports_only(set(loaded_markets.keys()), contract_ports)
+            for port in (set(loaded_markets.keys()) - valid_ports):
+                del loaded_markets[port]
+            
+            # Instantiate new LocalMarket objects
+            for port, data in loaded_markets.items():
+                initialised_ports[port] = LocalMarket(port, data[0], data[1], data[2])
+
+        # Validate the Market Service's available species
+        contract_species = set([species.species_code for species in simulation.items.species])
+        missing_species = find_missing_species(contract_species=contract_species,
+                                               market_species=set(loaded_species))
+        if len(missing_species) > 0:
+            self.logger.critical(f"Missing the following species: {missing_species}")
+            err_msg = "The market is missing the following species:\n"
+            for species in missing_species:
+                err_msg = f"  - {species}\n"
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
+        else:
+            # Remove species not in the contract
+            loaded_species = list(get_valid_species_only(set(loaded_species), contract_species))
+        
         # Define months that we have real data for. Used to decide whether to
         # predict or use real prices.
         self.market_system.real_data_months = list(set(loaded_prices["date"]))
@@ -80,7 +139,7 @@ class SimulationHandler:
 
         # Transfer ownerships of loaded data to the MarketSystem
         self.market_system.species_codes = loaded_species
-        self.market_system.local_markets = loaded_markets
+        self.market_system.local_markets = initialised_ports
         self.market_system.gear_codes_contract = gear_contract
 
         # Initialise baseline prices
@@ -104,7 +163,7 @@ class SimulationHandler:
             )
         
         self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
-        return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id)
+        return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id), None
 
     def finalise_simulation(self, folder_path="simulations"):
         """
@@ -153,82 +212,104 @@ class SimulationHandler:
         )
         return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), err
 
-    def load_species_from_csv(self) -> list[str]:
-        """
-        Load species definitions from CSV file into the market system.
+def load_ports_from_csv(ports_path: Path) -> dict[str, tuple[str, float, float]]:
+    """
+    Load local market (port) definitions from CSV into the market system.
 
-        CSV columns: species_code, species_name
+    CSV columns: port_code, port_name, lon, lat
+    """
+    # Return value
+    loaded_markets = {}
 
-        Returns
-        -------
-            loaded_species : Collection of all species by their code found in
-                             the CSV file.
-        """
-        app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = str(Path(app_directory) / "config")
-        species_path = os.path.join(folder_path, consts.SPECIES_CSV)
+    with open(ports_path, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            loaded_markets[row["port_code"].strip()] = (
+                row["port_name"].strip(),
+                float(row["lon"]),
+                float(row["lat"])
+            )
 
-        # Return value
-        loaded_species = []
-
-        if os.path.exists(species_path):
-            self.logger.info(f"Loading species from {species_path}")
-        else:
-            self.logger.warning(f"{consts.PORTS_CSV} not found in {folder_path}") 
-
-        with open(species_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                code = row["species_code"].strip()
-                loaded_species.append(code)
-
-        return loaded_species
-
-    def load_ports_from_csv(self) -> dict[str, LocalMarket]:
-        """
-        Load local market (port) definitions from CSV into the market system.
-
-        CSV columns: port_code, port_name, lon, lat
-        """
-        app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = str(Path(app_directory) / "config")
-        ports_path = os.path.join(folder_path, consts.PORTS_CSV)
-
-        # Return value
-        loaded_markets = {}
-
-        if os.path.exists(ports_path):
-            self.logger.info(f"Loading species from {ports_path}")
-        else:
-            self.logger.warning(f"{consts.PORTS_CSV} not found in {folder_path}") 
-
-        with open(ports_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                code = row["port_code"].strip()
-                name = row["port_name"].strip()
-                lon = float(row["lon"])
-                lat = float(row["lat"])
-
-                market = LocalMarket(
-                    market_code=code,
-                    name=name,
-                    lon=lon,
-                    lat=lat
-                )
-
-                loaded_markets[code] = market
-
-        return loaded_markets
-
-    def load_prices_from_csv(self) -> pd.DataFrame:
-        app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = str(Path(app_directory) / "config")
-        prices_path = os.path.join(folder_path, consts.PRICES_CSV)
-        
-        # Test what happens if the file does not exist.
-        self.logger.info(f"Loading species from {prices_path}")
-        return pd.read_csv(prices_path)
+    return loaded_markets
 
 def ignore_non_csv(dir, files):
     return {f for f in files if not fnmatch.fnmatch(f, "*.csv")}
+
+def load_species_from_csv(species_path) -> list[str]:
+    """
+    Load species definitions from CSV file into the market system.
+
+    CSV columns: species_code, species_name
+
+    Returns
+    -------
+        loaded_species : Collection of all species by their code found in
+                            the CSV file.
+    """
+    logger = logging.getLogger("SimulationHandler")
+
+    # Return value
+    loaded_species = []
+
+    # TODO exit if the file was not found
+    if os.path.exists(species_path):
+        logger.info(f"Loading species from {species_path}")
+    else:
+        logger.critical(f"{consts.PORTS_CSV} not found in {species_path.parent}") 
+
+    with open(species_path, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            code = row["species_code"].strip()
+            loaded_species.append(code)
+
+    return loaded_species
+
+def find_missing_ports(contract_ports: set, market_ports: set) -> list[str]:
+    """
+    Find ports that are specified by the contract but missing from  the datasets.
+    """
+    return contract_ports - set(market_ports)
+
+def find_missing_species(contract_species: set, market_species: set) -> list[str]:
+    """
+    Find species specified by the contract but missing from the dataset.
+    """
+    return contract_species - market_species
+
+
+def get_valid_ports_only(market_ports: set[str], contract_ports: set[str]) -> set[str]:
+    """
+    Get list of ports from the datasets that adhere to the contract
+
+    Arguments
+    ---------
+        contract_ports : Set of all ports that must be present.
+        market_ports : Set of all ports from the datasets. May include ports
+                       not in the contract.
+    
+    Returns
+    -------
+        Set of valid ports
+    """
+    excessive_ports = market_ports - contract_ports
+    valid_ports = market_ports - excessive_ports
+    return valid_ports
+
+def get_valid_species_only(market_species: set[str], contract_species: set[str]) -> set[str]:
+    """
+    Get list of species from the datasets that adhere to the contract
+    
+    Arguments
+    ---------
+        contract_ports : Set of all species that must be present.
+        market_species : Set of all species from the datasets. May include species
+                       not in the contract.
+
+    Returns
+    -------
+        Set of valid species
+    """
+    excessive_species = market_species - contract_species
+    valid_species = market_species - excessive_species
+    return valid_species
