@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+import platform
 import unicodedata
 
 if __name__ != "__main__":
@@ -45,8 +46,11 @@ VSCODE_PATH = ""
 
 def set_vscode_path(user: str):
     global VSCODE_PATH
-    VSCODE_PATH = Path(
-        f"C:/Users/{user}/AppData/Local/Programs/Microsoft VS Code/bin/code.cmd")
+    if user is None:
+        VSCODE_PATH = Path("/usr/bin/code")
+    else:
+        VSCODE_PATH = Path(
+            f"C:/Users/{user}/AppData/Local/Programs/Microsoft VS Code/bin/code.cmd")
 
 
 def get_normalized_hash(file_path, hash_algo='md5'):
@@ -100,21 +104,24 @@ print("You can exit this tool at any point with CTRL+C.", end="\n\n")
 
 # Check that the pre-requisites are installed or present
 # ------------------------------------------------------
-# Check username
-try:
-    is_username_input = input(f"Is your username: {getpass.getuser()}? [Y/n] ")
-    is_username_input = is_username_input.strip().lower()
-except KeyboardInterrupt:
-    print("\n\nCancelled. No changes were made.")
-    sys.exit(0)
+if platform.system() == "Windows":
+    # Check username
+    try:
+        is_username_input = input(f"Is your username: {getpass.getuser()}? [Y/n] ")
+        is_username_input = is_username_input.strip().lower()
+    except KeyboardInterrupt:
+        print("\n\nCancelled. No changes were made.")
+        sys.exit(0)
 
-# Set VSCode path. We ask user to confirm this in a bit.
-if not is_username_input == "" and not is_username_input == "y":
-    new_username = input("Enter your username: ")
-    set_vscode_path(new_username)
+    # Set VSCode path. We ask user to confirm this in a bit.
+    if not is_username_input == "" and not is_username_input == "y":
+        new_username = input("Enter your username: ")
+        set_vscode_path(new_username)
+    else:
+        set_vscode_path(getpass.getuser())
+    print()
 else:
-    set_vscode_path(getpass.getuser())
-print()
+    set_vscode_path(None)
 
 print("Checking dependencies and pre-requisites...")
 
@@ -229,7 +236,8 @@ else:
             print("\n\nCancelled. No changes were made.")
             sys.exit(0)
 
-local_config_dir = Path(local_filepath, DIRECTORY)
+# TODO support the two other scenarios
+local_config_dir = Path(local_filepath, DIRECTORY, "northwestern_med")
 
 updated_files = []
 
