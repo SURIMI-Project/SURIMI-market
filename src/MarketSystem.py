@@ -55,14 +55,14 @@ class MarketSystem:
                 del self.pending_sales_summary[date]
 
         # 2) Use real data if we have it
-        stepped_month = str(self.tick.get_date())
-        if stepped_month in self.real_data_months:
-            # 2a) Use real prices
-            for market in self.local_markets.values():
-                market.use_real_price(self.real_data_months)
-        else:
-            # Predict prices
-            self.compute_local_prices()
+        # stepped_month = str(self.tick.get_date())
+        # if stepped_month in self.real_data_months:
+        #     # 2a) Use real prices
+        #     for market in self.local_markets.values():
+        #         market.use_real_price(self.real_data_months)
+        # else:
+        # Predict prices
+        self.compute_local_prices()
 
         self.update_local_history()
         self.tick.increase_tick()
