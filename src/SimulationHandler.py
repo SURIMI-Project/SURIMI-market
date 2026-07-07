@@ -68,6 +68,7 @@ class SimulationHandler:
         folder_path = Path(app_directory, "config")
 
         # Load species configs
+        # TODO get the species from prices.csv instead of species.csv
         species_path = Path(folder_path, consts.SPECIES_CSV)
         if os.path.exists(species_path):
             self.logger.info(f"Loading species from {species_path}")
