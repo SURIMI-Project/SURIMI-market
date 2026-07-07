@@ -55,7 +55,7 @@ class SimulationHandler:
         # Copy config from the S3 downloaded configs to the simulation dirs.
         # TODO this is temporary. Should be removed when we can reliably download
         #      from S3.
-        simulation_dir = Path(__file__).parent.parent / "simulations" / self.simulation_id
+        simulation_dir = Path(__file__).parent.parent / "simulations" / self.scenario_id / self.simulation_id
         simulation_dir.mkdir(parents=True, exist_ok=True)
         config_src = Path(__file__).parent.parent / "config"
         config_dst = simulation_dir / "config"
@@ -69,30 +69,30 @@ class SimulationHandler:
 
         # Load species configs
         # TODO get the species from prices.csv instead of species.csv
-        species_path = Path(folder_path, consts.SPECIES_CSV)
+        species_path = Path(folder_path, self.scenario_id, consts.SPECIES_CSV)
         if os.path.exists(species_path):
             self.logger.info(f"Loading species from {species_path}")
         else:
-            self.logger.critical(f"{consts.SPECIES_CSV} not found in {folder_path}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.SPECIES_CSV} was not found.")
+            self.logger.critical(f"{consts.SPECIES_CSV} not found in {folder_path}/{self.scenario_id}")
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.SPECIES_CSV} was not found for scenario {self.scenario_id}.")
         loaded_species: list[str] = load_species_from_csv(species_path)
 
         # Load ports configs
-        ports_path = Path(folder_path, consts.PORTS_CSV)
+        ports_path = Path(folder_path, self.scenario_id, consts.PORTS_CSV)
         if os.path.exists(ports_path):
             self.logger.info(f"Loading ports from {ports_path}")
         else:
-            self.logger.critical(f"{consts.PORTS_CSV} not found in {folder_path}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PORTS_CSV} was not found.")
+            self.logger.critical(f"{consts.PORTS_CSV} not found in {folder_path}/{self.scenario_id}")
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PORTS_CSV} was not found for scenario {self.scenario_id}.")
         loaded_markets: dict[str,tuple] = load_ports_from_csv(ports_path)
 
         # Load prices configs
-        prices_path = Path(folder_path, consts.PRICES_CSV)
+        prices_path = Path(folder_path, self.scenario_id, consts.PRICES_CSV)
         if os.path.exists(prices_path):
             self.logger.info(f"Loading ports from {prices_path}")
         else:
-            self.logger.critical(f"{consts.PRICES_CSV} not found in {folder_path}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PRICES_CSV} was not found.")
+            self.logger.critical(f"{consts.PRICES_CSV} not found in {folder_path}/{self.scenario_id}")
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PRICES_CSV} was not found for scenario {self.scenario_id}.")
         loaded_prices = pd.read_csv(prices_path)
 
         # Validate ports
@@ -172,8 +172,8 @@ class SimulationHandler:
         Writes results into simulations/<simulation_id>.
         """
         self.logger.info("Finalising simulation...")
-        self.market_system.export_results(self.simulation_id, folder_path)
-        self.logger.info(f"Results saved in simulations/{self.simulation_id}")
+        self.market_system.export_results(self.simulation_id, Path(folder_path, self.scenario_id))
+        self.logger.info(f"Results saved in simulations/{self.scenario_id}/{self.simulation_id}")
         return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id=self.simulation_id)
 
     def simulate_step(self, controller_simulation_time: datetime.datetime) \

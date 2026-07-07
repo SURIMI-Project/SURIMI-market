@@ -31,6 +31,9 @@ REPO = "Official-EwE/SURIMI-western_med"
 DIRECTORY = "SURIMI-market_inputs"
 REF_PATH = "refs/heads/main"
 
+# TODO add support for multiple scenarios
+SCENARIO_NAME = "western-med" # anchovy-bay, aegean
+
 FILES = (
     "ports.csv",
     "prices.csv",
@@ -241,39 +244,77 @@ local_config_dir = Path(local_filepath, DIRECTORY, "northwestern_med")
 
 updated_files = []
 
+def get_current_config(i: int):
+    """Helper function to get the appropriate local config file."""
+    return Path("config", SCENARIO_NAME, FILES[i])
+
+config_dir_path = Path("config", SCENARIO_NAME)
+
+if not os.path.isdir(config_dir_path):
+    print(f"Tried to find config files in '{config_dir_path}', but it was not found.")
+    try:
+        confirm_create_dirs = input("Would you like to create it? [Y/n] ")
+    except KeyboardInterrupt:
+        print("Cancelled")
+        sys.exit(0)
+
+    confirm_create_dirs = confirm_create_dirs.strip().lower()
+    if confirm_create_dirs != "y" and confirm_create_dirs != "":
+        print("Cancelled.")
+        sys.exit(0)
+    else:
+        try:
+            os.makedirs(config_dir_path, exist_ok=False)
+        except OSError:
+            print(f"Something went wrong. Tried to create the existing directory {config_dir_path}.", file=sys.stderr)
+            print("Aborted", file=sys.stderr)
+            sys.exit(1)
+
 # Validate that the config files exist
 for i, file in enumerate(local_config_dir.iterdir()):
-    hash_1 = get_normalized_hash(file)
-    hash_2 = get_normalized_hash(Path("config", FILES[i]))
-    
-    if hash_1 != hash_2:
-        updated_files.append(file)
-    
-        try:
-            show_diff = input(f"'{FILES[i]}' is different. Show diff? [y/N] ")
-        except KeyboardInterrupt:
-            print("\n\nCancelled. No changes were made.")
-            sys.exit(0)
-    
-        show_diff = show_diff.strip().lower()
+    if os.path.isfile(FILES[i]):
+        # File exists
+        hash_1 = get_normalized_hash(file)
+        hash_2 = get_normalized_hash(get_current_config(i))
+        
+        if hash_1 != hash_2:
+            updated_files.append(file)
+        
+            try:
+                show_diff = input(f"'{FILES[i]}' is different. Show diff? [y/N] ")
+            except KeyboardInterrupt:
+                print("\n\nCancelled. No changes were made.")
+                sys.exit(0)
+        
+            show_diff = show_diff.strip().lower()
 
-        if show_diff == "y":
-            print("Opening a new tab in VSCode to show the diff...")
-            print("Come back to the terminal once you have finished reviewing the diff.")
-            execute_command([VSCODE_PATH, "--diff", Path("config/", FILES[i]), file])
+            if show_diff == "y":
+                print("Opening a new tab in VSCode to show the diff...")
+                print("Come back to the terminal once you have finished reviewing the diff.")
+                execute_command([VSCODE_PATH, "--diff", get_current_config(i), file])
+    else:
+        missing_files.append(file)
 
 # Prompt for committing changes
-print("The following files are different:")
-for file in updated_files:
+if len(updated_files) > 0:
+    print("The following files are different:")
+    for file in updated_files:
+        print(f"  - {file}")
+    print("and t", end="")
+else:
+    print("T", end="")
+
+print("he following files do not exist?")
+for file in missing_files:
     print(f"  - {file}")
 
 to_repeat = True
 to_commit = False
 while to_repeat:
     try:
-        confirm_commit = input("Would you like to commit the changes to the current branch? [y/n] ")
+        confirm_commit = input("Would you like to commit the changes or copy the missing files to the current branch? [y/n] ")
     except KeyboardInterrupt:
-        print("\n\nCancelled. No changes were made.")
+        print("\nCancelled.")
         sys.exit(0)
     
     confirm_commit = confirm_commit.strip().lower()
@@ -288,10 +329,17 @@ while to_repeat:
 # Commit the changes
 if to_commit:
     execute_command(["git", "pull"])
+    # Copy files
     for i, file in enumerate(updated_files):
-        print(f"Copying {file} -> {Path("config", FILES[i])}")
-        shutil.copy(file, Path("config", FILES[i]))
-        execute_command(["git", "add", Path("config", FILES[i])])
+        print(f"Copying {file} -> {get_current_config(i)}")
+        shutil.copy(file, get_current_config(i))
+        execute_command(["git", "add", get_current_config(i)])
+    
+    # Add missing files
+    for i, file in enumerate(missing_files):
+        print(f"Copying {file} -> {get_current_config(i)}")
+        shutil.copy(file, get_current_config(i))
+        execute_command(["git", "add", get_current_config(i)])
 
 date = datetime.today().strftime('%Y-%m-%d')
 message = f"""chore: ({date}) sync config files 
