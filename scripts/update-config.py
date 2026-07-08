@@ -32,7 +32,7 @@ DIRECTORY = "SURIMI-market_inputs"
 REF_PATH = "refs/heads/main"
 
 # TODO add support for multiple scenarios
-SCENARIO_NAME = "western-med" # anchovy-bay, aegean
+SCENARIO_NAME = "northwestern_med" # anchovy-bay, aegean
 
 FILES = (
     "ports.csv",
@@ -243,6 +243,7 @@ else:
 local_config_dir = Path(local_filepath, DIRECTORY, "northwestern_med")
 
 updated_files = []
+missing_files = []
 
 def get_current_config(i: int):
     """Helper function to get the appropriate local config file."""

@@ -35,7 +35,7 @@ class SimulationHandler:
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
 
         # Internal dictionaries for quick reference
-        self.gear_codes = []
+        self.category_codes = []
 
         # Threading event for blocking control
         self.update_event = threading.Event()
@@ -55,13 +55,13 @@ class SimulationHandler:
         # Copy config from the S3 downloaded configs to the simulation dirs.
         # TODO this is temporary. Should be removed when we can reliably download
         #      from S3.
-        simulation_dir = Path(__file__).parent.parent / "simulations" / self.scenario_id / self.simulation_id
-        simulation_dir.mkdir(parents=True, exist_ok=True)
-        config_src = Path(__file__).parent.parent / "config"
-        config_dst = simulation_dir / "config"
-        if config_dst.exists():
-            shutil.rmtree(config_dst)
-        shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
+        # simulation_dir = Path(__file__).parent.parent / "simulations" / self.scenario_id / self.simulation_id
+        # simulation_dir.mkdir(parents=True, exist_ok=True)
+        # config_src = Path(__file__).parent.parent / "config"
+        # config_dst = simulation_dir / "config"
+        # if config_dst.exists():
+        #     shutil.rmtree(config_dst)
+        # shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
         # Load configurations and data from CSV
         app_directory = Path(__file__).parent.parent.resolve()
@@ -134,16 +134,17 @@ class SimulationHandler:
         # predict or use real prices.
         self.market_system.real_data_months = list(set(loaded_prices["date"]))
 
-        # Get all unique gear codes from the contract.
-        gear_contract = [segment.gear_code for segment in list(simulation.items.fleet_segments)]
-        gear_contract = set(gear_contract)
+        # Get all unique category codes from the contract.
+        category_contract = [pc.category_code for pc in list(simulation.items.price_categories)]
+        category_contract = set(category_contract)
 
         # Transfer ownerships of loaded data to the MarketSystem
         self.market_system.species_codes = loaded_species
         self.market_system.local_markets = initialised_ports
-        self.market_system.gear_codes_contract = gear_contract
+        self.market_system.category_codes_contract = category_contract
 
         # Initialise baseline prices
+        self.market_system.load_local_market_price_history(loaded_prices)
         self.market_system.set_local_market_initial_price()
         
         # Elser et al. assumes that the global market price is static.

@@ -17,22 +17,22 @@ class GlobalMarket:
         self.logger = logging.getLogger(consts.GLOBAL_MARKET_LOGGER_NAME)
         self.global_price_history = []  # [(tick, {"avg_prices": {...}, "total_catches": {...}})]
 
-    def get_most_recent_price(self, species_code: str, gear_code: str) -> float | None:
+    def get_most_recent_price(self, species_code: str, category_code: str) -> float | None:
         """
         Get the most recent price for a species.
 
         Arguments
         ---------
             species_code : The species' code.
-            gear_code : The gear code that the species price is associated with.
+            category_code : The category code that the species price is associated with.
         """
         assert len(self.global_price_history) > 0, "There must be a history before the most recent price can be retrieved."
-        return self.global_price_history[-1][1].get((species_code, gear_code))
+        return self.global_price_history[-1][1].get((species_code, category_code))
     
     def compute_prices(self,
                        local_markets: dict[str, LocalMarket], 
                        species_codes: list[str],
-                       gear_codes: list[str]) -> tuple[dict, dict]:
+                       category_codes: list[str]) -> tuple[dict, dict]:
         """
         Set the current global species prices using the mean of species price.
 
@@ -44,17 +44,17 @@ class GlobalMarket:
         
         then X's global price is 4.
 
-        The species' global prices are also based on the fleet vessel's gear
+        The species' global prices are also based on the fleet vessel's category
         code. The method finds all the different combinations of species and
-        gear codes using the Cartesian product of `species_codes` and 
-        `gear_codes`.
+        category codes using the Cartesian product of `species_codes` and 
+        `category_codes`.
 
         Arguments
         ---------
             local markets : A dictionary of all local markets that the global
                             prices are based on, according to the contract.
             species_list : The list of all species, according to the contract.
-            gear_codes : The list of all gear codes, according to the contract.
+            category_codes : The list of all category codes, according to the contract.
         
         Returns
         -------
@@ -67,14 +67,14 @@ class GlobalMarket:
         global_catches = {}
         global_prices = {}
 
-        # Species prices depend on the gear code, so we a use Cartesian product
+        # Species prices depend on the category code, so we a use Cartesian product
         # to combine them.
-        lookup_keys = list(product(species_codes, gear_codes))
+        lookup_keys = list(product(species_codes, category_codes))
         missing_global_count = 0
         valid_global_count = 0
 
         for key in lookup_keys:
-            # key[n] = (species_code, gear_code)
+            # key[n] = (species_code, category_code)
             valid_prices = []
             total_catch = 0.0
 

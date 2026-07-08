@@ -28,7 +28,7 @@ class MarketSystem:
         self.species_codes: list[str] = {}
         self.local_markets: dict[str, LocalMarket] = {}
         self.global_market = GlobalMarket()
-        self.gear_codes_contract: list[str] = []
+        self.category_codes_contract: list[str] = []
         self.logger = logging.getLogger(consts.MARKET_SYSTEM_LOGGER_NAME)
 
         # Collection of months that we have real data for. Used to compute
@@ -115,7 +115,7 @@ class MarketSystem:
         prices, catches = self.global_market.compute_prices(
             local_markets=self.local_markets,
             species_codes=self.species_codes,
-            gear_codes=self.gear_codes_contract
+            category_codes=self.category_codes_contract
         )
 
         current_tick = self.tick.get_tick()
@@ -138,7 +138,7 @@ class MarketSystem:
 
         # Phase 1: fill from CSV if available
         for market in self.local_markets.values():
-            market.set_initial_price_to_earliest_available(self.species_codes, self.gear_codes_contract)
+            market.set_initial_price_to_earliest_available(self.species_codes, self.category_codes_contract)
 
         self.logger.info("Local markets baseline prices initialization complete.")
 
@@ -156,8 +156,8 @@ class MarketSystem:
         #      bad/lacking datapoints/lacking information
         for market in self.local_markets.values():
 
-            # Prices depend on both species code and gear code
-            for (s_code, g_code) in product(self.species_codes, self.gear_codes_contract):
+            # Prices depend on both species code and category code
+            for (s_code, g_code) in product(self.species_codes, self.category_codes_contract):
                 if (s_code, g_code) not in market.local_prices:
                     global_fallback = self.global_market.get_most_recent_price(s_code, g_code)
                     if global_fallback is not None and global_fallback > 0:
@@ -182,7 +182,7 @@ class MarketSystem:
         valid_count = 0
         missing_count = 0
 
-        for (s_code, g_code) in product(self.species_codes, self.gear_codes_contract):
+        for (s_code, g_code) in product(self.species_codes, self.category_codes_contract):
             for market in self.local_markets.values():
                 price = market.local_prices.get((s_code, g_code))
 
@@ -192,7 +192,8 @@ class MarketSystem:
                         species=species_pb2.Species(species_code=s_code),
                         market_code=market.market_code,
                         price=price,
-                        currency=self.currency
+                        currency=self.currency,
+                        category_code=g_code
                     )
                     messages.append(message)
                 else:
@@ -225,7 +226,7 @@ class MarketSystem:
         # 1) Export GLOBAL prices
         global_path = output_folder / "global_prices.csv"
         with global_path.open("w", newline="") as f:
-            f.write("tick,species,gear_code,avg_price,total_catch\n")
+            f.write("tick,species,category_code,avg_price,total_catch\n")
             for tick_id, data in self.global_market.global_price_history:
                 avg_prices = data["avg_prices"]
                 total_catches = data["total_catches"]
@@ -237,7 +238,7 @@ class MarketSystem:
         # 2) Export LOCAL market history
         local_path = output_folder / "local_prices.csv"
         with local_path.open("w", newline="") as f:
-            f.write("tick,market,species,gear_code,price,catch\n")
+            f.write("tick,market,species,category_code,price,catch\n")
             for m_code, market in self.local_markets.items():
                 for tick_id, snapshot in market.price_history:
                     prices = snapshot["prices"]
@@ -277,7 +278,7 @@ class MarketSystem:
                         status_code=grpc.StatusCode.INVALID_ARGUMENT,
                         message=f"Quantity for market {summary.market_code}," + \
                                 f"species {sale.species.species_code} and" + \
-                                f"gear code {sale.fleet_segment.gear_code} is " + \
+                                f"category code {sale.category_code} is " + \
                                 f"{sale.quantity}. It must be positive"
                     )
             
@@ -320,33 +321,33 @@ class MarketSystem:
             for sale in summary.sales:
                 species_code = sale.species.species_code
                 quantity = sale.quantity
-                gear_code = sale.fleet_segment.gear_code
+                category_code = sale.category_code
                 
-                local_market.add_monthly_catch(species_code, gear_code, quantity)
+                local_market.add_monthly_catch(species_code, category_code, quantity)
                 new_entries += 1
 
                 # Use only for debugging. This is a very expensive operation.
                 # Optionally, comment it out.
                 self.logger.debug(
-                    f"Sale: market={market_code}, species={species_code}, gear={gear_code}, qty={quantity:.2f} kg"
+                    f"Sale: market={market_code}, species={species_code}, category={category_code}, qty={quantity:.2f} kg"
                 )
 
         self.logger.info(f"Processed {new_entries} sales.")
 
-    def load_local_market_price_history(self, markets: dict[str, LocalMarket], data: pd.DataFrame):
+    def load_local_market_price_history(self, prices_df: pd.DataFrame):
         """
         Load time-series prices into each local market from CSV file.
 
         CSV columns: date, market_code, species_code, category_code, price, currency, measurement_unit
         """
         # TODO add check when price is not supported
-        for code, found_markets in data.groupby("market_code"):
-            market = markets.get(code)
-            if markets.get(code) is not None:
+        for code, found_markets in prices_df.groupby("market_code"):
+            market = self.local_markets.get(code)
+            if self.local_markets.get(code) is not None:
                 for row in found_markets.itertuples(index=False):
                     date = row[0]
                     species_code = row[2]
-                    gear_code = row[3]
+                    category_code = row[3]
                     price = row[4]
 
-                    market.price_time_series[(species_code, gear_code, date)] = price
+                    market.price_time_series[(species_code, category_code, date)] = price

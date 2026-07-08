@@ -4,7 +4,7 @@ import pytest
 
 from src.MarketSystem import MarketSystem
 from src.LocalMarket import LocalMarket
-from surimi.v1 import sales_pb2, species_pb2, fleet_segment_pb2
+from surimi.v1 import sales_pb2, species_pb2, price_category_pb2
 
 
 @pytest.fixture
@@ -13,13 +13,13 @@ def correct_market_sales():
         species_code="RJC"
     )
 
-    fleet_segment = fleet_segment_pb2.FleetSegment(
-        gear_code="OTB"
+    price_category = price_category_pb2.PriceCategory(
+        category_code="Fresh - Whole"
     )
 
     sales = sales_pb2.Sale(
         species=species,
-        fleet_segment=fleet_segment,
+        category_code=price_category.category_code,
         quantity=3.5054,
         value=8.22
     )
@@ -40,13 +40,13 @@ def negative_market_sales_catch():
         species_code="RJC"
     )
 
-    fleet_segment = fleet_segment_pb2.FleetSegment(
-        gear_code="OTB"
+    price_category = price_category_pb2.PriceCategory(
+        category_code="Fresh - Whole"
     )
 
     sales = sales_pb2.Sale(
         species=species,
-        fleet_segment=fleet_segment,
+        category_code=price_category.category_code,
         quantity=-3.5054,
         value=8.22
     )

@@ -186,7 +186,7 @@ sequenceDiagram
             MPS->>SH: update_sales(request)
             SH->>MS: update_sales(market_sales)
 
-            MS->>LM: add_monthly_catch(species_code, gear_code, quantity)
+            MS->>LM: add_monthly_catch(species_code, category_code, quantity)
             MS->>SH: return successor_or_fail
             SH-->>MPS: return (update_sales_pb2.UpdateSalesResponse, MarketError)
             MPS-->>APP: update_sales_pb2.UpdateSalesResponse
@@ -198,11 +198,11 @@ sequenceDiagram
         MPS->>SH: simulate_step(simulation_id, current_date_time)
         SH->>MS: step()
         alt if real price is available
-            MS->>LM: set_local_price(species_codes, gear_codes,real_prices)
+            MS->>LM: set_local_price(species_codes, category_codes,real_prices)
         else
             loop for each local market
                 MS->>MS: compute_local_prices()
-                MS->>LM: set_local_price(species_codes, gear_codes,computed_prices)
+                MS->>LM: set_local_price(species_codes, category_codes,computed_prices)
             end
         end
         MS->>LM: update_local_history()
@@ -216,7 +216,7 @@ sequenceDiagram
         APP->>MPS: get_species_prices(simulation_id, date_time)
         MPS->>SH: get_market_prices(datetime)
         SH->>MS: get_local_market_prices()
-        MS->>LM: get_prices(species_codes, gear_codes)
+        MS->>LM: get_prices(species_codes, category_codes)
         LM-->>MS: return price or None
         MS-->>SH: return get_species_prices_pb2.GetSpeciesPricesResponse(price_summary)
         SH-->>MPS: return get_species_prices_pb2.GetSpeciesPricesResponse(price_summary)
@@ -333,7 +333,7 @@ Handles per-tick data exchange. Implemented in `server/market_provider_service.p
 | RPC | Request | Response | Description |
 |---|---|---|---|
 | `GetSpeciesPrices` | `GetSpeciesPricesRequest` | `GetSpeciesPricesResponse` | Returns current prices for all (species, market) combinations that have a valid price. Skips combinations where price is `None`. |
-| `UpdateSales` | `UpdateSalesRequest` | `UpdateSalesResponse` | Receives catch data (sales summaries with species, market, gear, and quantity). Aggregates quantities into `pending_catch_dict`; they are consumed on the next `SimulateStep` call. May be called multiple times per tick. |
+| `UpdateSales` | `UpdateSalesRequest` | `UpdateSalesResponse` | Receives catch data (sales summaries with species, market, category, and quantity). Aggregates quantities into `pending_catch_dict`; they are consumed on the next `SimulateStep` call. May be called multiple times per tick. |
 
 Both services share a `simulation_dictionary: dict[str, SimulationHandler]` injected at startup. All RPCs return `INVALID_ARGUMENT` if the `simulation_id` is unknown.
 

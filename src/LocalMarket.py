@@ -45,9 +45,9 @@ class LocalMarket:
         self.lock = threading.Lock()
         self.logger = logging.getLogger(consts.LOCAL_MARKET_LOGGER_NAME)
 
-    def add_monthly_catch(self, species_code, gear_code, quantity):
+    def add_monthly_catch(self, species_code, category_code, quantity):
         with self.lock:
-            self._monthly_catch[(species_code, gear_code)] += quantity
+            self._monthly_catch[(species_code, category_code)] += quantity
 
     def clear_monthly_catch(self):
         with self.lock:
@@ -99,7 +99,7 @@ class LocalMarket:
     #     self.price_history.append((len(self.price_history), {"prices": self.local_prices.copy()}))
     #     return prices
     
-    def set_initial_price_to_earliest_available(self, species: list[str], gear_codes: list[str]):
+    def set_initial_price_to_earliest_available(self, species: list[str], category_codes: list[str]):
         """
         Fill local markets with earliest price if available.
 
@@ -108,23 +108,23 @@ class LocalMarket:
         """
         self.logger.info("Initializing baseline prices from earliest price config...")
 
-        # Species prices depend on the gear code, so we a use Cartesian product
+        # Species prices depend on the category code, so we a use Cartesian product
         # to combine them.
-        lookup_keys = list(product(species, gear_codes))
+        lookup_keys = list(product(species, category_codes))
 
         # Phase 1: fill from CSV if available
         earliest_per_species = {}
 
-        # Add the price if (species_code, gear_code) is not registered or an
+        # Add the price if (species_code, category_code) is not registered or an
         # earlier entry is found. Prevent invalid price (None or <=) to be
         # added.
-        for (species_code, gear_code, date), price in self.price_time_series.items():
+        for (species_code, category_code, date), price in self.price_time_series.items():
             # TODO interpolate between the two datapoints that the date falls between.
             is_earliest = species_code not in earliest_per_species or \
                 date < earliest_per_species[species_code][0]
             is_valid = price is not None and price > 0.0001
             if is_earliest and is_valid:
-                self.local_prices[(species_code, gear_code)] = price
+                self.local_prices[(species_code, category_code)] = price
 
         # Finally, add the price
         for lookup_key in lookup_keys:

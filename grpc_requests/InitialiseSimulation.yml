@@ -91,9 +91,6 @@ grpc:
               "market_code": "ESCDK"
             },
             {
-              "market_code": "ESCFE"
-            },
-            {
               "market_code": "ESCLP"
             },
             {
@@ -167,9 +164,6 @@ grpc:
             },
             {
               "market_code": "ESVZR"
-            },
-            {
-              "market_code": "ESZME"
             }
           ],
           "currencies": [
@@ -783,9 +777,12 @@ grpc:
               "country_code": "FRA",
               "model": "EwE"
             }
+          ],
+          "price_categories": [
+            { "category_code": "Fresh - Whole" }
           ]
         }
       },
-      "scenario_name": "western_med"
+      "scenario_name": "northwestern_med"
     }
   auth: inherit
