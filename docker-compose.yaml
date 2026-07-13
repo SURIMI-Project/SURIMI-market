@@ -1,0 +1,8 @@
+services:
+  surimi-market:
+    container_name: Surimi-market
+    build: .
+    ports:
+      - 50051:5001
+    env_file:
+      - .env
