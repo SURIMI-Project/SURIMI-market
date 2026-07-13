@@ -148,11 +148,11 @@ Before creating a docker image, check that the correct version of the gRPC inter
 Below are the commands to build, push and run the docker image.
 
 ```bash
-PS C:\Users\Rik\source\repos\SURIMI-market> docker build -f Dockerfile . -t rikkert242/market:latest
+PS C:\Users\Rik\source\repos\SURIMI-market> docker build -f Dockerfile . -t ghcr.io/official-ewe/surimimarket:latest
 
-PS C:\Users\Rik\source\repos\SURIMI-market> docker push rikkert242/market:latest
+PS C:\Users\Rik\source\repos\SURIMI-market> docker push ghcr.io/official-ewe/surimimarket:latest
 
-PS C:\Users\Rik\source\repos\SURIMI-market> docker run -p 5001:5001 rikkert242/market:latest
+PS C:\Users\Rik\source\repos\SURIMI-market> docker run -p 5001:5001 ghcr.io/official-ewe/surimimarket:latest
 2025-06-27 09:55:56,458 - INFO - 🟧 Starting gRPC server...
 2025-06-27 09:55:56,466 - INFO - 🟩 gRPC Server running on [::]:5001
 ```
