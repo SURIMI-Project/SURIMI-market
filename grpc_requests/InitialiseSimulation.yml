@@ -179,6 +179,24 @@ grpc:
               "life_stage": ""
             },
             {
+              "species_code": "SWO",
+              "length_class": "",
+              "age": "",
+              "life_stage": ""
+            },
+            {
+              "species_code": "SLM",
+              "length_class": "",
+              "age": "",
+              "life_stage": ""
+            },
+            {
+              "species_code": "VMA",
+              "length_class": "",
+              "age": "",
+              "life_stage": ""
+            },
+            {
               "species_code": "ANE",
               "length_class": "",
               "age": "",
