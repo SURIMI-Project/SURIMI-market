@@ -39,7 +39,10 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.simulation_dictionary[request.simulation_id] = new_simulation
         self.logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
-        S3_Storage.DownloadFilesFromS3(f"market/{request.scenario_name}", f"config/{request.scenario_name}")
+        err = S3_Storage.DownloadFilesFromS3(f"market/{request.scenario_name}", f"config/{request.scenario_name}")
+        if err is not None:
+            self.log_and_abort(context, err.status_code, err.message)
+            return None
 
         response, err = new_simulation.init_simulation(request.simulation)
         if response is None:

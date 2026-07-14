@@ -2,12 +2,13 @@ import os
 from pathlib import Path
 import boto3
 import logging
-from util import consts
+from util import consts, MarketError
+import grpc
 
 class S3_Storage:
     # TODO there is no reason why need a class. If the requirements in fact tell
     #      us to include a class, then there is no need to create a static class
-    def DownloadFilesFromS3(source_directory, destination_directory):
+    def DownloadFilesFromS3(source_directory, destination_directory) -> MarketError.MarketError:
         """
         Download all files from the given S3 source_directory (prefix) to the local destination_directory.
 
@@ -82,8 +83,9 @@ class S3_Storage:
             region_name=default_region,
             endpoint_url="https://" + s3_endpoint
         )
- 
+
         paginator = s3.get_paginator('list_objects_v2')
+        num_objects = 0
         try:
             for page in paginator.paginate(Bucket=bucket_name, Prefix=source_directory):
                 for obj in page.get('Contents', []):
@@ -100,5 +102,15 @@ class S3_Storage:
                     local_path.parent.mkdir(parents=True, exist_ok=True)
                     logger.info(f"Downloading {s3_key} to {local_path}")
                     s3.download_file(bucket_name, s3_key, str(local_path))
+                    num_objects += 1
         except Exception as e:
             logger.error(f"Error downloading files from S3: {e}")
+            return MarketError.MarketError(grpc.StatusCode.INTERNAL, f"Error downloading files from S3: {e}")
+    
+        if num_objects > 0:
+            return None
+        else:
+            return MarketError.MarketError(
+                grpc.StatusCode.NOT_FOUND,
+                "Found no documents to download. Please verify that the configurations are correct."
+            )
