@@ -39,7 +39,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.simulation_dictionary[request.simulation_id] = new_simulation
         self.logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
-        S3_Storage.DownloadFilesFromS3(f"surimi-market/{request.scenario_name}", f"config/{request.scenario_name}")
+        S3_Storage.DownloadFilesFromS3(f"market/{request.scenario_name}", f"config/{request.scenario_name}")
 
         response, err = new_simulation.init_simulation(request.simulation)
         if response is None:
