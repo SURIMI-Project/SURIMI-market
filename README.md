@@ -99,7 +99,7 @@ At this point, the `{{PORT}}` variable in the requests' address bar will be repl
 We include a few tools for testing purpose. They are the following
 | Test type | Name |
 |:--|:--|
-| Unit test | [pytest](https://docs.pytest.org/en/stable/) |
+| Unit/integration test | [pytest](https://docs.pytest.org/en/stable/) |
 | Static code analyser | [pyflakes](https://github.com/PyCQA/pyflakes) |
 | Dynamic code analyser | [Coverage](https://coverage.readthedocs.io/en/7.14.1/) |
 
@@ -140,6 +140,20 @@ A script is provided in `scripts/test.py` that executes Coverage with PyTest. Yo
 ```
 python ./scripts/test.py
 ```
+
+### Test Types
+We support both unit tests and integration tests. By default, the automated testing script `scripts/test.py` executes both tests. Because the two test types are separated in the filesystem, executing them separately is easy and as follows:
+
+- Unit test:
+```
+pytest src/
+```
+- Integration test:
+```
+pytest test/
+```
+
+The unit tests (found in various subdirectories under `src/`) will test targeted, critical pieces of code that as far as possible do one thing only. Meanwhile, the integration tests (found in `test/`) target the intended interactions between the end user (e.g. the Controller or the developer) and the Market service.
 
 ## Create a docker image
 

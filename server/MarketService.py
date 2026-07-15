@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 
 import grpc
 from surimi.v1 import market_service_pb2_grpc, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, get_protocol_version_pb2, get_species_prices_pb2, update_sales_pb2
@@ -39,12 +40,18 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.simulation_dictionary[request.simulation_id] = new_simulation
         self.logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
-        err = S3_Storage.DownloadFilesFromS3(f"market/{request.scenario_name}", f"config/{request.scenario_name}")
+        # Load the root configuration directory path.
+        root_config_dir = os.environ.get(consts.ROOT_CONFIG_DIR, "config")
+        if root_config_dir is None or root_config_dir.strip() == "":
+            # Don't need to check for None, but we might as well for robustness.
+            root_config_dir = "config"
+            
+        err = S3_Storage.DownloadFilesFromS3(f"market/{request.scenario_name}", f"{root_config_dir}/{request.scenario_name}")
         if err is not None:
             self.log_and_abort(context, err.status_code, err.message)
             return None
 
-        response, err = new_simulation.init_simulation(request.simulation)
+        response, err = new_simulation.init_simulation(request.simulation, root_config_dir)
         if response is None:
             self.log_and_abort(context, err.status_code, err.message)
             return None

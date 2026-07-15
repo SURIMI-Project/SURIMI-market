@@ -14,6 +14,16 @@ class S3_Storage:
 
         If `AWS_BUCKET_NAME` is defined and non-empty, then we assume that the
         config files should be downloaded from S3.
+
+        Arguments
+        ---------
+            source_directory: Directory to copy FROM.
+            destination_directory: Directory to copy TO.
+
+        Returns
+        -------
+            err: If this is None, then the download was success. If not None,
+                 then an error object is returned and something went wrong.
         """
         logger = logging.getLogger(consts.S3_LOGGER_NAME)
 
@@ -27,10 +37,10 @@ class S3_Storage:
         # Mandatory variable
         if bucket_name is None:
             logger.warning("AWS_BUCKET_NAME environment variable not set. Aborting S3 download.")
-            return
+            return None
         if len(bucket_name) <= 0:
             logger.warning("AWS_BUCKET_NAME environment has white-space characters only. Aborting S3 download.")
-            return
+            return None
 
         # Vault service should for sure have uploaded the below two variables
         # to the env vars.
@@ -43,26 +53,26 @@ class S3_Storage:
         # Mandatory variables
         if not access_key_id:
             logger.error("AWS_ACCESS_KEY_ID environment variable not set. Aborting S3 download.")
-            return
+            return None
         if not secret_access_key:
             logger.error("AWS_SECRET_ACCESS_KEY environment variable not set. Aborting S3 download.")
-            return
+            return None
         
         # Mandatory variable
         if default_region is None:
             logger.error("AWS_DEFAULT_REGION environment variable not set. Aborting S3 download.")
-            return
+            return None
         if len(default_region.strip()) <= 0:
             logger.error("AWS_DEFAULT_REGION environment variable has white-space characters only. Aborting S3 download.")
-            return
+            return None
         
         # Mandatory variable
         if s3_endpoint is None:
             logger.error("AWS_S3_ENDPOINT environment variable not set. Aborting S3 download.")
-            return
+            return None
         if len(s3_endpoint.strip()) <= 0:
             logger.error("AWS_S3_ENDPOINT environment variable has white-space characters only. Aborting S3 download.")
-            return
+            return None
 
 
         # Optional variable

@@ -44,7 +44,7 @@ class SimulationHandler:
         # TODO what is the purpose of this?
         self.latest_market_prices = None
 
-    def init_simulation(self, simulation: simulation_pb2.Simulation) -> tuple[initialise_simulation_pb2.InitialiseSimulationResponse, MarketError]:
+    def init_simulation(self, simulation: simulation_pb2.Simulation, root_config_dir: str) -> tuple[initialise_simulation_pb2.InitialiseSimulationResponse, MarketError]:
         """
         Trigger simulation initialization and respond to controller.
         Loads initialization config (species, ports, historical prices)
@@ -65,34 +65,36 @@ class SimulationHandler:
 
         # Load configurations and data from CSV
         app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = Path(app_directory, "config")
+        folder_path = Path(app_directory, root_config_dir)
 
-        # Load species configs
-        # TODO get the species from prices.csv instead of species.csv
+        # Verify that the configuration files exist
         species_path = Path(folder_path, self.scenario_id, consts.SPECIES_CSV)
-        if os.path.exists(species_path):
-            self.logger.info(f"Loading species from {species_path}")
-        else:
-            self.logger.critical(f"{consts.SPECIES_CSV} not found in {folder_path}/{self.scenario_id}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.SPECIES_CSV} was not found for scenario {self.scenario_id}.")
-        loaded_species: list[str] = load_species_from_csv(species_path)
-
-        # Load ports configs
         ports_path = Path(folder_path, self.scenario_id, consts.PORTS_CSV)
-        if os.path.exists(ports_path):
-            self.logger.info(f"Loading ports from {ports_path}")
-        else:
-            self.logger.critical(f"{consts.PORTS_CSV} not found in {folder_path}/{self.scenario_id}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PORTS_CSV} was not found for scenario {self.scenario_id}.")
-        loaded_markets: dict[str,tuple] = load_ports_from_csv(ports_path)
-
-        # Load prices configs
         prices_path = Path(folder_path, self.scenario_id, consts.PRICES_CSV)
-        if os.path.exists(prices_path):
-            self.logger.info(f"Loading ports from {prices_path}")
-        else:
-            self.logger.critical(f"{consts.PRICES_CSV} not found in {folder_path}/{self.scenario_id}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PRICES_CSV} was not found for scenario {self.scenario_id}.")
+        species_file_exists = os.path.exists(species_path)
+        port_file_exists = os.path.exists(ports_path)
+        prices_file_exists = os.path.exists(prices_path)
+
+        # Respond with error message if there are missing config files.
+        if not (species_file_exists and port_file_exists and prices_file_exists):
+            err_msg = f"Configuration files was not found for scenario '{self.scenario_id}':\n"
+            if not species_file_exists:
+                err_msg += "- species.csv\n"
+            if not port_file_exists:
+                err_msg += "- ports.csv\n"
+            if not prices_file_exists:
+                err_msg += "- prices.csv\n"
+
+            err_msg += "A misconfiguration or a failed external connection may have occurred."
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
+
+
+        # Load configs
+        self.logger.info(f"Loading ports from {ports_path}")
+        loaded_markets: dict[str,tuple] = load_ports_from_csv(ports_path)
+        self.logger.info(f"Loading ports from {species_path}")
+        loaded_species: list[str] = load_species_from_csv(species_path)
+        self.logger.info(f"Loading ports from {prices_path}")
         loaded_prices = pd.read_csv(prices_path)
 
         # Validate ports
@@ -124,7 +126,7 @@ class SimulationHandler:
             self.logger.critical(f"Missing the following species: {missing_species}")
             err_msg = "The market is missing the following species:\n"
             for species in missing_species:
-                err_msg = f"  - {species}\n"
+                err_msg += f"  - {species}\n"
             return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
         else:
             # Remove species not in the contract

@@ -18,6 +18,6 @@ def execute(cmd):
         raise ConnectionError("Command status code is non-zero.")
 
 print("Run unit test and coverage...")
-execute("coverage run -m pytest src/")
+execute("coverage run -m pytest src/ test/")
 execute("coverage report")
 execute("coverage html")
