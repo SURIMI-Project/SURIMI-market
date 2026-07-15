@@ -273,7 +273,7 @@ if not os.path.isdir(config_dir_path):
 
 # Validate that the config files exist
 for i, file in enumerate(local_config_dir.iterdir()):
-    if os.path.isfile(FILES[i]):
+    if os.path.isfile(Path("config/northwestern_med/", FILES[i])):
         # File exists
         hash_1 = get_normalized_hash(file)
         hash_2 = get_normalized_hash(get_current_config(i))
