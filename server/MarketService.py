@@ -26,6 +26,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.logger.info("Initialise...")
         if request.simulation_id in self.simulation_dictionary.keys():
             self.log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation Id {request.simulation_id} already exists.")
+            return None
 
         # TODO: validate if the contract in request.simulation is valid
         # e.g. check if market codes and species codes exist in files etc.

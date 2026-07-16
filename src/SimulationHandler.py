@@ -84,7 +84,8 @@ class SimulationHandler:
                 err_msg += "- ports.csv\n"
             if not prices_file_exists:
                 err_msg += "- prices.csv\n"
-
+            
+            err_msg += f"The configured directory path is {folder_path}.\n"
             err_msg += "A misconfiguration or a failed external connection may have occurred."
             return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
 

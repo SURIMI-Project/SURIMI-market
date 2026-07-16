@@ -31,6 +31,7 @@ def contract() -> InitialiseSimulationRequest:
         "simulation_id": "test_initialise_market_service",
         "scenario_name": "my_scenario_name",
         "simulation": {
+            "start_date_time": "2010-01-01T00:00:00Z",
             "items": {
                 "markets": [
                     {"market_code": "PORT_A"},

@@ -122,7 +122,7 @@ pytest
 
 *Static analysis:*
 ```
-pyflakes ./src ./server
+pyflakes -sxvv ./src ./server
 ```
 
 *Dynamic analysis:*
@@ -150,10 +150,15 @@ pytest src/
 ```
 - Integration test:
 ```
-pytest test/
+pytest -sxvv test/
 ```
 
 The unit tests (found in various subdirectories under `src/`) will test targeted, critical pieces of code that as far as possible do one thing only. Meanwhile, the integration tests (found in `test/`) target the intended interactions between the end user (e.g. the Controller or the developer) and the Market service.
+
+For integration tests, we suggest using the combined flags `-sxvv` as they give us better output and control. The behaviours are as follows:
+- `-s`: print captured outputs (`print()`). Useful for print debugging.
+- `-x`: stop the tests after the first failed test occurs. One test may depend on another (e.g. "update sales"-test depends on a successful initialisation).
+- `-vv`: do not crop the output. This happens if the console window is too small.
 
 ## Create a docker image
 
