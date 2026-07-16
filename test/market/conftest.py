@@ -1,7 +1,10 @@
 from google.protobuf.json_format import ParseDict
+import os
 from pathlib import Path
 import pytest
+from server.MarketService import MarketService
 from surimi.v1.initialise_simulation_pb2 import InitialiseSimulationRequest
+from util import consts
 
 class DummyServicerContext:
     """
@@ -68,3 +71,11 @@ def contract() -> InitialiseSimulationRequest:
     request = ParseDict(data, request)
 
     return request
+
+@pytest.fixture
+def market_service(contract, config_dir, grpc_context) -> MarketService:
+    os.environ[consts.ROOT_CONFIG_DIR] = str(config_dir)
+    market_service = MarketService({}, "1.0.0-test")
+    assert market_service.InitialiseSimulation(contract, grpc_context), \
+        "Test error! Failed to initialise simulation"
+    return market_service

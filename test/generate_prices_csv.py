@@ -32,6 +32,9 @@ if __name__ == "__main__":
             "PriceCategory_C",
             "PriceCategory_D"
         ],
+        "landings_kg": [
+            "1"
+        ],
         "price": [
             "1"
         ],
