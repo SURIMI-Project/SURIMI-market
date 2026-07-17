@@ -1,16 +1,37 @@
 import datetime
 import logging
 import os
+from pathlib import Path
 
 import grpc
 from surimi.v1 import market_service_pb2_grpc, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, cancel_simulation_pb2, get_protocol_version_pb2, get_species_prices_pb2, update_sales_pb2
-from src.SimulationHandler import SimulationHandler
+from models.elsa.ElsaHandler import ElsaHandler
 from server.s3_storage import S3_Storage
-from util import consts
+from server.model_router import get_model_handler
+from models.elsa import consts
+import definitions
 
 class MarketService(market_service_pb2_grpc.MarketServiceServicer):
-    def __init__(self, simulation_dictionary: dict[str, SimulationHandler], version: str):
-        self.simulation_dictionary = simulation_dictionary
+    """
+    SURIMI-market gRPC handlers container.
+
+    The MarketService's primary purpose is to act as a container for gRPC
+    handlers. It is more or less stateless and contains no persistent data
+    besides a collection of SimulationHandler instances.
+    
+    Because all traffic passes through this class, it furthermore has the
+    following resposibilities:
+    
+    - Verify that high-level specification requirements are satisfied, e.g.
+      no one simulation can be initialised twice.
+    - Acts as a router for model selection.
+
+    Despite its name, this class should be treated as a layer between the gRPC
+    server and the simulation handler.
+    """
+
+    def __init__(self, version: str):
+        self.simulation_dictionary: dict[str, ElsaHandler] = {}
         self.version = version
         self.logger = logging.getLogger(consts.MARKET_SERVICE_LOGGER_NAME)
     
@@ -42,7 +63,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         self.logger.info(f"Simulation ID: {request.simulation_id} started. Start time: {request.simulation.start_date_time.ToDatetime()}")
 
         # Load the root configuration directory path.
-        root_config_dir = os.environ.get(consts.ROOT_CONFIG_DIR, "config")
+        root_config_dir = os.environ.get(consts.ROOT_CONFIG_DIR, str(Path(definitions.ROOT_DIR, "config")))
         if root_config_dir is None or root_config_dir.strip() == "":
             # Don't need to check for None, but we might as well for robustness.
             root_config_dir = "config"
@@ -79,7 +100,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
             self.log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation ID: {request.simulation_id} does not exists.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        message = current_simulation.finalise_simulation()
+        message = current_simulation.finalise_simulation(Path(definitions.ROOT_DIR, "simulations"))
 
         del self.simulation_dictionary[request.simulation_id]
 
@@ -114,7 +135,7 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
             self.log_and_abort(context, grpc.StatusCode.INVALID_ARGUMENT, f"Simulation {request.simulation_id} does not exist.")
 
         current_simulation = self.simulation_dictionary[request.simulation_id]
-        pricesResponse = current_simulation.get_latest_market_prices()
+        pricesResponse = current_simulation.get_species_prices()
         pricesResponse.simulation_id = current_simulation.simulation_id
 
         # TODO What is the purpose of date_time if it always returns the most

@@ -1,5 +1,5 @@
 import pytest
-from src.SimulationHandler import find_missing_ports, \
+from src.models.elsa.ElsaHandler import find_missing_ports, \
                                   get_valid_ports_only, \
                                   find_missing_species, \
                                   get_valid_species_only

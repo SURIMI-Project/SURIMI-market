@@ -1,33 +1,29 @@
-import os
-import signal
-import grpc
+# Standard library
 import argparse
-import sys
-from pathlib import Path
-
-
 from concurrent import futures
-from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
-from server.MarketService import MarketService
-from server.version_metadata_interceptor import VersionMetadataInterceptor
-from surimi.v1 import market_service_pb2_grpc, market_service_pb2
-from server.vault_service import VaultService
-from dotenv import load_dotenv
 from importlib.metadata import version, PackageNotFoundError
 import logging
+import os
+from pathlib import Path
+import signal
+import sys
 
+# Vendor
+from dotenv import load_dotenv
+import grpc
 from grpc_reflection.v1alpha import reflection
+from surimi.v1 import market_service_pb2_grpc, market_service_pb2
 
-from util import consts
+# Market libraries
+from server import consts
+from server.ExceptionMetadataInterceptor import ExceptionMetadataInterceptor
+from server.MarketService import MarketService
+from server.vault_service import VaultService
+from server.version_metadata_interceptor import VersionMetadataInterceptor
 
 def serve():
     load_dotenv()
     logger = logging.getLogger(consts.APP_LOGGER_NAME)
-
-
-    # TODO Talk to Rik about why the simulation_directionary belongs to app and not
-    # to MarketService
-    simulation_dictionary = {}
 
     VaultService.LoadVaultSecretsInEnvironmentVariables()
 
@@ -43,7 +39,7 @@ def serve():
         interceptors=[ExceptionMetadataInterceptor(), VersionMetadataInterceptor(version)]
     )
 
-    market_service = MarketService(simulation_dictionary, version)
+    market_service = MarketService(version)
     market_service_pb2_grpc.add_MarketServiceServicer_to_server(market_service, server)
 
     # The reflection service will be aware of "MarketService" and "ServerReflection" services.

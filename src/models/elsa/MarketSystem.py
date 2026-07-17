@@ -9,10 +9,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 import pandas as pd
 import grpc
 
+from MarketError import MarketError
+
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .GlobalMarket import GlobalMarket
-from util import consts, MarketError
+from . import consts
 
 
 class MarketSystem:
@@ -250,7 +252,7 @@ class MarketSystem:
 
         self.logger.info(f"Export complete for simulation {simulation_id}")
 
-    def update_sales(self, market_sales, start_date_time: int) -> MarketError.MarketError:
+    def update_sales(self, market_sales, start_date_time: int) -> MarketError:
         """
         Receives external sales (catches) from controller.
 

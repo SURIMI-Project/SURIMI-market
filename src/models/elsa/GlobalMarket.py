@@ -3,7 +3,7 @@ from itertools import product
 import logging
 
 # Util modules
-from util import consts
+from . import consts
 
 # Src modules
 from .LocalMarket import LocalMarket

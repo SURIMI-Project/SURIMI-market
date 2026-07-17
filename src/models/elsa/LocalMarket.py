@@ -3,7 +3,7 @@ import threading
 import logging
 from itertools import product
 
-from util import consts
+from . import consts
 
 class LocalMarket:
     """

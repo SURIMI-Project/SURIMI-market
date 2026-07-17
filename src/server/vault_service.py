@@ -1,4 +1,4 @@
-from util import consts
+from . import consts
 
 import os
 import hvac

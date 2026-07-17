@@ -2,13 +2,14 @@ import os
 from pathlib import Path
 import boto3
 import logging
-from util import consts, MarketError
+from . import consts
+from MarketError import MarketError
 import grpc
 
 class S3_Storage:
     # TODO there is no reason why need a class. If the requirements in fact tell
     #      us to include a class, then there is no need to create a static class
-    def DownloadFilesFromS3(source_directory, destination_directory) -> MarketError.MarketError:
+    def DownloadFilesFromS3(source_directory, destination_directory) -> MarketError:
         """
         Download all files from the given S3 source_directory (prefix) to the local destination_directory.
 
