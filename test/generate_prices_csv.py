@@ -7,6 +7,7 @@ if __name__ == "__main__":
     import pandas as pd
     from pathlib import Path
     import datetime
+    import os
 
     data = {
         "date": [
@@ -50,7 +51,11 @@ if __name__ == "__main__":
     combinations = product(*data.values())
     df = pd.DataFrame(combinations, columns=data.keys())
     
-    out_path = Path(__file__).parent / "market/fixtures/my_scenario_name/prices.csv"
-    df.to_csv(out_path, index=False)
+    paths = [
+        Path(__file__).parent / "fixtures/my_scenario_name/prices.csv",
+    ]
+    for path in paths:
+        os.makedirs(path.parent, exist_ok=True)
+        df.to_csv(path, index=False)
 else:
     raise ImportError("This module cannot be imported")
