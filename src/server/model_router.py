@@ -1,0 +1,24 @@
+from models.elsa import ElsaHandler
+from models.arimax import ArimaxHandler
+
+MODELS = {
+    "elsa": ElsaHandler.ElsaHandler,
+    "arimax": ArimaxHandler.ArimaxHandler
+}
+
+def get_model_handler(model_name: str):
+    """
+    Returns the corresponding handler to the model name.
+
+    The handlers are inherited from the base class `Handler`.
+
+    Arguments
+    ---------
+        model_name: the model name to get the handler by.
+    
+    Returns
+    -------
+    If a corresponding model handler is found, then it is returned. Otherwise,
+    `None` is returned.    
+    """
+    return MODELS.get(model_name)

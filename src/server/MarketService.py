@@ -53,7 +53,25 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         # e.g. check if market codes and species codes exist in files etc.
         # If you don't throw an error here, the server will crash later when trying to access unknown data.
 
-        new_simulation = SimulationHandler(
+        # New models can be added to the router in `src/server/model_router.py`.
+        # A model is selected with the environment variable `MODEL_NAME`.
+
+        # TODO make sure the consts don't collide
+        # Default to the Elsa model.
+        model_name = os.environ.get("MODEL_NAME")
+        if model_name is None or model_name.strip() == "":
+            model_name = "elsa"
+        model_handler = get_model_handler(model_name)
+
+        if model_handler is None:
+            self.log_and_abort(
+                context, 
+                grpc.StatusCode.INTERNAL, 
+                f"Tried to use model '{model_name}', but it is not implemented or does not exist."
+            )
+            return None
+
+        new_simulation = model_handler(
             request.simulation_id, 
             request.scenario_name, 
             request.simulation.start_date_time.ToDatetime(datetime.UTC),
