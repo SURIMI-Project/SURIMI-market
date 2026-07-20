@@ -1,19 +1,22 @@
 import os
 import pandas as pd
 from pathlib import Path
-from server.MarketService import MarketService
-from src.SimulationHandler import load_ports_from_csv, \
+from src.server.MarketService import MarketService
+from src.models.elsa.ElsaHandler import load_ports_from_csv, \
                                   load_species_from_csv, \
-                                  SimulationHandler
-from util import consts
+                                  ElsaHandler
+PORTS_CSV = "ports.csv"
+SPECIES_CSV = "species.csv"
+PRICES_CSV = "prices.csv"
+ROOT_CONFIG_DIR = "ROOT_CONFIG_DIR"
 
 def test_load_ports(contract, config_dir):
     # handler = SimulationHandler({}, "1234")
     scenario_name = contract.scenario_name
-    ports_path = config_dir / scenario_name / consts.PORTS_CSV
+    ports_path = config_dir / scenario_name / PORTS_CSV
     ports = load_ports_from_csv(ports_path)
     ports = list(ports.keys())
-    assert len(ports) > 0, f"Found fixture {consts.PORTS_CSV}, but no ports were loaded"
+    assert len(ports) > 0, f"Found fixture {PORTS_CSV}, but no ports were loaded"
 
     dataset_ports = []
     with open(ports_path, "r") as f:
@@ -28,9 +31,9 @@ def test_load_ports(contract, config_dir):
 
 def test_load_species(contract, config_dir):
     scenario_name = contract.scenario_name
-    species_path = config_dir / scenario_name / consts.SPECIES_CSV
+    species_path = config_dir / scenario_name / SPECIES_CSV
     species = load_species_from_csv(species_path)
-    assert len(species) > 0, f"Found fixture {consts.SPECIES_CSV}, but no species were loaded"
+    assert len(species) > 0, f"Found fixture {SPECIES_CSV}, but no species were loaded"
 
     dataset_species = []
     with open(species_path, "r") as f:
@@ -45,12 +48,12 @@ def test_load_species(contract, config_dir):
 
 def test_initialise_simulation(contract, config_dir):
     test_scenario_name = "non-matching scenario name"
-    handler = SimulationHandler("aaaa", test_scenario_name, None, 1)
+    handler = ElsaHandler("aaaa", test_scenario_name, None, 1)
     response, error = handler.init_simulation(contract.simulation, config_dir)
     assert error, "Non-matching scenario name to the contract should result in an error"
     assert response is None, "Failed initialisation should result in 'response is None'"
 
-    handler = SimulationHandler("bbbb", contract.scenario_name, None, 1)
+    handler = ElsaHandler("bbbb", contract.scenario_name, None, 1)
     response, error = handler.init_simulation(contract.simulation, config_dir)
     assert not error, "Matching and valid scenario name from the contract result in no errors."
     assert response, "A successful initialisaton should result in a valid response."
@@ -58,22 +61,22 @@ def test_initialise_simulation(contract, config_dir):
 
 # TODO remove this in the future. This is specific to model implementation.
 def test_initialise_local_market_price_history(contract, config_dir):
-    handler = SimulationHandler("bbbb", contract.scenario_name, None, 1)
+    handler = ElsaHandler("bbbb", contract.scenario_name, None, 1)
     response, error = handler.init_simulation(contract.simulation, config_dir)
     
     # Check that the initial price timeline is correct
-    prices_path = Path(config_dir, contract.scenario_name, consts.PRICES_CSV)
+    prices_path = Path(config_dir, contract.scenario_name, PRICES_CSV)
     df = pd.read_csv(prices_path)
     data_for_port_a = df[df["market_code"] == "PORT_A"]
     price_history = handler.market_system.local_markets.get("PORT_A").price_time_series
     do_match = len(price_history) == len(data_for_port_a)
-    assert do_match, f"The number of initialised prices do not match with the dataset {consts.PRICES_CSV}"
+    assert do_match, f"The number of initialised prices do not match with the dataset {PRICES_CSV}"
 
 def test_initialise_simulation_find_config_dir(grpc_context, contract, config_dir):
     handlers = {}
-    market_service = MarketService(handlers, "1.0.0-test")
+    market_service = MarketService("1.0.0-test")
 
-    os.environ[consts.ROOT_CONFIG_DIR] = "hello"
+    os.environ[ROOT_CONFIG_DIR] = "hello"
     response = market_service.InitialiseSimulation(contract, grpc_context)
     assert not response, \
         f"Setting the wrong ROOT_CONFIG_DIR, i.e. 'hello', should fail the" + \
@@ -81,9 +84,9 @@ def test_initialise_simulation_find_config_dir(grpc_context, contract, config_di
 
 def test_initialise_market_service_twice(grpc_context, contract, config_dir):
     handlers = {}
-    market_service = MarketService(handlers, "1.0.0-test")
+    market_service = MarketService("1.0.0-test")
 
-    os.environ[consts.ROOT_CONFIG_DIR] = str(config_dir)
+    os.environ[ROOT_CONFIG_DIR] = str(config_dir)
     response = market_service.InitialiseSimulation(contract, grpc_context)
     assert response, \
         f"Initialising a new simulation by ID with a correctly configured " + \

@@ -269,14 +269,14 @@ class MarketSystem:
         # Validate input
         for summary in market_sales:
             if summary.market_code not in self.local_markets:
-                return MarketError.MarketError(
+                return MarketError(
                     status_code=grpc.StatusCode.FAILED_PRECONDITION,
                     message="At least one local market does not exist."
                 )
 
             for sale in summary.sales:
                 if sale.quantity < 1e-323:
-                    return MarketError.MarketError(
+                    return MarketError(
                         status_code=grpc.StatusCode.INVALID_ARGUMENT,
                         message=f"Quantity for market {summary.market_code}," + \
                                 f"species {sale.species.species_code} and" + \
@@ -298,7 +298,7 @@ class MarketSystem:
             return None
         elif requested_time < current_time:
             # Pre current time
-            return MarketError.MarketError(
+            return MarketError(
                 status_code=grpc.StatusCode.INVALID_ARGUMENT,
                 message="'start_date_time cannot be earlier than the current time'" 
             )

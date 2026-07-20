@@ -1,11 +1,7 @@
 from datetime import datetime, UTC
 from google.protobuf.json_format import ParseDict
-import os
 import pytest
-from server.MarketService import MarketService
-from src.SimulationHandler import SimulationHandler
 from surimi.v1.update_sales_pb2 import UpdateSalesRequest
-from util import consts
 
 @pytest.fixture()
 def update_request_01() -> UpdateSalesRequest:
