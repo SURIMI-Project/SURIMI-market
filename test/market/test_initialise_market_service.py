@@ -5,7 +5,7 @@ from src.server.MarketService import MarketService
 from src.models.elsa.ElsaHandler import load_ports_from_csv, \
                                   load_species_from_csv, \
                                   ElsaHandler
-PORTS_CSV = "ports.csv"
+PORTS_CSV = "markets.csv"
 SPECIES_CSV = "species.csv"
 PRICES_CSV = "prices.csv"
 ROOT_CONFIG_DIR = "ROOT_CONFIG_DIR"
