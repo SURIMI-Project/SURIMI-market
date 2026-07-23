@@ -21,9 +21,6 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/pyth
 
 # Copy the requirements.txt file into the container
 COPY ./src ./src
-COPY ./server ./server
-COPY ./util ./util
-
 
 # Add the /app folder to PYTHONPATH so that the `surimi` module is found
 ENV PYTHONPATH=/app
