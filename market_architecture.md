@@ -459,7 +459,7 @@ docker run -p 5001:5001 \
   surimi-market
 ```
 
-The container exposes port `5001`. The entrypoint is `python -u server/app.py` (`-u` ensures stdout/stderr are unbuffered for immediate log visibility).
+The container exposes port `5001`. The entrypoint is `python -u src/app.py` (`-u` ensures stdout/stderr are unbuffered for immediate log visibility).
 
 ### Local Development
 
@@ -469,7 +469,7 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # Create .env with Vault credentials (optional — service runs without S3/Vault in dev)
-python server/app.py
+python src/app.py
 ```
 
 ### Dependency Note

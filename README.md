@@ -55,12 +55,12 @@ The program can be executed as follows:
    Windows:
    ```
    $env:PYTHONPATH="."
-   python -u server/app.py
+   python -u src/app.py
    ```
    
    MacOS/Linux:
    ```
-   PYTHONPATH='.' python -u server/app.py
+   PYTHONPATH='.' python -u src/app.py
    ```
 
 > It is important that the PYTHONPATH environment variable is defined.
@@ -70,7 +70,7 @@ The project provides a set of convinience scripts, e.g. creating virtual environ
 You can run the program with verbose output using the `--debug` flag. This can be useful for troubleshooting. Example:
 
 ```
-python server/app.py --debug
+python src/app.py --debug
 ```
 
 ### Updating Config Files
@@ -127,7 +127,7 @@ pyflakes -sxvv ./src ./server
 
 *Dynamic analysis:*
 ```
-coverage run server/app.py
+coverage run src/app.py
 ```
 
 Note that with `coverage`, the `PYTHONPATH` environment variable must be configured. We can also run `coverage` with `pytest`:
