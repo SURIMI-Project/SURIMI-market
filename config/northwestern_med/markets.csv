@@ -1,4 +1,6 @@
-port_code,port_name,lon,lat
+market_code,market_name,lon,lat
+ES,Spain,NA,NA
+FR,France,NA,NA
 ESALC,Alicante,-0.501706,38.332112
 ESAQA,Altea,-0.051994,38.590245
 ESARN,Arenys de Mar,2.563677,41.579699
@@ -35,5 +37,3 @@ ESVJY,Villajoyosa,-0.216906,38.508488
 ESVLC,Valencia,-0.308767,39.452174
 ESVLG,Vilanova i la Geltrú,1.737351,41.216265
 ESVZR,Vinaroz,0.477472,40.467067
-ES,Spain,0,0
-FR,France,0,0

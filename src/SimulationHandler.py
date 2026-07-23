@@ -226,10 +226,13 @@ def load_ports_from_csv(ports_path: Path) -> dict[str, tuple[str, float, float]]
     with open(ports_path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            loaded_markets[row["port_code"].strip()] = (
-                row["port_name"].strip(),
-                float(row["lon"]),
-                float(row["lat"])
+            lon = row["lon"] if row["lon"] != "NA" else  0.0
+            lat = row["lat"] if row["lat"] != "NA" else  0.0
+
+            loaded_markets[row["market_code"].strip()] = (
+                row["market_name"].strip(),
+                float(lon),
+                float(lat)
             )
 
     return loaded_markets

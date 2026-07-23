@@ -7,7 +7,7 @@ GRPC_HOST = "[::]"
 GRPC_PORT = "5001"
 
 SPECIES_CSV = "species.csv"
-PORTS_CSV = "ports.csv"
+PORTS_CSV = "markets.csv"
 PRICES_CSV = "prices.csv"
 
 # The MarketModel should accept any arbitrary currencies and handle it
