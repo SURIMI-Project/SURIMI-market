@@ -3,9 +3,8 @@ This module contains constants used throughout the project. They can be commonly
 used literals that don't change.
 """
 
-GRPC_HOST = "[::]"
-GRPC_PORT = "5001"
-
+# Configurations
+ROOT_CONFIG_DIR = "ROOT_CONFIG_DIR"
 SPECIES_CSV = "species.csv"
 PORTS_CSV = "markets.csv"
 PRICES_CSV = "prices.csv"

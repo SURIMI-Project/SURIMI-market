@@ -17,4 +17,4 @@
 # E.g., the shebang may need to be #!/bin/bash on Ubuntu, or `python` must
 # instead be `python3` or `python3.12`.
 
-PYTHONPATH='.' python -u server/app.py $@
+PYTHONPATH='.' python -u src/app.py $@

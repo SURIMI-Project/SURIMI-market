@@ -1,6 +1,5 @@
 import fnmatch
 from pathlib import Path
-import shutil
 import threading
 import csv
 import os
@@ -10,13 +9,15 @@ import datetime
 import grpc
 import pandas as pd
 
-from src.MarketSystem import MarketSystem
-from src.LocalMarket import LocalMarket
+from .MarketSystem import MarketSystem
+from .LocalMarket import LocalMarket
 from surimi.v1 import simulation_pb2, initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, update_sales_pb2
-from util import consts
-from util.MarketError import MarketError
+from . import consts
+from MarketError import MarketError
 
-class SimulationHandler:
+import Handler
+
+class ElsaHandler(Handler.Handler):
     def __init__(self, simulation_id, scenario_id, start_time, step_size):
         """
         Manages the simulation loop, using MarketSystem as the core.
@@ -44,7 +45,7 @@ class SimulationHandler:
         # TODO what is the purpose of this?
         self.latest_market_prices = None
 
-    def init_simulation(self, simulation: simulation_pb2.Simulation) -> tuple[initialise_simulation_pb2.InitialiseSimulationResponse, MarketError]:
+    def init_simulation(self, simulation: simulation_pb2.Simulation, root_config_dir: str) -> tuple[initialise_simulation_pb2.InitialiseSimulationResponse, MarketError]:
         """
         Trigger simulation initialization and respond to controller.
         Loads initialization config (species, ports, historical prices)
@@ -63,36 +64,35 @@ class SimulationHandler:
         #     shutil.rmtree(config_dst)
         # shutil.copytree(config_src, config_dst, ignore=ignore_non_csv)
 
-        # Load configurations and data from CSV
-        app_directory = Path(__file__).parent.parent.resolve()
-        folder_path = Path(app_directory, "config")
+        # Verify that the configuration files exist
+        species_path = Path(root_config_dir, self.scenario_id, consts.SPECIES_CSV)
+        ports_path = Path(root_config_dir, self.scenario_id, consts.PORTS_CSV)
+        prices_path = Path(root_config_dir, self.scenario_id, consts.PRICES_CSV)
+        species_file_exists = os.path.exists(species_path)
+        port_file_exists = os.path.exists(ports_path)
+        prices_file_exists = os.path.exists(prices_path)
 
-        # Load species configs
-        # TODO get the species from prices.csv instead of species.csv
-        species_path = Path(folder_path, self.scenario_id, consts.SPECIES_CSV)
-        if os.path.exists(species_path):
-            self.logger.info(f"Loading species from {species_path}")
-        else:
-            self.logger.critical(f"{consts.SPECIES_CSV} not found in {folder_path}/{self.scenario_id}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.SPECIES_CSV} was not found for scenario {self.scenario_id}.")
-        loaded_species: list[str] = load_species_from_csv(species_path)
+        # Respond with error message if there are missing config files.
+        if not (species_file_exists and port_file_exists and prices_file_exists):
+            err_msg = f"Configuration files was not found for scenario '{self.scenario_id}':\n"
+            if not species_file_exists:
+                err_msg += "- species.csv\n"
+            if not port_file_exists:
+                err_msg += "- ports.csv\n"
+            if not prices_file_exists:
+                err_msg += "- prices.csv\n"
+            
+            err_msg += f"The configured directory path is {root_config_dir}.\n"
+            err_msg += "A misconfiguration or a failed external connection may have occurred."
+            return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
 
-        # Load ports configs
-        ports_path = Path(folder_path, self.scenario_id, consts.PORTS_CSV)
-        if os.path.exists(ports_path):
-            self.logger.info(f"Loading ports from {ports_path}")
-        else:
-            self.logger.critical(f"{consts.PORTS_CSV} not found in {folder_path}/{self.scenario_id}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PORTS_CSV} was not found for scenario {self.scenario_id}.")
+
+        # Load configs
+        self.logger.info(f"Loading ports from {ports_path}")
         loaded_markets: dict[str,tuple] = load_ports_from_csv(ports_path)
-
-        # Load prices configs
-        prices_path = Path(folder_path, self.scenario_id, consts.PRICES_CSV)
-        if os.path.exists(prices_path):
-            self.logger.info(f"Loading ports from {prices_path}")
-        else:
-            self.logger.critical(f"{consts.PRICES_CSV} not found in {folder_path}/{self.scenario_id}")
-            return None, MarketError(grpc.StatusCode.NOT_FOUND, f"Configuration file {consts.PRICES_CSV} was not found for scenario {self.scenario_id}.")
+        self.logger.info(f"Loading ports from {species_path}")
+        loaded_species: list[str] = load_species_from_csv(species_path)
+        self.logger.info(f"Loading ports from {prices_path}")
         loaded_prices = pd.read_csv(prices_path)
 
         # Validate ports
@@ -124,7 +124,7 @@ class SimulationHandler:
             self.logger.critical(f"Missing the following species: {missing_species}")
             err_msg = "The market is missing the following species:\n"
             for species in missing_species:
-                err_msg = f"  - {species}\n"
+                err_msg += f"  - {species}\n"
             return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
         else:
             # Remove species not in the contract
@@ -167,7 +167,7 @@ class SimulationHandler:
         self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
         return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id), None
 
-    def finalise_simulation(self, folder_path="simulations"):
+    def finalise_simulation(self, folder_path):
         """
         Trigger simulation finalisation and respond to controller.
         Writes results into simulations/<simulation_id>.
@@ -197,7 +197,7 @@ class SimulationHandler:
 
         return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id), None
 
-    def get_latest_market_prices(self):
+    def get_species_prices(self):
         """
         Get the most recent market prices.
         """

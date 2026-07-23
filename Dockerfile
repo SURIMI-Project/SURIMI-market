@@ -21,9 +21,6 @@ COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/pyth
 
 # Copy the requirements.txt file into the container
 COPY ./src ./src
-COPY ./server ./server
-COPY ./util ./util
-
 
 # Add the /app folder to PYTHONPATH so that the `surimi` module is found
 ENV PYTHONPATH=/app
@@ -35,4 +32,4 @@ ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ENV OTEL_SERVICE_NAME=market
 
 # Run the server -u option is used to ensure that output (logs) is flushed immediately
-CMD ["python", "-u", "server/app.py"]
+CMD ["python", "-u", "src/app.py"]

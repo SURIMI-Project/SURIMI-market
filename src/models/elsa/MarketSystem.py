@@ -9,10 +9,12 @@ from google.protobuf.timestamp_pb2 import Timestamp
 import pandas as pd
 import grpc
 
+from MarketError import MarketError
+
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .GlobalMarket import GlobalMarket
-from util import consts, MarketError
+from . import consts
 
 
 class MarketSystem:
@@ -250,7 +252,7 @@ class MarketSystem:
 
         self.logger.info(f"Export complete for simulation {simulation_id}")
 
-    def update_sales(self, market_sales, start_date_time: int) -> MarketError.MarketError:
+    def update_sales(self, market_sales, start_date_time: int) -> MarketError:
         """
         Receives external sales (catches) from controller.
 
@@ -267,14 +269,14 @@ class MarketSystem:
         # Validate input
         for summary in market_sales:
             if summary.market_code not in self.local_markets:
-                return MarketError.MarketError(
+                return MarketError(
                     status_code=grpc.StatusCode.FAILED_PRECONDITION,
                     message="At least one local market does not exist."
                 )
 
             for sale in summary.sales:
                 if sale.quantity < 1e-323:
-                    return MarketError.MarketError(
+                    return MarketError(
                         status_code=grpc.StatusCode.INVALID_ARGUMENT,
                         message=f"Quantity for market {summary.market_code}," + \
                                 f"species {sale.species.species_code} and" + \
@@ -296,7 +298,7 @@ class MarketSystem:
             return None
         elif requested_time < current_time:
             # Pre current time
-            return MarketError.MarketError(
+            return MarketError(
                 status_code=grpc.StatusCode.INVALID_ARGUMENT,
                 message="'start_date_time cannot be earlier than the current time'" 
             )

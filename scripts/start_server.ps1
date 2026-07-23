@@ -13,4 +13,4 @@
 
 $env:PYTHONPATH="."
 
-python -u server/app.py $args
+python -u src/app.py $args

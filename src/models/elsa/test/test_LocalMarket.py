@@ -1,7 +1,8 @@
 import pytest
 import pandas as pd
 
-from src import SimulationHandler, LocalMarket
+from src.models.elsa import ElsaHandler
+from src.models.elsa import LocalMarket
 
 @pytest.fixture
 def markets():
@@ -63,7 +64,7 @@ def category_codes():
     return ["OTB", "OTB", "PS", "RECT"]
 
 def test_set_initial_price_to_earliest_available(markets, dataset, species_codes, category_codes):
-    sh = SimulationHandler.SimulationHandler("0000", "", "", 0)
+    sh = ElsaHandler.ElsaHandler("0000", "", "", 0)
     sh.market_system.local_markets = {}
     sh.market_system.local_markets = markets
     sh.market_system.load_local_market_price_history(dataset)

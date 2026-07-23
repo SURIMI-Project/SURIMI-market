@@ -3,8 +3,8 @@ import collections # Counter
 
 import pytest
 
-from src.GlobalMarket import GlobalMarket
-from src.LocalMarket import LocalMarket
+from src.models.elsa.GlobalMarket import GlobalMarket
+from src.models.elsa.LocalMarket import LocalMarket
 
 
 

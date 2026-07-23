@@ -2,8 +2,8 @@ import datetime
 
 import pytest
 
-from src.MarketSystem import MarketSystem
-from src.LocalMarket import LocalMarket
+from src.models.elsa.MarketSystem import MarketSystem
+from src.models.elsa.LocalMarket import LocalMarket
 from surimi.v1 import sales_pb2, species_pb2, price_category_pb2
 
 

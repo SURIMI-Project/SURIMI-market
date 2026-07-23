@@ -55,12 +55,12 @@ The program can be executed as follows:
    Windows:
    ```
    $env:PYTHONPATH="."
-   python -u server/app.py
+   python -u src/app.py
    ```
    
    MacOS/Linux:
    ```
-   PYTHONPATH='.' python -u server/app.py
+   PYTHONPATH='.' python -u src/app.py
    ```
 
 > It is important that the PYTHONPATH environment variable is defined.
@@ -70,7 +70,7 @@ The project provides a set of convinience scripts, e.g. creating virtual environ
 You can run the program with verbose output using the `--debug` flag. This can be useful for troubleshooting. Example:
 
 ```
-python server/app.py --debug
+python src/app.py --debug
 ```
 
 ### Updating Config Files
@@ -99,7 +99,7 @@ At this point, the `{{PORT}}` variable in the requests' address bar will be repl
 We include a few tools for testing purpose. They are the following
 | Test type | Name |
 |:--|:--|
-| Unit test | [pytest](https://docs.pytest.org/en/stable/) |
+| Unit/integration test | [pytest](https://docs.pytest.org/en/stable/) |
 | Static code analyser | [pyflakes](https://github.com/PyCQA/pyflakes) |
 | Dynamic code analyser | [Coverage](https://coverage.readthedocs.io/en/7.14.1/) |
 
@@ -122,12 +122,12 @@ pytest
 
 *Static analysis:*
 ```
-pyflakes ./src ./server
+pyflakes -sxvv ./src ./server
 ```
 
 *Dynamic analysis:*
 ```
-coverage run server/app.py
+coverage run src/app.py
 ```
 
 Note that with `coverage`, the `PYTHONPATH` environment variable must be configured. We can also run `coverage` with `pytest`:
@@ -140,6 +140,25 @@ A script is provided in `scripts/test.py` that executes Coverage with PyTest. Yo
 ```
 python ./scripts/test.py
 ```
+
+### Test Types
+We support both unit tests and integration tests. By default, the automated testing script `scripts/test.py` executes both tests. Because the two test types are separated in the filesystem, executing them separately is easy and as follows:
+
+- Unit test:
+```
+pytest src/
+```
+- Integration test:
+```
+pytest -sxvv test/
+```
+
+The unit tests (found in various subdirectories under `src/`) will test targeted, critical pieces of code that as far as possible do one thing only. Meanwhile, the integration tests (found in `test/`) target the intended interactions between the end user (e.g. the Controller or the developer) and the Market service.
+
+For integration tests, we suggest using the combined flags `-sxvv` as they give us better output and control. The behaviours are as follows:
+- `-s`: print captured outputs (`print()`). Useful for print debugging.
+- `-x`: stop the tests after the first failed test occurs. One test may depend on another (e.g. "update sales"-test depends on a successful initialisation).
+- `-vv`: do not crop the output. This happens if the console window is too small.
 
 ## Create a docker image
 
