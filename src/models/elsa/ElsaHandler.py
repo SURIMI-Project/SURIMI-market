@@ -130,10 +130,6 @@ class ElsaHandler(Handler.Handler):
             # Remove species not in the contract
             loaded_species = list(get_valid_species_only(set(loaded_species), contract_species))
         
-        # Define months that we have real data for. Used to decide whether to
-        # predict or use real prices.
-        self.market_system.real_data_months = list(set(loaded_prices["date"]))
-
         # Get all unique category codes from the contract.
         category_contract = [pc.category_code for pc in list(simulation.items.price_categories)]
         category_contract = set(category_contract)
