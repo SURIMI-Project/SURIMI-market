@@ -57,13 +57,6 @@ class MarketSystem:
                 del self.pending_sales_summary[date]
 
         # 2) Use real data if we have it
-        # stepped_month = str(self.tick.get_date())
-        # if stepped_month in self.real_data_months:
-        #     # 2a) Use real prices
-        #     for market in self.local_markets.values():
-        #         market.use_real_price(self.real_data_months)
-        # else:
-        # Predict prices
         self.compute_local_prices()
 
         self.update_local_history()
@@ -79,12 +72,17 @@ class MarketSystem:
         epsilon = 0.5
         for m_code, market in self.local_markets.items():
             for (s_code, g_code), qty in market.get_monthly_catch_snapshot().items():
-                try:
-                    last_price, last_qty = market.get_last_state(s_code, g_code)
-                    new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
+                # If there exists real price, then use it. Otherwise, compute the price.
+                new_price = market.price_time_series.get((s_code, g_code, str(self.tick.get_date())))
+                if new_price is not None:
                     market.set_new_state(s_code, g_code, new_price, qty)
-                except Exception as e:
-                    self.logger.warning(f"Error updating price for market={m_code}, species={s_code}: {e}")
+                else:
+                    try:
+                        last_price, last_qty = market.get_last_state(s_code, g_code)
+                        new_price = last_price * (last_qty / max(qty, 1e-6)) ** epsilon
+                        market.set_new_state(s_code, g_code, new_price, qty)
+                    except Exception as e:
+                        self.logger.warning(f"Error updating price for market={m_code}, species={s_code}: {e}")
 
     def update_local_history(self):
         """
