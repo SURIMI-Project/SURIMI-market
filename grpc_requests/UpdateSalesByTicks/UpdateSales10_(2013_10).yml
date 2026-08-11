@@ -11,12 +11,12 @@ grpc:
     {
         "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
         "start_date_time": {
-          "seconds": 1380585600,
-          "nanos": 0
+            "seconds": 1380585600,
+            "nanos": 0
         },
         "end_date_time": {
-          "seconds": 1780272000,
-          "nanos": 0
+            "seconds": 1780272000,
+            "nanos": 0
         },
         "sales_summary": {
             "market_sales": [
@@ -416,7 +416,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.04718820015850958,
+                            "quantity": 1.0471882001585096,
                             "value": 0.15,
                             "category_code": "Fresh - Whole"
                         },
@@ -524,7 +524,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.26263912555626284,
+                            "quantity": 1.2626391255562628,
                             "value": 1.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -632,7 +632,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.86991628214216,
+                            "quantity": 1.86991628214216,
                             "value": 3.5,
                             "category_code": "Fresh - Whole"
                         },
@@ -848,7 +848,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6903415633175178,
+                            "quantity": 1.6903415633175178,
                             "value": 1.21,
                             "category_code": "Fresh - Whole"
                         },
@@ -974,7 +974,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9754935727771219,
+                            "quantity": 1.975493572777122,
                             "value": 22.13,
                             "category_code": "Fresh - Whole"
                         },
@@ -1340,7 +1340,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.21518235755032325,
+                            "quantity": 1.2151823575503233,
                             "value": 0.64,
                             "category_code": "Fresh - Whole"
                         },
@@ -1376,7 +1376,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8952566458294012,
+                            "quantity": 1.8952566458294013,
                             "value": 1.1,
                             "category_code": "Fresh - Whole"
                         },
@@ -1538,7 +1538,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.04851359809638411,
+                            "quantity": 1.048513598096384,
                             "value": 0.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -1646,7 +1646,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.23741808577435825,
+                            "quantity": 1.2374180857743582,
                             "value": 1.09,
                             "category_code": "Fresh - Whole"
                         },
@@ -1970,7 +1970,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5645560979266989,
+                            "quantity": 1.5645560979266988,
                             "value": 0.92,
                             "category_code": "Fresh - Whole"
                         },
@@ -2060,7 +2060,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.21518235755032325,
+                            "quantity": 1.2151823575503233,
                             "value": 0.66,
                             "category_code": "Fresh - Whole"
                         },
@@ -2114,7 +2114,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.21518235755032325,
+                            "quantity": 1.2151823575503233,
                             "value": 0.51,
                             "category_code": "Fresh - Whole"
                         },
@@ -2660,7 +2660,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.17481215317390117,
+                            "quantity": 1.174812153173901,
                             "value": 0.63,
                             "category_code": "Fresh - Whole"
                         },
@@ -2768,7 +2768,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9678658814137162,
+                            "quantity": 1.9678658814137162,
                             "value": 4.49,
                             "category_code": "Fresh - Whole"
                         },
@@ -3746,7 +3746,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.05929139722409649,
+                            "quantity": 1.0592913972240965,
                             "value": 0.36,
                             "category_code": "Fresh - Whole"
                         },
@@ -3818,7 +3818,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.29486473820390013,
+                            "quantity": 1.2948647382039002,
                             "value": 1.95,
                             "category_code": "Fresh - Whole"
                         },
@@ -3890,7 +3890,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5619851668050135,
+                            "quantity": 1.5619851668050135,
                             "value": 1.81,
                             "category_code": "Fresh - Whole"
                         },
@@ -4088,7 +4088,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5765911099832618,
+                            "quantity": 1.5765911099832617,
                             "value": 1.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -4214,7 +4214,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9062534843599384,
+                            "quantity": 1.9062534843599384,
                             "value": 19.19,
                             "category_code": "Fresh - Whole"
                         },
@@ -4232,7 +4232,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9080009585202684,
+                            "quantity": 1.9080009585202684,
                             "value": 2.9,
                             "category_code": "Fresh - Whole"
                         },
@@ -4562,7 +4562,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6837029929143942,
+                            "quantity": 1.683702992914394,
                             "value": 0.87,
                             "category_code": "Fresh - Whole"
                         },
@@ -4724,7 +4724,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.014641393319099165,
+                            "quantity": 1.0146413933190992,
                             "value": 0.03,
                             "category_code": "Fresh - Whole"
                         },
@@ -4832,7 +4832,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1039506415672039,
+                            "quantity": 1.103950641567204,
                             "value": 0.46,
                             "category_code": "Fresh - Whole"
                         },
@@ -4940,7 +4940,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3559682525753167,
+                            "quantity": 1.3559682525753167,
                             "value": 1.43,
                             "category_code": "Fresh - Whole"
                         },
@@ -5156,7 +5156,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.29298294466127106,
+                            "quantity": 1.292982944661271,
                             "value": 0.51,
                             "category_code": "Fresh - Whole"
                         },
@@ -5192,7 +5192,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6330151423274277,
+                            "quantity": 1.6330151423274277,
                             "value": 6.26,
                             "category_code": "Fresh - Whole"
                         },
@@ -5282,7 +5282,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.039429224783420605,
+                            "quantity": 1.0394292247834207,
                             "value": 0.9,
                             "category_code": "Fresh - Whole"
                         },
@@ -5318,7 +5318,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.599755019070656,
+                            "quantity": 1.599755019070656,
                             "value": 2.41,
                             "category_code": "Fresh - Whole"
                         },
@@ -5684,7 +5684,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6867627241112956,
+                            "quantity": 1.6867627241112957,
                             "value": 0.89,
                             "category_code": "Fresh - Whole"
                         },
@@ -5846,7 +5846,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.05390812912718004,
+                            "quantity": 1.0539081291271801,
                             "value": 0.24,
                             "category_code": "Fresh - Whole"
                         },
@@ -5954,7 +5954,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2995713921091872,
+                            "quantity": 1.2995713921091872,
                             "value": 1.38,
                             "category_code": "Fresh - Whole"
                         },
@@ -6062,7 +6062,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6546592266220385,
+                            "quantity": 1.6546592266220386,
                             "value": 2.63,
                             "category_code": "Fresh - Whole"
                         },
@@ -6278,7 +6278,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6854064136082926,
+                            "quantity": 1.6854064136082925,
                             "value": 1.21,
                             "category_code": "Fresh - Whole"
                         },
@@ -6590,7 +6590,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.967207402058982,
+                            "quantity": 1.967207402058982,
                             "value": 2.85,
                             "category_code": "Fresh - Whole"
                         },
@@ -6734,7 +6734,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.967207402058982,
+                            "quantity": 1.967207402058982,
                             "value": 2.54,
                             "category_code": "Fresh - Whole"
                         },
@@ -6770,7 +6770,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4665236165059773,
+                            "quantity": 1.4665236165059774,
                             "value": 0.46,
                             "category_code": "Fresh - Whole"
                         },
@@ -6932,7 +6932,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.01742182242687983,
+                            "quantity": 1.0174218224268798,
                             "value": 0.12,
                             "category_code": "Fresh - Whole"
                         },
@@ -7004,7 +7004,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.09302909607174296,
+                            "quantity": 1.093029096071743,
                             "value": 0.64,
                             "category_code": "Fresh - Whole"
                         },
@@ -7076,7 +7076,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2797705354398118,
+                            "quantity": 1.2797705354398117,
                             "value": 0.9,
                             "category_code": "Fresh - Whole"
                         },
@@ -7130,7 +7130,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7622838764612356,
+                            "quantity": 1.7622838764612356,
                             "value": 2.41,
                             "category_code": "Fresh - Whole"
                         },
@@ -7238,7 +7238,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.967207402058982,
+                            "quantity": 1.967207402058982,
                             "value": 0.02,
                             "category_code": "Fresh - Whole"
                         },
@@ -7274,7 +7274,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.21401323354259355,
+                            "quantity": 1.2140132335425935,
                             "value": 0.46,
                             "category_code": "Fresh - Whole"
                         },
@@ -7310,7 +7310,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6717774506290535,
+                            "quantity": 1.6717774506290535,
                             "value": 11.14,
                             "category_code": "Fresh - Whole"
                         },
@@ -7364,7 +7364,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5569660409819546,
+                            "quantity": 1.5569660409819546,
                             "value": 1.18,
                             "category_code": "Fresh - Whole"
                         },
@@ -7400,7 +7400,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.046048590677365685,
+                            "quantity": 1.0460485906773658,
                             "value": 0.98,
                             "category_code": "Fresh - Whole"
                         },
@@ -7418,7 +7418,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4240756018051115,
+                            "quantity": 1.4240756018051115,
                             "value": 1.37,
                             "category_code": "Fresh - Whole"
                         },
@@ -7910,7 +7910,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.07419794757011099,
+                            "quantity": 1.074197947570111,
                             "value": 0.22,
                             "category_code": "Fresh - Whole"
                         },
@@ -8018,7 +8018,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.43895325331552654,
+                            "quantity": 1.4389532533155265,
                             "value": 1.99,
                             "category_code": "Fresh - Whole"
                         },
@@ -8468,7 +8468,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3023999818008818,
+                            "quantity": 1.3023999818008818,
                             "value": 6.86,
                             "category_code": "Fresh - Whole"
                         },
@@ -8996,7 +8996,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.031061636222372152,
+                            "quantity": 1.0310616362223721,
                             "value": 0.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -9068,7 +9068,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1743583784226172,
+                            "quantity": 1.1743583784226173,
                             "value": 1.12,
                             "category_code": "Fresh - Whole"
                         },
@@ -9338,7 +9338,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4602717384253683,
+                            "quantity": 1.4602717384253683,
                             "value": 0.92,
                             "category_code": "Fresh - Whole"
                         },
@@ -9428,7 +9428,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3811715167414782,
+                            "quantity": 1.3811715167414782,
                             "value": 0.75,
                             "category_code": "Fresh - Whole"
                         },
@@ -9974,7 +9974,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.11066622453802738,
+                            "quantity": 1.1106662245380274,
                             "value": 0.34,
                             "category_code": "Fresh - Whole"
                         },
@@ -10082,7 +10082,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5786760412931983,
+                            "quantity": 1.5786760412931984,
                             "value": 2.67,
                             "category_code": "Fresh - Whole"
                         },
@@ -10898,7 +10898,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.739066525146231,
+                            "quantity": 1.739066525146231,
                             "value": 0.75,
                             "category_code": "Fresh - Whole"
                         },
@@ -11060,7 +11060,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.029736864607406974,
+                            "quantity": 1.029736864607407,
                             "value": 0.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -11132,7 +11132,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1335773416303853,
+                            "quantity": 1.1335773416303854,
                             "value": 0.87,
                             "category_code": "Fresh - Whole"
                         },
@@ -11204,7 +11204,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1616943219274508,
+                            "quantity": 1.1616943219274507,
                             "value": 0.51,
                             "category_code": "Fresh - Whole"
                         },
@@ -11402,7 +11402,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.27927977861015635,
+                            "quantity": 1.2792797786101564,
                             "value": 0.58,
                             "category_code": "Fresh - Whole"
                         },
@@ -11438,7 +11438,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9599742310799888,
+                            "quantity": 1.9599742310799888,
                             "value": 15.93,
                             "category_code": "Fresh - Whole"
                         },
@@ -11528,7 +11528,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.124605203660499,
+                            "quantity": 1.124605203660499,
                             "value": 2.65,
                             "category_code": "Fresh - Whole"
                         },
@@ -11546,7 +11546,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2899957529108801,
+                            "quantity": 1.28999575291088,
                             "value": 0.95,
                             "category_code": "Fresh - Whole"
                         },
@@ -11660,7 +11660,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5637887794994606,
+                            "quantity": 1.5637887794994607,
                             "value": 1.65,
                             "category_code": "Fresh - Whole"
                         },
@@ -11804,7 +11804,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5637887794994606,
+                            "quantity": 1.5637887794994607,
                             "value": 1.48,
                             "category_code": "Fresh - Whole"
                         },
@@ -11840,7 +11840,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.42450004382631773,
+                            "quantity": 1.4245000438263178,
                             "value": 0.41,
                             "category_code": "Fresh - Whole"
                         },
@@ -11858,7 +11858,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7865185671852758,
+                            "quantity": 1.7865185671852757,
                             "value": 3.12,
                             "category_code": "Fresh - Whole"
                         },
@@ -11984,7 +11984,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7865185671852758,
+                            "quantity": 1.7865185671852757,
                             "value": 1.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -12002,7 +12002,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.014260728708335725,
+                            "quantity": 1.0142607287083358,
                             "value": 0.09,
                             "category_code": "Fresh - Whole"
                         },
@@ -12020,7 +12020,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6642009512240264,
+                            "quantity": 1.6642009512240263,
                             "value": 2.22,
                             "category_code": "Fresh - Whole"
                         },
@@ -12074,7 +12074,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0647557626966485,
+                            "quantity": 1.0647557626966484,
                             "value": 0.42,
                             "category_code": "Fresh - Whole"
                         },
@@ -12146,7 +12146,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.07399665891863806,
+                            "quantity": 1.073996658918638,
                             "value": 0.24,
                             "category_code": "Fresh - Whole"
                         },
@@ -12200,7 +12200,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.530977427679829,
+                            "quantity": 1.530977427679829,
                             "value": 1.68,
                             "category_code": "Fresh - Whole"
                         },
@@ -12308,7 +12308,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5637887794994606,
+                            "quantity": 1.5637887794994607,
                             "category_code": "Fresh - Whole"
                         },
                         {
@@ -12343,7 +12343,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.12943340878319726,
+                            "quantity": 1.1294334087831972,
                             "value": 0.28,
                             "category_code": "Fresh - Whole"
                         },
@@ -12379,7 +12379,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.42744522426707743,
+                            "quantity": 1.4274452242670774,
                             "value": 7.1,
                             "category_code": "Fresh - Whole"
                         },
@@ -12433,7 +12433,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.37434955480745713,
+                            "quantity": 1.3743495548074571,
                             "value": 0.79,
                             "category_code": "Fresh - Whole"
                         },
@@ -12451,7 +12451,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6642009512240264,
+                            "quantity": 1.6642009512240263,
                             "value": 3.49,
                             "category_code": "Fresh - Whole"
                         },
@@ -12469,7 +12469,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0015758344781562398,
+                            "quantity": 1.0015758344781562,
                             "value": 0.03,
                             "category_code": "Fresh - Whole"
                         },
@@ -12487,7 +12487,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.11228106844785922,
+                            "quantity": 1.1122810684478592,
                             "value": 0.35,
                             "category_code": "Fresh - Whole"
                         },
@@ -12559,7 +12559,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9717300029282855,
+                            "quantity": 1.9717300029282856,
                             "value": 2.05,
                             "category_code": "Fresh - Whole"
                         },
@@ -12781,7 +12781,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9436074875165356,
+                            "quantity": 1.9436074875165357,
                             "value": 0.93,
                             "category_code": "Fresh - Whole"
                         },
@@ -12943,7 +12943,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.018185096544221298,
+                            "quantity": 1.0181850965442214,
                             "value": 0.11,
                             "category_code": "Fresh - Whole"
                         },
@@ -13015,7 +13015,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1220758363890352,
+                            "quantity": 1.1220758363890353,
                             "value": 0.83,
                             "category_code": "Fresh - Whole"
                         },
@@ -13087,7 +13087,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4856027361017095,
+                            "quantity": 1.4856027361017095,
                             "value": 1.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -13285,7 +13285,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2712194689747843,
+                            "quantity": 1.2712194689747842,
                             "value": 0.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -13375,7 +13375,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.021951159360876746,
+                            "quantity": 1.0219511593608768,
                             "value": 0.04,
                             "category_code": "Fresh - Whole"
                         },
@@ -13411,7 +13411,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9865504379525598,
+                            "quantity": 1.9865504379525598,
                             "value": 20.92,
                             "category_code": "Fresh - Whole"
                         },
@@ -13429,7 +13429,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8424922830395776,
+                            "quantity": 1.8424922830395776,
                             "value": 2.74,
                             "category_code": "Fresh - Whole"
                         },
@@ -13921,7 +13921,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1690238172731854,
+                            "quantity": 1.1690238172731855,
                             "value": 0.53,
                             "category_code": "Fresh - Whole"
                         },
@@ -14029,7 +14029,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9386011830334842,
+                            "quantity": 1.9386011830334842,
                             "value": 4.25,
                             "category_code": "Fresh - Whole"
                         },
@@ -15007,7 +15007,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.04391522239944101,
+                            "quantity": 1.043915222399441,
                             "value": 0.23,
                             "category_code": "Fresh - Whole"
                         },
@@ -15079,7 +15079,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2609737006062828,
+                            "quantity": 1.2609737006062827,
                             "value": 1.73,
                             "category_code": "Fresh - Whole"
                         },
@@ -15151,7 +15151,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7977918557353412,
+                            "quantity": 1.7977918557353412,
                             "value": 2.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -15349,7 +15349,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6717448530159787,
+                            "quantity": 1.6717448530159786,
                             "value": 1.43,
                             "category_code": "Fresh - Whole"
                         },
@@ -15475,7 +15475,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5170541983406026,
+                            "quantity": 1.5170541983406025,
                             "value": 10.97,
                             "category_code": "Fresh - Whole"
                         },
@@ -15985,7 +15985,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.047378224232695935,
+                            "quantity": 1.0473782242326959,
                             "value": 0.12,
                             "category_code": "Fresh - Whole"
                         },
@@ -16093,7 +16093,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.23849078335417406,
+                            "quantity": 1.238490783354174,
                             "value": 1.09,
                             "category_code": "Fresh - Whole"
                         },
@@ -16201,7 +16201,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5351876767364565,
+                            "quantity": 1.5351876767364565,
                             "value": 2.06,
                             "category_code": "Fresh - Whole"
                         },
@@ -16417,7 +16417,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5585668187599807,
+                            "quantity": 1.5585668187599806,
                             "value": 0.89,
                             "category_code": "Fresh - Whole"
                         },
@@ -16543,7 +16543,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7927918144757219,
+                            "quantity": 1.7927918144757218,
                             "value": 17.97,
                             "category_code": "Fresh - Whole"
                         },
@@ -16579,7 +16579,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9906008749257383,
+                            "quantity": 1.9906008749257382,
                             "value": 3.91,
                             "category_code": "Fresh - Whole"
                         },
@@ -17071,7 +17071,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.04281746770013446,
+                            "quantity": 1.0428174677001345,
                             "value": 0.27,
                             "category_code": "Fresh - Whole"
                         },
@@ -17143,7 +17143,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2744205571056597,
+                            "quantity": 1.2744205571056597,
                             "value": 1.85,
                             "category_code": "Fresh - Whole"
                         },
@@ -17215,7 +17215,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.897332310971888,
+                            "quantity": 1.897332310971888,
                             "value": 2.92,
                             "category_code": "Fresh - Whole"
                         },
@@ -17413,7 +17413,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.705180867666492,
+                            "quantity": 1.705180867666492,
                             "value": 1.49,
                             "category_code": "Fresh - Whole"
                         },
@@ -17539,7 +17539,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7446431867624815,
+                            "quantity": 1.7446431867624814,
                             "value": 15.81,
                             "category_code": "Fresh - Whole"
                         },
@@ -17887,7 +17887,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.936032722984452,
+                            "quantity": 1.9360327229844518,
                             "value": 1.18,
                             "category_code": "Fresh - Whole"
                         },
@@ -18049,7 +18049,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.07449897356313782,
+                            "quantity": 1.0744989735631378,
                             "value": 0.3,
                             "category_code": "Fresh - Whole"
                         },
@@ -18157,7 +18157,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4325548126284769,
+                            "quantity": 1.4325548126284768,
                             "value": 2.04,
                             "category_code": "Fresh - Whole"
                         },
@@ -18481,7 +18481,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7268182838152847,
+                            "quantity": 1.7268182838152848,
                             "value": 1.29,
                             "category_code": "Fresh - Whole"
                         },
@@ -19171,7 +19171,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.06904827239918765,
+                            "quantity": 1.0690482723991876,
                             "value": 0.13,
                             "category_code": "Fresh - Whole"
                         },
@@ -19279,7 +19279,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.40026149588482024,
+                            "quantity": 1.4002614958848203,
                             "value": 1.76,
                             "category_code": "Fresh - Whole"
                         },
@@ -20257,7 +20257,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.07372558403156403,
+                            "quantity": 1.073725584031564,
                             "value": 0.44,
                             "category_code": "Fresh - Whole"
                         },
@@ -20329,7 +20329,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.41302120003206816,
+                            "quantity": 1.413021200032068,
                             "value": 2.74,
                             "category_code": "Fresh - Whole"
                         },
@@ -20599,7 +20599,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9320257805268007,
+                            "quantity": 1.9320257805268009,
                             "value": 1.94,
                             "category_code": "Fresh - Whole"
                         },
@@ -20689,7 +20689,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.46699990195280583,
+                            "quantity": 1.4669999019528057,
                             "value": 0.97,
                             "category_code": "Fresh - Whole"
                         },
@@ -21037,7 +21037,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.10295692026325576,
+                            "quantity": 1.1029569202632556,
                             "value": 0.3,
                             "category_code": "Fresh - Whole"
                         },
@@ -21235,7 +21235,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.06245555667685584,
+                            "quantity": 1.0624555566768559,
                             "value": 0.19,
                             "category_code": "Fresh - Whole"
                         },
@@ -21343,7 +21343,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.22421863360050434,
+                            "quantity": 1.2242186336005043,
                             "value": 1,
                             "category_code": "Fresh - Whole"
                         },
@@ -21667,7 +21667,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6302104568697869,
+                            "quantity": 1.6302104568697868,
                             "value": 1.05,
                             "category_code": "Fresh - Whole"
                         },
@@ -21757,7 +21757,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.10295692026325576,
+                            "quantity": 1.1029569202632556,
                             "value": 0.3,
                             "category_code": "Fresh - Whole"
                         },
@@ -21811,7 +21811,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.10295692026325576,
+                            "quantity": 1.1029569202632556,
                             "value": 0.26,
                             "category_code": "Fresh - Whole"
                         },
@@ -22159,7 +22159,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7434965056610596,
+                            "quantity": 1.7434965056610596,
                             "value": 0.75,
                             "category_code": "Fresh - Whole"
                         },
@@ -22321,7 +22321,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0299201466541559,
+                            "quantity": 1.0299201466541559,
                             "value": 0.19,
                             "category_code": "Fresh - Whole"
                         },
@@ -22393,7 +22393,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1030309478059062,
+                            "quantity": 1.1030309478059062,
                             "value": 0.68,
                             "category_code": "Fresh - Whole"
                         },
@@ -22465,7 +22465,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6224338000299414,
+                            "quantity": 1.6224338000299414,
                             "value": 2.06,
                             "category_code": "Fresh - Whole"
                         },
@@ -22663,7 +22663,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2628819062608035,
+                            "quantity": 1.2628819062608034,
                             "value": 0.55,
                             "category_code": "Fresh - Whole"
                         },
@@ -22753,7 +22753,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.00822217071537209,
+                            "quantity": 1.008222170715372,
                             "value": 0.01,
                             "category_code": "Fresh - Whole"
                         },
@@ -22807,7 +22807,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9016760922389914,
+                            "quantity": 1.9016760922389913,
                             "value": 2.96,
                             "category_code": "Fresh - Whole"
                         },
@@ -23263,7 +23263,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0389979355993737,
+                            "quantity": 1.0389979355993737,
                             "value": 0.18,
                             "category_code": "Fresh - Whole"
                         },
@@ -23335,7 +23335,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.21240512224995162,
+                            "quantity": 1.2124051222499517,
                             "value": 1.43,
                             "category_code": "Fresh - Whole"
                         },
@@ -23605,7 +23605,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5179428736953049,
+                            "quantity": 1.517942873695305,
                             "value": 1.08,
                             "category_code": "Fresh - Whole"
                         },
@@ -24043,7 +24043,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.012393195862359587,
+                            "quantity": 1.0123931958623595,
                             "value": 0.01,
                             "category_code": "Fresh - Whole"
                         },
@@ -24079,7 +24079,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7095222363289645,
+                            "quantity": 1.7095222363289646,
                             "value": 0.9,
                             "category_code": "Fresh - Whole"
                         },
@@ -24241,7 +24241,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.029617667242274118,
+                            "quantity": 1.029617667242274,
                             "value": 0.15,
                             "category_code": "Fresh - Whole"
                         },
@@ -24349,7 +24349,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.17943571982424822,
+                            "quantity": 1.1794357198242482,
                             "value": 0.88,
                             "category_code": "Fresh - Whole"
                         },
@@ -24457,7 +24457,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.48942866645195,
+                            "quantity": 1.48942866645195,
                             "value": 1.96,
                             "category_code": "Fresh - Whole"
                         },
@@ -24673,7 +24673,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3329726125071251,
+                            "quantity": 1.332972612507125,
                             "value": 0.62,
                             "category_code": "Fresh - Whole"
                         },
@@ -24763,7 +24763,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.012393195862359587,
+                            "quantity": 1.0123931958623595,
                             "value": 0.02,
                             "category_code": "Fresh - Whole"
                         },
@@ -24799,7 +24799,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3302581620851193,
+                            "quantity": 1.3302581620851193,
                             "value": 7.51,
                             "category_code": "Fresh - Whole"
                         },
@@ -24817,7 +24817,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.012393195862359587,
+                            "quantity": 1.0123931958623595,
                             "value": 0.01,
                             "category_code": "Fresh - Whole"
                         },
@@ -24835,7 +24835,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8059178751521477,
+                            "quantity": 1.8059178751521476,
                             "value": 3.28,
                             "category_code": "Fresh - Whole"
                         },
@@ -25363,7 +25363,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.08280373343715255,
+                            "quantity": 1.0828037334371525,
                             "value": 0.29,
                             "category_code": "Fresh - Whole"
                         },
@@ -25471,7 +25471,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.43422564131936453,
+                            "quantity": 1.4342256413193646,
                             "value": 1.99,
                             "category_code": "Fresh - Whole"
                         },
@@ -26485,7 +26485,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.06918984740371188,
+                            "quantity": 1.0691898474037118,
                             "value": 0.27,
                             "category_code": "Fresh - Whole"
                         },
@@ -26593,7 +26593,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.36649994321229223,
+                            "quantity": 1.3664999432122922,
                             "value": 1.71,
                             "category_code": "Fresh - Whole"
                         },
@@ -26701,7 +26701,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5720395422804662,
+                            "quantity": 1.572039542280466,
                             "value": 2.24,
                             "category_code": "Fresh - Whole"
                         },
@@ -26917,7 +26917,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7231749496454823,
+                            "quantity": 1.7231749496454825,
                             "value": 1.34,
                             "category_code": "Fresh - Whole"
                         },
@@ -27043,7 +27043,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.23164237567044174,
+                            "quantity": 1.2316423756704418,
                             "value": 5.22,
                             "category_code": "Fresh - Whole"
                         },
@@ -27079,7 +27079,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9018765469003304,
+                            "quantity": 1.9018765469003305,
                             "value": 3.59,
                             "category_code": "Fresh - Whole"
                         },
@@ -27409,7 +27409,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6066133602469502,
+                            "quantity": 1.6066133602469503,
                             "value": 1.79,
                             "category_code": "Fresh - Whole"
                         },
@@ -27607,7 +27607,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.03052849579379888,
+                            "quantity": 1.0305284957937988,
                             "value": 0.07,
                             "category_code": "Fresh - Whole"
                         },
@@ -27715,7 +27715,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.15397699751310806,
+                            "quantity": 1.153976997513108,
                             "value": 0.72,
                             "category_code": "Fresh - Whole"
                         },
@@ -27823,7 +27823,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8226520967775289,
+                            "quantity": 1.8226520967775288,
                             "value": 3.32,
                             "category_code": "Fresh - Whole"
                         },
@@ -28039,7 +28039,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4888496938200037,
+                            "quantity": 1.4888496938200038,
                             "value": 0.88,
                             "category_code": "Fresh - Whole"
                         },
@@ -28129,7 +28129,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6066133602469502,
+                            "quantity": 1.6066133602469503,
                             "value": 1.85,
                             "category_code": "Fresh - Whole"
                         },
@@ -28183,7 +28183,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6066133602469502,
+                            "quantity": 1.6066133602469503,
                             "value": 1.49,
                             "category_code": "Fresh - Whole"
                         },
@@ -28351,7 +28351,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.45025355621161106,
+                            "quantity": 1.450253556211611,
                             "value": 1.07,
                             "category_code": "Fresh - Whole"
                         },
@@ -28405,7 +28405,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8477183729622483,
+                            "quantity": 1.8477183729622482,
                             "value": 2.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -28441,7 +28441,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.09892452894660404,
+                            "quantity": 1.098924528946604,
                             "value": 0.61,
                             "category_code": "Fresh - Whole"
                         },
@@ -28477,7 +28477,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.356687810817413,
+                            "quantity": 1.356687810817413,
                             "value": 8.46,
                             "category_code": "Fresh - Whole"
                         },
@@ -28513,7 +28513,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.45025355621161106,
+                            "quantity": 1.450253556211611,
                             "value": 2.34,
                             "category_code": "Fresh - Whole"
                         },
@@ -28567,7 +28567,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.23875914075960547,
+                            "quantity": 1.2387591407596055,
                             "value": 0.29,
                             "category_code": "Fresh - Whole"
                         },
@@ -28639,7 +28639,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9985687786563485,
+                            "quantity": 1.9985687786563484,
                             "value": 1.26,
                             "category_code": "Fresh - Whole"
                         },
@@ -28729,7 +28729,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.008684577963230581,
+                            "quantity": 1.0086845779632305,
                             "value": 0.04,
                             "category_code": "Fresh - Whole"
                         },
@@ -28765,7 +28765,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.410986874589561,
+                            "quantity": 1.410986874589561,
                             "value": 2.25,
                             "category_code": "Fresh - Whole"
                         },
@@ -28801,7 +28801,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8239749779609881,
+                            "quantity": 1.823974977960988,
                             "value": 0.48,
                             "category_code": "Fresh - Whole"
                         },
@@ -28837,7 +28837,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.04512149320831018,
+                            "quantity": 1.0451214932083102,
                             "value": 0.2,
                             "category_code": "Fresh - Whole"
                         },
@@ -28945,7 +28945,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0649117784759825,
+                            "quantity": 1.0649117784759825,
                             "value": 0.27,
                             "category_code": "Fresh - Whole"
                         },
@@ -28999,7 +28999,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5786332712919338,
+                            "quantity": 1.5786332712919338,
                             "value": 2.88,
                             "category_code": "Fresh - Whole"
                         },
@@ -29107,7 +29107,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.45025355621161106,
+                            "quantity": 1.450253556211611,
                             "value": 0.42,
                             "category_code": "Fresh - Whole"
                         },
@@ -29161,7 +29161,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.09994703817287642,
+                            "quantity": 1.0999470381728764,
                             "value": 0.19,
                             "category_code": "Fresh - Whole"
                         },
@@ -29179,7 +29179,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.945760001026302,
+                            "quantity": 1.945760001026302,
                             "value": 1.09,
                             "category_code": "Fresh - Whole"
                         },
@@ -29197,7 +29197,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3139683304082166,
+                            "quantity": 1.3139683304082166,
                             "value": 3.11,
                             "category_code": "Fresh - Whole"
                         },
@@ -29233,7 +29233,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.09892452894660404,
+                            "quantity": 1.098924528946604,
                             "value": 0.4,
                             "category_code": "Fresh - Whole"
                         },
@@ -29269,7 +29269,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.410986874589561,
+                            "quantity": 1.410986874589561,
                             "value": 2.25,
                             "category_code": "Fresh - Whole"
                         },
@@ -29287,7 +29287,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.009901185038535555,
+                            "quantity": 1.0099011850385355,
                             "value": 0.23,
                             "category_code": "Fresh - Whole"
                         },
@@ -29323,7 +29323,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.10672820583444408,
+                            "quantity": 1.106728205834444,
                             "value": 0.44,
                             "category_code": "Fresh - Whole"
                         },
@@ -29413,7 +29413,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.740204454293352,
+                            "quantity": 1.7402044542933521,
                             "value": 1.33,
                             "category_code": "Fresh - Whole"
                         },
@@ -29851,7 +29851,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.12266873520951543,
+                            "quantity": 1.1226687352095155,
                             "value": 0.43,
                             "category_code": "Fresh - Whole"
                         },
@@ -29959,7 +29959,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5618913282935688,
+                            "quantity": 1.561891328293569,
                             "value": 2.59,
                             "category_code": "Fresh - Whole"
                         },
@@ -30067,7 +30067,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7554130743235655,
+                            "quantity": 1.7554130743235654,
                             "value": 2.92,
                             "category_code": "Fresh - Whole"
                         },
@@ -30937,7 +30937,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0321306785036113,
+                            "quantity": 1.0321306785036113,
                             "value": 0.19,
                             "category_code": "Fresh - Whole"
                         },
@@ -31009,7 +31009,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.16290141303170963,
+                            "quantity": 1.1629014130317097,
                             "value": 1.08,
                             "category_code": "Fresh - Whole"
                         },
@@ -31081,7 +31081,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7235972616932099,
+                            "quantity": 1.72359726169321,
                             "value": 2.37,
                             "category_code": "Fresh - Whole"
                         },
@@ -31279,7 +31279,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.48427557970595814,
+                            "quantity": 1.4842755797059581,
                             "value": 1.03,
                             "category_code": "Fresh - Whole"
                         },
@@ -31369,7 +31369,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5159509445933033,
+                            "quantity": 1.5159509445933033,
                             "value": 1.07,
                             "category_code": "Fresh - Whole"
                         },
@@ -31879,7 +31879,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.07178069571154046,
+                            "quantity": 1.0717806957115406,
                             "value": 0.42,
                             "category_code": "Fresh - Whole"
                         },
@@ -31951,7 +31951,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3409550659175942,
+                            "quantity": 1.3409550659175942,
                             "value": 2.25,
                             "category_code": "Fresh - Whole"
                         },
@@ -32023,7 +32023,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5663849424538872,
+                            "quantity": 1.5663849424538872,
                             "value": 1.76,
                             "category_code": "Fresh - Whole"
                         },
@@ -32221,7 +32221,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6794779055056746,
+                            "quantity": 1.6794779055056746,
                             "value": 1.39,
                             "category_code": "Fresh - Whole"
                         },
@@ -32479,7 +32479,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7538423471420684,
+                            "quantity": 1.7538423471420685,
                             "value": 2.23,
                             "category_code": "Fresh - Whole"
                         },
@@ -32623,7 +32623,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7538423471420684,
+                            "quantity": 1.7538423471420685,
                             "value": 1.97,
                             "category_code": "Fresh - Whole"
                         },
@@ -32659,7 +32659,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0971657902015828,
+                            "quantity": 1.0971657902015828,
                             "value": 0.1,
                             "category_code": "Fresh - Whole"
                         },
@@ -32731,7 +32731,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.43039803175133573,
+                            "quantity": 1.4303980317513356,
                             "value": 0.42,
                             "category_code": "Fresh - Whole"
                         },
@@ -32821,7 +32821,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.010824352173667723,
+                            "quantity": 1.0108243521736677,
                             "value": 0.06,
                             "category_code": "Fresh - Whole"
                         },
@@ -32893,7 +32893,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.05652871594721102,
+                            "quantity": 1.056528715947211,
                             "value": 0.37,
                             "category_code": "Fresh - Whole"
                         },
@@ -32965,7 +32965,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.14465972554730386,
+                            "quantity": 1.1446597255473039,
                             "value": 0.47,
                             "category_code": "Fresh - Whole"
                         },
@@ -33019,7 +33019,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5442549326814528,
+                            "quantity": 1.5442549326814528,
                             "value": 1.73,
                             "category_code": "Fresh - Whole"
                         },
@@ -33127,7 +33127,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7538423471420684,
+                            "quantity": 1.7538423471420685,
                             "value": 0.04,
                             "category_code": "Fresh - Whole"
                         },
@@ -33163,7 +33163,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0811000550149116,
+                            "quantity": 1.0811000550149117,
                             "value": 0.17,
                             "category_code": "Fresh - Whole"
                         },
@@ -33199,7 +33199,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7938614386667242,
+                            "quantity": 1.7938614386667242,
                             "value": 13.18,
                             "category_code": "Fresh - Whole"
                         },
@@ -33289,7 +33289,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.44802120916706434,
+                            "quantity": 1.4480212091670643,
                             "value": 9.52,
                             "category_code": "Fresh - Whole"
                         },
@@ -33307,7 +33307,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2231925236768566,
+                            "quantity": 1.2231925236768566,
                             "value": 0.73,
                             "category_code": "Fresh - Whole"
                         },
@@ -33379,7 +33379,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6391568844512681,
+                            "quantity": 1.639156884451268,
                             "value": 1.33,
                             "category_code": "Fresh - Whole"
                         },
@@ -33799,7 +33799,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.07481119350236125,
+                            "quantity": 1.0748111935023612,
                             "value": 0.29,
                             "category_code": "Fresh - Whole"
                         },
@@ -33907,7 +33907,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.38271622706357267,
+                            "quantity": 1.3827162270635727,
                             "value": 1.76,
                             "category_code": "Fresh - Whole"
                         },
@@ -34015,7 +34015,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7770823526397693,
+                            "quantity": 1.7770823526397694,
                             "value": 3.1,
                             "category_code": "Fresh - Whole"
                         },
@@ -34231,7 +34231,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9982519524781922,
+                            "quantity": 1.998251952478192,
                             "value": 1.73,
                             "category_code": "Fresh - Whole"
                         },
@@ -34357,7 +34357,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8152003484246072,
+                            "quantity": 1.8152003484246073,
                             "value": 18.52,
                             "category_code": "Fresh - Whole"
                         },
@@ -34723,7 +34723,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4279218165131533,
+                            "quantity": 1.4279218165131533,
                             "value": 0.39,
                             "category_code": "Fresh - Whole"
                         },
@@ -34885,7 +34885,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.030704402790993266,
+                            "quantity": 1.0307044027909933,
                             "value": 0.21,
                             "category_code": "Fresh - Whole"
                         },
@@ -34957,7 +34957,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.22114290429881298,
+                            "quantity": 1.221142904298813,
                             "value": 1.49,
                             "category_code": "Fresh - Whole"
                         },
@@ -35029,7 +35029,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4144851548908484,
+                            "quantity": 1.4144851548908484,
                             "value": 1.32,
                             "category_code": "Fresh - Whole"
                         },
@@ -35227,7 +35227,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3045170380685906,
+                            "quantity": 1.3045170380685907,
                             "value": 0.62,
                             "category_code": "Fresh - Whole"
                         },
@@ -35317,7 +35317,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0708571375368006,
+                            "quantity": 1.0708571375368006,
                             "value": 0.13,
                             "category_code": "Fresh - Whole"
                         },
@@ -35353,7 +35353,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8887757387968088,
+                            "quantity": 1.888775738796809,
                             "value": 18.86,
                             "category_code": "Fresh - Whole"
                         },
@@ -35371,7 +35371,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6807662661323485,
+                            "quantity": 1.6807662661323484,
                             "value": 2.21,
                             "category_code": "Fresh - Whole"
                         },
@@ -35863,7 +35863,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.11833250523899336,
+                            "quantity": 1.1183325052389934,
                             "value": 0.47,
                             "category_code": "Fresh - Whole"
                         },
@@ -35971,7 +35971,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6469702116154817,
+                            "quantity": 1.6469702116154816,
                             "value": 3,
                             "category_code": "Fresh - Whole"
                         },
@@ -36985,7 +36985,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.04911771614001999,
+                            "quantity": 1.04911771614002,
                             "value": 0.18,
                             "category_code": "Fresh - Whole"
                         },
@@ -37093,7 +37093,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2633851773934081,
+                            "quantity": 1.2633851773934082,
                             "value": 1.25,
                             "category_code": "Fresh - Whole"
                         },
@@ -37417,7 +37417,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8776419606263597,
+                            "quantity": 1.8776419606263597,
                             "value": 1.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -37543,7 +37543,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8018647493625438,
+                            "quantity": 1.8018647493625437,
                             "value": 18.19,
                             "category_code": "Fresh - Whole"
                         },
@@ -37909,7 +37909,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.20712290761142102,
+                            "quantity": 1.207122907611421,
                             "value": 0.2,
                             "category_code": "Fresh - Whole"
                         },
@@ -37927,7 +37927,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0006459476243598568,
+                            "quantity": 1.0006459476243599,
                             "category_code": "Fresh - Whole"
                         },
                         {
@@ -37980,7 +37980,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5768818196958763,
+                            "quantity": 1.5768818196958763,
                             "value": 0.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -38052,7 +38052,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.0006459476243598568,
+                            "quantity": 1.0006459476243599,
                             "category_code": "Fresh - Whole"
                         },
                         {
@@ -38069,7 +38069,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.02534828150209614,
+                            "quantity": 1.0253482815020962,
                             "value": 0.16,
                             "category_code": "Fresh - Whole"
                         },
@@ -38141,7 +38141,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.13175745556530133,
+                            "quantity": 1.1317574555653014,
                             "value": 0.89,
                             "category_code": "Fresh - Whole"
                         },
@@ -38213,7 +38213,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.28060102309495594,
+                            "quantity": 1.280601023094956,
                             "value": 0.91,
                             "category_code": "Fresh - Whole"
                         },
@@ -38267,7 +38267,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7688294992518196,
+                            "quantity": 1.7688294992518196,
                             "value": 2.43,
                             "category_code": "Fresh - Whole"
                         },
@@ -38411,7 +38411,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2378080052028693,
+                            "quantity": 1.2378080052028693,
                             "value": 0.51,
                             "category_code": "Fresh - Whole"
                         },
@@ -38554,7 +38554,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4312649516631915,
+                            "quantity": 1.4312649516631915,
                             "value": 1.38,
                             "category_code": "Fresh - Whole"
                         },
@@ -38758,7 +38758,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8327168774269267,
+                            "quantity": 1.8327168774269267,
                             "value": 5.12,
                             "category_code": "Fresh - Whole"
                         },
@@ -38794,7 +38794,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.37856032815834867,
+                            "quantity": 1.3785603281583487,
                             "value": 8.97,
                             "category_code": "Fresh - Whole"
                         },
@@ -38884,7 +38884,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4219570575344651,
+                            "quantity": 1.421957057534465,
                             "value": 0.53,
                             "category_code": "Fresh - Whole"
                         },
@@ -39046,7 +39046,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.015239268281092963,
+                            "quantity": 1.015239268281093,
                             "category_code": "Fresh - Whole"
                         },
                         {
@@ -39081,7 +39081,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3619582976395536,
+                            "quantity": 1.3619582976395537,
                             "value": 2,
                             "category_code": "Fresh - Whole"
                         },
@@ -39153,7 +39153,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.10374408293243817,
+                            "quantity": 1.103744082932438,
                             "value": 0.5,
                             "category_code": "Fresh - Whole"
                         },
@@ -39261,7 +39261,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.24432832542131847,
+                            "quantity": 1.2443283254213184,
                             "value": 0.96,
                             "category_code": "Fresh - Whole"
                         },
@@ -39477,7 +39477,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2923112024298876,
+                            "quantity": 1.2923112024298877,
                             "value": 0.48,
                             "category_code": "Fresh - Whole"
                         },
@@ -39513,7 +39513,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7350026108171996,
+                            "quantity": 1.7350026108171996,
                             "value": 7.27,
                             "category_code": "Fresh - Whole"
                         },
@@ -39549,7 +39549,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8327168774269267,
+                            "quantity": 1.8327168774269267,
                             "value": 3.48,
                             "category_code": "Fresh - Whole"
                         },
@@ -39585,7 +39585,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3619582976395536,
+                            "quantity": 1.3619582976395537,
                             "value": 2.01,
                             "category_code": "Fresh - Whole"
                         },
@@ -39603,7 +39603,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.06599799014789234,
+                            "quantity": 1.0659979901478924,
                             "value": 1.48,
                             "category_code": "Fresh - Whole"
                         },
@@ -39639,7 +39639,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4341623868332368,
+                            "quantity": 1.4341623868332367,
                             "value": 1.74,
                             "category_code": "Fresh - Whole"
                         },
@@ -39969,7 +39969,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5809571707398983,
+                            "quantity": 1.5809571707398984,
                             "value": 0.55,
                             "category_code": "Fresh - Whole"
                         },
@@ -40131,7 +40131,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.02364574986703139,
+                            "quantity": 1.0236457498670315,
                             "value": 0.13,
                             "category_code": "Fresh - Whole"
                         },
@@ -40203,7 +40203,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1091493119078198,
+                            "quantity": 1.1091493119078197,
                             "value": 0.72,
                             "category_code": "Fresh - Whole"
                         },
@@ -40275,7 +40275,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.145034529949242,
+                            "quantity": 1.145034529949242,
                             "value": 0.44,
                             "category_code": "Fresh - Whole"
                         },
@@ -40473,7 +40473,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.22907649367738084,
+                            "quantity": 1.2290764936773808,
                             "value": 0.47,
                             "category_code": "Fresh - Whole"
                         },
@@ -40599,7 +40599,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3375530492592439,
+                            "quantity": 1.337553049259244,
                             "value": 7.13,
                             "category_code": "Fresh - Whole"
                         },
@@ -40617,7 +40617,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.25142293224776935,
+                            "quantity": 1.2514229322477695,
                             "value": 0.79,
                             "category_code": "Fresh - Whole"
                         },
@@ -41073,7 +41073,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.10113453370592305,
+                            "quantity": 1.101134533705923,
                             "value": 0.58,
                             "category_code": "Fresh - Whole"
                         },
@@ -41145,7 +41145,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5026950137199627,
+                            "quantity": 1.5026950137199626,
                             "value": 3.32,
                             "category_code": "Fresh - Whole"
                         },
@@ -41505,7 +41505,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3438162098362516,
+                            "quantity": 1.3438162098362516,
                             "value": 0.73,
                             "category_code": "Fresh - Whole"
                         },
@@ -41853,7 +41853,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2957089978605233,
+                            "quantity": 1.2957089978605234,
                             "value": 0.29,
                             "category_code": "Fresh - Whole"
                         },
@@ -41925,7 +41925,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9732871858906261,
+                            "quantity": 1.973287185890626,
                             "value": 0.96,
                             "category_code": "Fresh - Whole"
                         },
@@ -42015,7 +42015,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.023433612213678894,
+                            "quantity": 1.023433612213679,
                             "value": 0.14,
                             "category_code": "Fresh - Whole"
                         },
@@ -42087,7 +42087,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.12623822909618582,
+                            "quantity": 1.1262382290961859,
                             "value": 0.85,
                             "category_code": "Fresh - Whole"
                         },
@@ -42159,7 +42159,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2141062348174196,
+                            "quantity": 1.2141062348174196,
                             "value": 0.69,
                             "category_code": "Fresh - Whole"
                         },
@@ -42213,7 +42213,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7667657914646929,
+                            "quantity": 1.7667657914646928,
                             "value": 2.46,
                             "category_code": "Fresh - Whole"
                         },
@@ -42357,7 +42357,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2764497598477761,
+                            "quantity": 1.2764497598477762,
                             "value": 0.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -42393,7 +42393,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7850245330639103,
+                            "quantity": 1.7850245330639103,
                             "value": 13.02,
                             "category_code": "Fresh - Whole"
                         },
@@ -42447,7 +42447,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.015057912185906682,
+                            "quantity": 1.0150579121859067,
                             "value": 0.01,
                             "category_code": "Fresh - Whole"
                         },
@@ -42501,7 +42501,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.365712993367875,
+                            "quantity": 1.3657129933678749,
                             "value": 1.21,
                             "category_code": "Fresh - Whole"
                         },
@@ -42993,7 +42993,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.16845328544503804,
+                            "quantity": 1.168453285445038,
                             "value": 0.69,
                             "category_code": "Fresh - Whole"
                         },
@@ -43101,7 +43101,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7832328213114573,
+                            "quantity": 1.7832328213114574,
                             "value": 3.68,
                             "category_code": "Fresh - Whole"
                         },
@@ -44115,7 +44115,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.13076513914833973,
+                            "quantity": 1.1307651391483398,
                             "value": 0.45,
                             "category_code": "Fresh - Whole"
                         },
@@ -44223,7 +44223,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6239804289993484,
+                            "quantity": 1.6239804289993485,
                             "value": 2.95,
                             "category_code": "Fresh - Whole"
                         },
@@ -44673,7 +44673,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9735758724810557,
+                            "quantity": 1.9735758724810557,
                             "value": 22.09,
                             "category_code": "Fresh - Whole"
                         },
@@ -45039,7 +45039,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4658177941782501,
+                            "quantity": 1.4658177941782502,
                             "value": 1.42,
                             "category_code": "Fresh - Whole"
                         },
@@ -45075,7 +45075,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.48641894379065426,
+                            "quantity": 1.4864189437906543,
                             "value": 0.62,
                             "category_code": "Fresh - Whole"
                         },
@@ -45237,7 +45237,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.021035319370104368,
+                            "quantity": 1.0210353193701043,
                             "value": 0.1,
                             "category_code": "Fresh - Whole"
                         },
@@ -45345,7 +45345,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1446981102454516,
+                            "quantity": 1.1446981102454516,
                             "value": 0.7,
                             "category_code": "Fresh - Whole"
                         },
@@ -45453,7 +45453,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4682215898518474,
+                            "quantity": 1.4682215898518474,
                             "value": 1.87,
                             "category_code": "Fresh - Whole"
                         },
@@ -45669,7 +45669,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2871908924449299,
+                            "quantity": 1.2871908924449298,
                             "value": 0.49,
                             "category_code": "Fresh - Whole"
                         },
@@ -45759,7 +45759,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4658177941782501,
+                            "quantity": 1.4658177941782502,
                             "value": 1.47,
                             "category_code": "Fresh - Whole"
                         },
@@ -45795,7 +45795,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5053728596472887,
+                            "quantity": 1.5053728596472888,
                             "value": 11.46,
                             "category_code": "Fresh - Whole"
                         },
@@ -45813,7 +45813,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4658177941782501,
+                            "quantity": 1.4658177941782502,
                             "value": 1.18,
                             "category_code": "Fresh - Whole"
                         },
@@ -45831,7 +45831,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7186305351674618,
+                            "quantity": 1.7186305351674618,
                             "value": 2.89,
                             "category_code": "Fresh - Whole"
                         },
@@ -45981,7 +45981,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6949738828958018,
+                            "quantity": 1.6949738828958019,
                             "value": 1.62,
                             "category_code": "Fresh - Whole"
                         },
@@ -46107,7 +46107,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.42153976929395665,
+                            "quantity": 1.4215397692939566,
                             "value": 9.99,
                             "category_code": "Fresh - Whole"
                         },
@@ -46143,7 +46143,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6949738828958018,
+                            "quantity": 1.6949738828958019,
                             "value": 3.6,
                             "category_code": "Fresh - Whole"
                         },
@@ -46161,7 +46161,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5143571343130154,
+                            "quantity": 1.5143571343130153,
                             "value": 1.57,
                             "category_code": "Fresh - Whole"
                         },
@@ -46197,7 +46197,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.24908474937959252,
+                            "quantity": 1.2490847493795925,
                             "value": 0.31,
                             "category_code": "Fresh - Whole"
                         },
@@ -46269,7 +46269,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.7218302659571189,
+                            "quantity": 1.7218302659571187,
                             "value": 0.91,
                             "category_code": "Fresh - Whole"
                         },
@@ -46359,7 +46359,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.010737040006967982,
+                            "quantity": 1.010737040006968,
                             "value": 0.06,
                             "category_code": "Fresh - Whole"
                         },
@@ -46467,7 +46467,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.055141216040855826,
+                            "quantity": 1.0551412160408558,
                             "value": 0.27,
                             "category_code": "Fresh - Whole"
                         },
@@ -46575,7 +46575,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.15253307527173282,
+                            "quantity": 1.1525330752717329,
                             "value": 0.63,
                             "category_code": "Fresh - Whole"
                         },
@@ -46629,7 +46629,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.31585207832877743,
+                            "quantity": 1.3158520783287775,
                             "value": 1.58,
                             "category_code": "Fresh - Whole"
                         },
@@ -46737,7 +46737,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6949738828958018,
+                            "quantity": 1.6949738828958019,
                             "value": 0.67,
                             "category_code": "Fresh - Whole"
                         },
@@ -46791,7 +46791,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.11799933808475933,
+                            "quantity": 1.1179993380847593,
                             "value": 0.21,
                             "category_code": "Fresh - Whole"
                         },
@@ -46827,7 +46827,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.653750981829797,
+                            "quantity": 1.653750981829797,
                             "value": 6.47,
                             "category_code": "Fresh - Whole"
                         },
@@ -46881,7 +46881,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5143571343130154,
+                            "quantity": 1.5143571343130153,
                             "value": 1.63,
                             "category_code": "Fresh - Whole"
                         },
@@ -46917,7 +46917,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.4290841481618462,
+                            "quantity": 1.4290841481618461,
                             "value": 9.76,
                             "category_code": "Fresh - Whole"
                         },
@@ -46935,7 +46935,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5143571343130154,
+                            "quantity": 1.5143571343130153,
                             "value": 1.32,
                             "category_code": "Fresh - Whole"
                         },
@@ -46953,7 +46953,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.2255217551194263,
+                            "quantity": 1.2255217551194262,
                             "value": 0.9,
                             "category_code": "Fresh - Whole"
                         },
@@ -47043,7 +47043,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9789403194732339,
+                            "quantity": 1.9789403194732338,
                             "value": 1.74,
                             "category_code": "Fresh - Whole"
                         },
@@ -47283,7 +47283,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.5349751069369904,
+                            "quantity": 1.5349751069369904,
                             "value": 0.53,
                             "category_code": "Fresh - Whole"
                         },
@@ -47445,7 +47445,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.026731569468093807,
+                            "quantity": 1.0267315694680939,
                             "value": 0.15,
                             "category_code": "Fresh - Whole"
                         },
@@ -47517,7 +47517,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.18321956726035582,
+                            "quantity": 1.1832195672603558,
                             "value": 1.2,
                             "category_code": "Fresh - Whole"
                         },
@@ -47589,7 +47589,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6587302403010948,
+                            "quantity": 1.6587302403010948,
                             "value": 2.12,
                             "category_code": "Fresh - Whole"
                         },
@@ -47787,7 +47787,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.3579256142606363,
+                            "quantity": 1.3579256142606364,
                             "value": 0.75,
                             "category_code": "Fresh - Whole"
                         },
@@ -47877,7 +47877,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.36486470273802046,
+                            "quantity": 1.3648647027380205,
                             "value": 0.73,
                             "category_code": "Fresh - Whole"
                         },
@@ -47931,7 +47931,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.9606888648809461,
+                            "quantity": 1.9606888648809462,
                             "value": 3.1,
                             "category_code": "Fresh - Whole"
                         },
@@ -48225,7 +48225,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.12290991765104113,
+                            "quantity": 1.122909917651041,
                             "value": 0.37,
                             "category_code": "Fresh - Whole"
                         },
@@ -48423,7 +48423,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.127078916814372,
+                            "quantity": 1.127078916814372,
                             "value": 0.47,
                             "category_code": "Fresh - Whole"
                         },
@@ -48531,7 +48531,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.6412580385930352,
+                            "quantity": 1.641258038593035,
                             "value": 2.97,
                             "category_code": "Fresh - Whole"
                         },
@@ -48945,7 +48945,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.12290991765104113,
+                            "quantity": 1.122909917651041,
                             "value": 0.37,
                             "category_code": "Fresh - Whole"
                         },
@@ -48999,7 +48999,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.12290991765104113,
+                            "quantity": 1.122909917651041,
                             "value": 0.31,
                             "category_code": "Fresh - Whole"
                         },
@@ -49347,7 +49347,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.49142763519855887,
+                            "quantity": 1.491427635198559,
                             "value": 1.36,
                             "category_code": "Fresh - Whole"
                         },
@@ -49545,7 +49545,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.05818020841588412,
+                            "quantity": 1.0581802084158842,
                             "value": 0.15,
                             "category_code": "Fresh - Whole"
                         },
@@ -49653,7 +49653,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.34413896375994624,
+                            "quantity": 1.3441389637599461,
                             "value": 1.54,
                             "category_code": "Fresh - Whole"
                         },
@@ -49977,7 +49977,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8663285071374758,
+                            "quantity": 1.8663285071374758,
                             "value": 1.48,
                             "category_code": "Fresh - Whole"
                         },
@@ -50067,7 +50067,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.49142763519855887,
+                            "quantity": 1.491427635198559,
                             "value": 1.42,
                             "category_code": "Fresh - Whole"
                         },
@@ -50121,7 +50121,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.49142763519855887,
+                            "quantity": 1.491427635198559,
                             "value": 1.13,
                             "category_code": "Fresh - Whole"
                         },
@@ -50667,7 +50667,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.1253791811632466,
+                            "quantity": 1.1253791811632465,
                             "value": 0.53,
                             "category_code": "Fresh - Whole"
                         },
@@ -50775,7 +50775,7 @@ grpc:
                                 "country_code": "",
                                 "model": ""
                             },
-                            "quantity": 0.8253923256096356,
+                            "quantity": 1.8253923256096356,
                             "value": 3.87,
                             "category_code": "Fresh - Whole"
                         },

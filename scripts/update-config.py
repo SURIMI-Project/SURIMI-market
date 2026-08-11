@@ -252,9 +252,9 @@ def compare_and_diff(upstream_path) -> list:
         else:
             missing_files.append(file)
 
-    return missing_files
+    return missing_files, updated_files
 
-def create_new_commit(missing_files: list):
+def create_new_commit(missing_files: list, updated_files: list):
     if len(updated_files) > 0:
         print("The following files are different:")
         for file in updated_files:
@@ -398,10 +398,10 @@ if len(upstream) + len(downstream) > 0:
 
 
 # Prompt to diff the changed files
-missing_files = compare_and_diff(upstream_config_dir)
+missing_files, updated_files = compare_and_diff(upstream_config_dir)
 
 # Prompt for committing changes
-create_new_commit(missing_files)
+create_new_commit(missing_files, updated_files)
 
 date = datetime.today().strftime('%Y-%m-%d')
 message = f"""chore: ({date}) sync config files 
