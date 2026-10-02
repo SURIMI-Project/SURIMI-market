@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 import pytest
 
@@ -40,3 +42,22 @@ def test_build_combined_rows_preserves_size_grouping():
     assert len(result) == 1
     assert result.iloc[0]["size"] == "1"
     assert result.iloc[0]["landings_kg"] == 30.0
+
+
+def test_build_combined_rows_warns_on_prefix_with_zero_local_children(caplog):
+    local_rows = pd.DataFrame([
+        {"date": pd.Timestamp("2020-01-01"), "market_code": "ESALC", "species_code": "ANE",
+         "category_code": "Fresh - Whole", "size": float("nan"), "landings_kg": 50.0, "price": 2.0},
+    ])
+    # "FR" is a real-world case: a 2-letter market code listed in
+    # markets.csv with zero local 5-letter LOCODEs under it.
+    prefix_to_locals = {"FR": []}
+
+    with caplog.at_level(logging.WARNING):
+        result = build_combined_rows(local_rows, prefix_to_locals)
+
+    assert result.empty
+    assert any(
+        record.levelno == logging.WARNING and "FR" in record.getMessage()
+        for record in caplog.records
+    )

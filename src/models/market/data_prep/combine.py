@@ -1,8 +1,12 @@
 """Aggregates local rows into combined (national) rows, matching the live
 model's own runtime aggregation rule (spec section 4)."""
+import logging
+
 import pandas as pd
 
 from .aggregate import GROUP_KEYS
+
+logger = logging.getLogger(__name__)
 
 
 def build_combined_rows(local_rows: pd.DataFrame, prefix_to_locals: dict) -> pd.DataFrame:
@@ -15,6 +19,11 @@ def build_combined_rows(local_rows: pd.DataFrame, prefix_to_locals: dict) -> pd.
     for prefix, local_codes in prefix_to_locals.items():
         subset = local_rows[local_rows["market_code"].isin(local_codes)].copy()
         if subset.empty:
+            logger.warning(
+                "Combined prefix %r has zero matching local market rows; "
+                "no combined row will be produced for it.",
+                prefix,
+            )
             continue
         subset["value_eur"] = subset["price"] * subset["landings_kg"]
 

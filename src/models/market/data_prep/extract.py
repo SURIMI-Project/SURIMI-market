@@ -43,6 +43,14 @@ def filter_and_clean(df: pd.DataFrame, market_codes: list) -> pd.DataFrame:
 
     filtered["category_code"] = filtered["Preservation"] + " - " + filtered["Presentation"]
 
+    # Pin the size column's dtype regardless of what dtype the raw
+    # geodatabase column arrives as (today it's already strings like "1",
+    # "3a", but nothing enforces that). An integer dtype here would later
+    # produce a `size` column of float64 in build_local_rows, writing
+    # "1.0" instead of "1" to prices.csv and silently breaking the join
+    # key size_ratios.csv uses to match per-size rows back to prices.csv.
+    filtered["Size"] = filtered["Size"].astype("string")
+
     return filtered[
         [
             "Date", "Locode", "ERS_Code", "category_code",
