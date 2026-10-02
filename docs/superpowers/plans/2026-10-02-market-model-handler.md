@@ -3883,12 +3883,11 @@ def _write_two_port_config(tmp_path, scenario_id="scn"):
                 "date": d, "market_code": port, "species_code": "ANE", "category_code": "Fresh - Whole",
                 "landings_kg": v, "price": p, "currency": "EUR", "measurement_unit": "kg", "size": None,
             })
-    # THIN: only 1 month of history anywhere -- will have no frozen model at all
-    # (section 9 point 4: silently excluded, not an error).
-    rows.append({
-        "date": dates[0], "market_code": "ESALC", "species_code": "THIN", "category_code": "Fresh - Whole",
-        "landings_kg": 5.0, "price": 9.0, "currency": "EUR", "measurement_unit": "kg", "size": None,
-    })
+    # THIN: ZERO rows anywhere -- this is deliberate, not an oversight. Even a
+    # single data point is enough for the level-only fallback fit to succeed
+    # (section 9 point 2), which is a DIFFERENT path than this test exercises;
+    # only a species with literally no rows anywhere hits section 9 point 4's
+    # full exclusion, which is what this fixture must trigger.
 
     pd.DataFrame(rows).to_csv(scenario_dir / "prices.csv", index=False)
     return tmp_path
