@@ -17,6 +17,8 @@ from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .CombinedMarket import CombinedMarket
 from .distance import build_distance_lookup
+from .level_volume_model import build_complete_monthly_series
+from .stacked_model import compute_high_tier_ports, distance_weighted_neighbor_signal, build_static_anchor_series
 
 
 def build_prefix_to_locals(markets_df: pd.DataFrame) -> dict[str, list[str]]:
@@ -150,3 +152,93 @@ class MarketSystem:
                     f"Sale routed via catch-all: market_code={market_code} has no exact "
                     f"local match, folded into CombinedMarket {prefix}'s direct accumulator."
                 )
+
+    def fit_all(self, prices_df: pd.DataFrame, latest_date: pd.Timestamp):
+        blended = prices_df[prices_df["size"].isna()]
+        if self.species_codes:
+            blended = blended[blended["species_code"].isin(self.species_codes)]
+        if self.category_codes_contract:
+            blended = blended[blended["category_code"].isin(self.category_codes_contract)]
+
+        for prefix, combined_market in self.combined_markets.items():
+            rows = blended[blended["market_code"] == prefix]
+            monthly_by_key = self._build_monthly_by_key(rows)
+            combined_market.fit(monthly_by_key, latest_date)
+            combined_market.load_price_time_series(prices_df)
+
+        for market_code, local_market in self.local_markets.items():
+            rows = blended[blended["market_code"] == market_code]
+            monthly_by_key = self._build_monthly_by_key(rows)
+            local_market.fit_step1(monthly_by_key, latest_date)
+            local_market.load_price_time_series(prices_df)
+
+        self._fit_step2_for_all_ports(blended, latest_date)
+
+    def _build_monthly_by_key(self, rows: pd.DataFrame) -> dict[tuple[str, str], pd.DataFrame]:
+        result = {}
+        for (species_code, category_code), group in rows.groupby(["species_code", "category_code"]):
+            subset = group[["date", "price", "landings_kg"]]
+            try:
+                result[(species_code, category_code)] = build_complete_monthly_series(subset)
+            except ValueError:
+                continue
+        return result
+
+    def _fit_step2_for_all_ports(self, blended: pd.DataFrame, latest_date: pd.Timestamp):
+        all_keys = set()
+        for local_market in self.local_markets.values():
+            all_keys.update(local_market.step1_models.keys())
+
+        for key in all_keys:
+            species_code, category_code = key
+
+            volume_rows = blended[
+                (blended["species_code"] == species_code) & (blended["category_code"] == category_code)
+            ]
+            volumes_by_port = volume_rows.groupby("market_code")["landings_kg"].sum().to_dict()
+            high_tier_ports = compute_high_tier_ports(volumes_by_port)
+            self.high_tier_ports_by_key[key] = high_tier_ports
+
+            predicted_series_by_port = {}
+            for code, local_market in self.local_markets.items():
+                series = local_market.get_step1_historical_series(species_code, category_code)
+                if series is not None:
+                    predicted_series_by_port[code] = series
+
+            for market_code, local_market in self.local_markets.items():
+                if key not in local_market.step1_models:
+                    continue
+
+                prefix = market_code[:2]
+                combined_market = self.combined_markets.get(prefix)
+                baseline_table = (
+                    combined_market.get_baseline_price_table(species_code, category_code)
+                    if combined_market is not None
+                    else None
+                )
+                if baseline_table is None:
+                    continue
+
+                rows = blended[blended["market_code"] == market_code]
+                port_monthly = self._build_monthly_by_key(rows).get(key)
+                if port_monthly is None:
+                    continue
+
+                neighbor_signal = distance_weighted_neighbor_signal(
+                    market_code, high_tier_ports, predicted_series_by_port, self.distance_lookup
+                )
+                if neighbor_signal is None:
+                    self.logger.warning(
+                        f"LocalMarket {market_code}: no High-tier neighbor available for {key}, "
+                        "falling back to Step-1-only (spec section 9 point 3)"
+                    )
+                    continue
+
+                anchor_series = build_static_anchor_series(port_monthly["date"], baseline_table)
+                local_market.fit_step2(
+                    species_code, category_code, port_monthly, anchor_series, neighbor_signal, latest_date
+                )
+                self.step2_fit_inputs[(market_code, key)] = {
+                    "port_monthly": port_monthly,
+                    "neighbor_signal": neighbor_signal,
+                }

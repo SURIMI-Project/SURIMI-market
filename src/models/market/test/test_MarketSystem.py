@@ -183,3 +183,167 @@ def test_update_sales_routes_correctly_with_utc_aware_tick():
     assert err is None
     assert system.local_markets["ESALC"].get_monthly_catch_snapshot()[("ANE", "Fresh - Whole")] == 10.0
     assert system.pending_sales_summary == {}
+
+
+import numpy as np
+
+
+def _synthetic_prices_df(n_years=6, seed=0):
+    """Two nearby high-volume ports (ESALC, ESBCN) sharing a species so
+    they qualify as each other's High-tier neighbor, plus a third,
+    far-away, low-volume port (ESVLC) with no qualifying neighbor."""
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
+    rows = []
+
+    for port, base_price, base_volume in [("ESALC", 2.0, 5000.0), ("ESBCN", 2.2, 5500.0)]:
+        volume = base_volume + rng.normal(0, 200, len(dates))
+        price = base_price - 0.0005 * (volume - base_volume) + rng.normal(0, 0.01, len(dates))
+        for d, p, v in zip(dates, price, volume):
+            rows.append({
+                "date": d, "market_code": port, "species_code": "ANE", "category_code": "Fresh - Whole",
+                "price": p, "landings_kg": v, "size": None,
+            })
+
+    # ESVLC: tiny volume share (<0.2%) -> Low tier, never anyone's neighbor.
+    # NOTE: at these coordinates ESVLC is NOT geographically far from
+    # ESALC/ESBCN (haversine distance ~134km/~302km -- closer than ESALC
+    # and ESBCN are to EACH OTHER, ~415km) and distance_weighted_neighbor_signal
+    # has no distance cutoff, so ESVLC DOES get a valid (if low-weighted)
+    # neighbor signal from them here. The "genuinely no High-tier neighbor"
+    # edge case needs a port with no OTHER local High-tier port in the
+    # universe at all -- see the dedicated fixture below this function.
+    volume = 10.0 + rng.normal(0, 1, len(dates))
+    price = 2.1 + rng.normal(0, 0.01, len(dates))
+    for d, p, v in zip(dates, price, volume):
+        rows.append({
+            "date": d, "market_code": "ESVLC", "species_code": "ANE", "category_code": "Fresh - Whole",
+            "price": p, "landings_kg": v, "size": None,
+        })
+
+    combined_volume = rows  # combined ES row = sum of all three ports
+    combined_rows = []
+    import pandas as _pd
+    df_local = _pd.DataFrame(rows)
+    for d, group in df_local.groupby("date"):
+        combined_rows.append({
+            "date": d, "market_code": "ES", "species_code": "ANE", "category_code": "Fresh - Whole",
+            "price": group["price"].mean(), "landings_kg": group["landings_kg"].sum(), "size": None,
+        })
+
+    return pd.concat([pd.DataFrame(rows), pd.DataFrame(combined_rows)], ignore_index=True)
+
+
+def _markets_df_three_ports():
+    return pd.DataFrame({
+        "market_code": ["ES", "ESALC", "ESBCN", "ESVLC"],
+        "market_name": ["Spain", "Alicante", "Barcelona", "Valencia"],
+        "lon": [None, -0.5, 2.2, -0.35],
+        "lat": [None, 38.3, 41.4, 39.5],
+    })
+
+
+def test_fit_all_fits_combined_markets_and_loads_real_prices():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    prices_df = _synthetic_prices_df()
+
+    system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"))
+
+    assert ("ANE", "Fresh - Whole") in system.combined_markets["ES"].models
+
+
+def test_fit_all_fits_step1_for_every_local_market():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
+
+    for code in ["ESALC", "ESBCN", "ESVLC"]:
+        assert ("ANE", "Fresh - Whole") in system.local_markets[code].step1_models
+
+
+def test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
+
+    # ESALC and ESBCN are each other's dominant High-tier neighbor.
+    assert ("ANE", "Fresh - Whole") in system.local_markets["ESALC"].step2_stacked_models
+    assert ("ANE", "Fresh - Whole") in system.local_markets["ESBCN"].step2_stacked_models
+
+
+def test_fit_all_retains_step2_fit_inputs_for_later_reuse():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
+
+    key = ("ESALC", ("ANE", "Fresh - Whole"))
+    assert key in system.step2_fit_inputs
+    assert "neighbor_signal" in system.step2_fit_inputs[key]
+    assert "port_monthly" in system.step2_fit_inputs[key]
+
+
+def test_fit_all_only_fits_contracted_species_not_every_species_in_prices_csv():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.species_codes = ["ANE"]  # contract restricts to ANE only
+    system.category_codes_contract = ["Fresh - Whole"]
+
+    prices_df = _synthetic_prices_df()
+    extra_species = prices_df[prices_df["market_code"] == "ESALC"].copy()
+    extra_species["species_code"] = "UNCONTRACTED"
+    prices_df = pd.concat([prices_df, extra_species], ignore_index=True)
+
+    system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"))
+
+    assert ("UNCONTRACTED", "Fresh - Whole") not in system.local_markets["ESALC"].step1_models
+    assert ("ANE", "Fresh - Whole") in system.local_markets["ESALC"].step1_models
+
+
+def _synthetic_prices_df_no_sibling_local_port(n_years=6, seed=1):
+    """ESVLC is the ONLY local market reporting this species/category -- the
+    combined 'ES' row (mirroring ESVLC alone) clears the High-tier
+    volume-share threshold too, but CombinedMarket rows are never LocalMarket
+    instances with a Step-1 historical series, so they can never pass
+    distance_weighted_neighbor_signal's `port in predicted_series_by_port`
+    check. With no OTHER local port reporting this key at all, ESVLC
+    genuinely has no High-tier *local* neighbor to build a signal from --
+    unlike the shared `_synthetic_prices_df` fixture above, where ESALC and
+    ESBCN are both present and (since distance_weighted_neighbor_signal has
+    no distance cutoff) always qualify as valid candidate sources for ANY
+    local port, however far away."""
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
+    volume = 500.0 + rng.normal(0, 20, len(dates))
+    price = 2.1 + rng.normal(0, 0.01, len(dates))
+
+    rows = []
+    for d, p, v in zip(dates, price, volume):
+        rows.append({
+            "date": d, "market_code": "ESVLC", "species_code": "ANE", "category_code": "Fresh - Whole",
+            "price": p, "landings_kg": v, "size": None,
+        })
+
+    combined_rows = [
+        {
+            "date": r["date"], "market_code": "ES", "species_code": "ANE", "category_code": "Fresh - Whole",
+            "price": r["price"], "landings_kg": r["landings_kg"], "size": None,
+        }
+        for r in rows
+    ]
+    return pd.concat([pd.DataFrame(rows), pd.DataFrame(combined_rows)], ignore_index=True)
+
+
+def test_fit_all_skips_step2_gracefully_for_port_with_no_high_tier_neighbor(caplog):
+    import logging
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+
+    with caplog.at_level(logging.WARNING):
+        system.fit_all(_synthetic_prices_df_no_sibling_local_port(), latest_date=pd.Timestamp("2024-01-01"))
+
+    # ESVLC is the only LOCAL market reporting ANE/Fresh-Whole here -- the
+    # combined "ES" row is High-tier by volume share but is not a LocalMarket,
+    # so it never qualifies as a neighbor *source* (spec section 9 point 3).
+    assert ("ANE", "Fresh - Whole") not in system.local_markets["ESVLC"].step2_stacked_models
+    assert any("No High-tier neighbor" in r.message or "no High-tier neighbor" in r.message for r in caplog.records)

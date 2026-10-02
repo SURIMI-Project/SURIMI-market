@@ -94,7 +94,9 @@ class LocalMarket:
                 params = fit_level_volume_model(monthly, train_start, latest_date)
                 self.step1_models[key] = params
                 self.step1_window_labels[key] = label
-                self._step1_historical_series[key] = predict_level_volume(monthly, params)
+                self._step1_historical_series[key] = self._date_indexed(
+                    predict_level_volume(monthly, params), monthly
+                )
                 self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
                 selected[key] = label
                 continue
@@ -107,7 +109,9 @@ class LocalMarket:
                 params = fit_level_only_model(monthly, None, latest_date)
                 self.step1_models[key] = params
                 self.step1_window_labels[key] = "level-only-fallback"
-                self._step1_historical_series[key] = predict_level_only(monthly, params)
+                self._step1_historical_series[key] = self._date_indexed(
+                    predict_level_only(monthly, params), monthly
+                )
                 selected[key] = "level-only-fallback"
             except ValueError:
                 self.logger.warning(
@@ -131,6 +135,19 @@ class LocalMarket:
             if len(valid) > 0:
                 stats[month] = (float(valid.sum()), int(len(valid)))
         self.volume_baseline_stats[key] = stats
+
+    @staticmethod
+    def _date_indexed(series: pd.Series, monthly: pd.DataFrame) -> pd.Series:
+        """Re-index a freshly-predicted series (which inherits `monthly`'s plain
+        positional RangeIndex -- `monthly` comes from build_complete_monthly_series,
+        whose last step is a reset_index()) onto `monthly["date"]` instead. Only
+        the copy stored in _step1_historical_series needs this: that series is the
+        one OTHER ports' neighbor signals (Task 10-12) align onto real calendar
+        dates via distance_weighted_neighbor_signal/build_static_anchor_series's
+        `.map(date)` lookups, which silently produce all-NaN against a RangeIndex."""
+        series = series.copy()
+        series.index = monthly["date"]
+        return series
 
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
         key = (species_code, category_code)
