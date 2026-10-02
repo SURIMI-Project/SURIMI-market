@@ -43,6 +43,23 @@ def test_get_price_uses_real_data_before_frozen_model(caplog):
     assert price == 9.99
 
 
+def test_get_price_falls_through_to_frozen_model_when_real_price_is_nan():
+    # A blended row (size is NaN) can still have a missing/NaN price -- the
+    # size filter in load_price_time_series does not also filter out NaN
+    # prices, so get_price must not treat a stored NaN as "real data found"
+    # and return it directly; it must fall through to the frozen model.
+    market = CombinedMarket("ES")
+    monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
+    market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+
+    market.price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"))] = float("nan")
+
+    price = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=1000.0)
+    assert price is not None
+    assert not pd.isna(price)
+    assert price == pytest.approx(2.0, abs=0.5)
+
+
 def test_get_price_falls_back_to_frozen_model_when_no_real_price():
     market = CombinedMarket("ES")
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
@@ -97,6 +114,30 @@ def test_fit_falls_back_to_level_only_then_excludes_on_total_failure(caplog):
 
     assert ("THIN", "Fresh - Whole") in market.models
     assert any("level-only" in r.message or "fallback" in r.message for r in caplog.records)
+
+
+def test_get_baseline_price_table_reindexes_to_all_12_months_on_fallback():
+    # The level-only fallback's baseline_price is built from whatever
+    # calendar months happen to appear in the (possibly short) training
+    # window -- here, only January and February. get_baseline_price_table
+    # must still return a Series covering all 12 months, with the missing
+    # ones as NaN, since Task 9's LocalMarket Step 2 anchor relies on
+    # dates.month.map(table) never silently producing NaN for a month that
+    # was simply absent from the table's index.
+    market = CombinedMarket("ES")
+    dates = pd.date_range("2023-01-01", periods=2, freq="MS")
+    monthly = pd.DataFrame({"date": dates, "price": [2.0, 2.1], "landings_kg": [1000.0, 1000.0]})
+
+    market.fit({("THIN", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2023-03-01"))
+
+    table = market.get_baseline_price_table("THIN", "Fresh - Whole")
+    assert table is not None
+    assert set(table.index) == set(range(1, 13))
+    missing_months = set(range(1, 13)) - {1, 2}
+    for month in missing_months:
+        assert pd.isna(table[month])
+    assert pd.notna(table[1])
+    assert pd.notna(table[2])
 
 
 def test_fit_excludes_species_with_zero_usable_data(caplog):

@@ -148,7 +148,7 @@ class CombinedMarket:
         """Real-price-first (spec section 8): check price_time_series, else predict."""
         key = (species_code, category_code)
         real_price = self.price_time_series.get((species_code, category_code, date))
-        if real_price is not None:
+        if pd.notna(real_price):
             return real_price
 
         if key not in self.models:
@@ -164,11 +164,20 @@ class CombinedMarket:
         return float(value) if pd.notna(value) else None
 
     def get_baseline_price_table(self, species_code: str, category_code: str) -> pd.Series | None:
-        """Frozen per-month seasonal baseline -- used as LocalMarket Step 2's static anchor."""
+        """
+        Frozen per-month seasonal baseline -- used as LocalMarket Step 2's
+        static anchor. Always reindexed to the full 1..12 calendar-month
+        range: the underlying baseline_price (especially on the level-only
+        fallback path, which groups only over whatever months happen to
+        appear in a possibly-short training window) may not cover every
+        month. Genuinely-missing months come back as NaN rather than being
+        silently dropped or fabricated -- downstream consumers (Task 9) are
+        expected to treat a NaN anchor as "no data for this month".
+        """
         key = (species_code, category_code)
         if key not in self.models:
             return None
-        return self.models[key]["baseline_price"]
+        return self.models[key]["baseline_price"].reindex(range(1, 13))
 
     def record_history(self, tick: int, prices: dict, volumes: dict):
         self.price_history.append((tick, {"prices": dict(prices), "volumes": dict(volumes)}))
