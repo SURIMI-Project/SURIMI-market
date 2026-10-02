@@ -169,9 +169,6 @@ def test_real_price_first_pattern_falls_through_on_nan_when_caller_guards_with_n
     assert price == pytest.approx(2.5, abs=0.5)
 
 
-from src.models.market import consts as market_consts
-
-
 def _synthetic_port_neighbor_anchor(seed=1):
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2018-01-01", periods=72, freq="MS")
@@ -236,6 +233,27 @@ def test_predict_step2_falls_back_to_distance_only_on_extreme_volume_ratio():
                                               anchor_value=2.0, neighbor_value=2.0)
     assert distance_only_price is not None
     assert distance_only_price != stacked_price
+
+
+def test_predict_step2_falls_back_to_distance_only_on_nan_volume():
+    """Regression test for the pd.isna() fix in predict_step2's use_distance_only check:
+    a NaN volume must route to DistanceOnly (matching the volume=0.0 extreme-ratio case),
+    not silently fall through to the Stacked branch (which would NaN-propagate to None)."""
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    port.fit_step2(
+        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+    )
+    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
+
+    distance_only_price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=0.0,
+                                              anchor_value=2.0, neighbor_value=2.0)
+    nan_price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=float("nan"),
+                                    anchor_value=2.0, neighbor_value=2.0)
+
+    assert nan_price is not None
+    assert nan_price == distance_only_price
 
 
 def test_predict_step2_returns_none_when_no_step2_coefficients():
