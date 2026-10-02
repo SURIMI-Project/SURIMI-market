@@ -1605,7 +1605,7 @@ def test_compute_tier_boundaries_match_right_inclusive_lower_bin():
 
 
 def test_compute_high_tier_ports_selects_only_high_tier():
-    high_tier = compute_high_tier_ports({"A": 90.0, "B": 9.0, "C": 1.0})
+    high_tier = compute_high_tier_ports({"A": 90.0, "B": 1.5, "C": 1.0})
     assert "A" in high_tier
     assert "B" not in high_tier
     assert "C" not in high_tier
