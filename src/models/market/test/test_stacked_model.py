@@ -83,3 +83,87 @@ def test_distance_weighted_neighbor_signal_handles_missing_dates_gracefully():
     assert signal.iloc[0] == pytest.approx(1.0)
     assert pd.isna(signal.iloc[1])  # no valid source for this date
     assert signal.iloc[2] == pytest.approx(3.0)
+
+
+from src.models.market.stacked_model import (
+    build_static_anchor_series,
+    fit_stacked_model,
+    predict_stacked_model,
+    fit_distance_only_model,
+    predict_distance_only_model,
+)
+
+
+def _synthetic_port_and_neighbor(seed=0):
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2018-01-01", periods=72, freq="MS")
+    baseline_price = pd.Series({m: 2.0 for m in range(1, 13)})
+
+    neighbor_signal = pd.Series(2.0 + rng.normal(0, 0.3, len(dates)), index=dates)
+    volume = 500.0 + rng.normal(0, 40, len(dates))
+    # Port price responds to its own volume anomaly AND tracks the neighbor signal.
+    price = (
+        2.0
+        - 0.001 * (volume - 500.0)
+        + 0.5 * (neighbor_signal.to_numpy() - 2.0)
+        + rng.normal(0, 0.02, len(dates))
+    )
+    port_monthly = pd.DataFrame({"date": dates, "price": price, "landings_kg": volume})
+    anchor_series = build_static_anchor_series(dates, baseline_price)
+    return port_monthly, anchor_series, neighbor_signal
+
+
+def test_build_static_anchor_series_broadcasts_month_table_across_dates():
+    dates = pd.date_range("2020-01-01", periods=3, freq="MS")
+    table = pd.Series({1: 1.0, 2: 2.0, 3: 3.0})
+    anchor = build_static_anchor_series(dates, table)
+    assert list(anchor.values) == [1.0, 2.0, 3.0]
+
+
+def test_fit_and_predict_stacked_model_recovers_neighbor_sensitivity():
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_and_neighbor()
+    train_end = pd.Timestamp("2023-01-01")
+
+    params = fit_stacked_model(port_monthly, anchor_series, neighbor_signal, None, train_end)
+
+    assert params["gamma"] == pytest.approx(0.5, abs=0.2)  # constructed sensitivity to neighbor
+
+    predicted = predict_stacked_model(port_monthly, anchor_series, neighbor_signal, params)
+    train_mask = port_monthly["date"] < train_end
+    from src.models.market.level_volume_model import score_mape
+    mape = score_mape(predicted[train_mask], port_monthly["price"][train_mask])
+    assert mape < 5.0
+
+
+def test_fit_stacked_model_raises_on_insufficient_rows():
+    port_monthly = pd.DataFrame({
+        "date": pd.date_range("2020-01-01", periods=2, freq="MS"),
+        "price": [2.0, 2.1],
+        "landings_kg": [500.0, 510.0],
+    })
+    anchor_series = pd.Series([2.0, 2.0], index=port_monthly["date"])
+    neighbor_signal = pd.Series([2.0, 2.0], index=port_monthly["date"])
+
+    with pytest.raises(ValueError):
+        fit_stacked_model(port_monthly, anchor_series, neighbor_signal, None, pd.Timestamp("2020-03-01"))
+
+
+def test_fit_and_predict_distance_only_model_tracks_neighbor_signal():
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_and_neighbor()
+    train_end = pd.Timestamp("2023-01-01")
+
+    params = fit_distance_only_model(port_monthly, anchor_series, neighbor_signal, None, train_end)
+    assert params["gamma"] != 0.0
+
+    predicted = predict_distance_only_model(port_monthly, anchor_series, neighbor_signal, params)
+    assert predicted.notna().sum() > 0
+
+
+def test_fit_distance_only_model_raises_on_zero_variance_neighbor():
+    dates = pd.date_range("2020-01-01", periods=12, freq="MS")
+    port_monthly = pd.DataFrame({"date": dates, "price": np.linspace(2.0, 2.5, 12), "landings_kg": [500.0] * 12})
+    anchor_series = pd.Series([2.0] * 12, index=dates)
+    neighbor_signal = pd.Series([3.0] * 12, index=dates)  # zero variance
+
+    with pytest.raises(ValueError):
+        fit_distance_only_model(port_monthly, anchor_series, neighbor_signal, None, pd.Timestamp("2021-01-01"))

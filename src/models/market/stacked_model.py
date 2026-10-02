@@ -60,3 +60,118 @@ def distance_weighted_neighbor_signal(
     neighbor_signal = weighted_sum / weight_total
     neighbor_signal[weight_total == 0] = float("nan")
     return neighbor_signal
+
+
+import numpy as np
+
+
+def build_static_anchor_series(dates, baseline_price_table: pd.Series) -> pd.Series:
+    """Broadcast CombinedMarket's frozen per-month baseline across every date -- the
+    production default anchor scheme (plan header decision 1)."""
+    dates = pd.DatetimeIndex(dates)
+    months = pd.Series(dates.month, index=dates)
+    return months.map(baseline_price_table)
+
+
+def fit_stacked_model(
+    port_monthly: pd.DataFrame,
+    anchor_series: pd.Series,
+    neighbor_signal: pd.Series,
+    train_start: pd.Timestamp | None,
+    train_end: pd.Timestamp,
+) -> dict:
+    port = port_monthly.copy()
+    port["month"] = port["date"].dt.month
+    port["anchor"] = port["date"].map(anchor_series)
+    port["neighbor"] = port["date"].map(neighbor_signal)
+
+    train = port[port["date"] < train_end]
+    if train_start is not None:
+        train = train[train["date"] >= train_start]
+
+    port_baseline_volume = train.groupby("month")["landings_kg"].mean()
+    neighbor_baseline = train.groupby("month")["neighbor"].mean()
+
+    y = train["price"] - train["anchor"]
+    x1 = train["landings_kg"] - train["month"].map(port_baseline_volume)
+    x2 = train["neighbor"] - train["month"].map(neighbor_baseline)
+
+    mask = (y.notna() & x1.notna() & x2.notna()).to_numpy()
+    if mask.sum() < 4:
+        raise ValueError("not enough usable training rows to fit stacked model")
+
+    X = np.column_stack([np.ones(mask.sum()), x1.to_numpy()[mask], x2.to_numpy()[mask]])
+    yv = y.to_numpy()[mask]
+    if np.linalg.matrix_rank(X) < 3:
+        raise ValueError("design matrix is rank-deficient")
+
+    coef, *_ = np.linalg.lstsq(X, yv, rcond=None)
+    delta, beta, gamma = coef
+
+    return {
+        "delta": float(delta),
+        "beta": float(beta),
+        "gamma": float(gamma),
+        "port_baseline_volume": port_baseline_volume,
+        "neighbor_baseline": neighbor_baseline,
+    }
+
+
+def predict_stacked_model(
+    port_monthly: pd.DataFrame, anchor_series: pd.Series, neighbor_signal: pd.Series, params: dict
+) -> pd.Series:
+    port = port_monthly.copy()
+    port["month"] = port["date"].dt.month
+    port["anchor"] = port["date"].map(anchor_series)
+    port["neighbor"] = port["date"].map(neighbor_signal)
+
+    vol_anom = port["landings_kg"] - port["month"].map(params["port_baseline_volume"])
+    neighbor_anom = port["neighbor"] - port["month"].map(params["neighbor_baseline"])
+
+    predicted = port["anchor"] + params["delta"] + params["beta"] * vol_anom + params["gamma"] * neighbor_anom
+    predicted.index = port_monthly.index
+    return predicted
+
+
+def fit_distance_only_model(
+    port_monthly: pd.DataFrame,
+    anchor_series: pd.Series,
+    neighbor_signal: pd.Series,
+    train_start: pd.Timestamp | None,
+    train_end: pd.Timestamp,
+) -> dict:
+    port = port_monthly.copy()
+    port["month"] = port["date"].dt.month
+    port["anchor"] = port["date"].map(anchor_series)
+    port["neighbor"] = port["date"].map(neighbor_signal)
+
+    train = port[port["date"] < train_end]
+    if train_start is not None:
+        train = train[train["date"] >= train_start]
+
+    neighbor_baseline = train.groupby("month")["neighbor"].mean()
+
+    y = train["price"] - train["anchor"]
+    x = train["neighbor"] - train["month"].map(neighbor_baseline)
+
+    mask = (y.notna() & x.notna()).to_numpy()
+    if mask.sum() < 3 or x.to_numpy()[mask].var() == 0:
+        raise ValueError("not enough usable training rows to fit distance-only model")
+
+    gamma, delta = np.polyfit(x.to_numpy()[mask], y.to_numpy()[mask], 1)
+
+    return {"delta": float(delta), "gamma": float(gamma), "neighbor_baseline": neighbor_baseline}
+
+
+def predict_distance_only_model(
+    port_monthly: pd.DataFrame, anchor_series: pd.Series, neighbor_signal: pd.Series, params: dict
+) -> pd.Series:
+    port = port_monthly.copy()
+    port["month"] = port["date"].dt.month
+    port["anchor"] = port["date"].map(anchor_series)
+    port["neighbor"] = port["date"].map(neighbor_signal)
+
+    neighbor_anom = port["neighbor"] - port["month"].map(params["neighbor_baseline"])
+    predicted = port["anchor"] + params["delta"] + params["gamma"] * neighbor_anom
+    predicted.index = port_monthly.index
+    return predicted
