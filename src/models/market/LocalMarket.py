@@ -9,6 +9,7 @@ from dateutil.relativedelta import relativedelta
 import logging
 import threading
 
+import numpy as np
 import pandas as pd
 
 from . import consts
@@ -91,20 +92,34 @@ class LocalMarket:
             if result is not None:
                 label, years = result
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
-                params = fit_level_volume_model(monthly, train_start, latest_date)
-                self.step1_models[key] = params
-                self.step1_window_labels[key] = label
-                self._step1_historical_series[key] = self._date_indexed(
-                    predict_level_volume(monthly, params), monthly
-                )
-                self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
-                selected[key] = label
-                continue
+                try:
+                    params = fit_level_volume_model(monthly, train_start, latest_date)
+                    self.step1_models[key] = params
+                    self.step1_window_labels[key] = label
+                    self._step1_historical_series[key] = self._date_indexed(
+                        predict_level_volume(monthly, params), monthly
+                    )
+                    self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
+                    selected[key] = label
+                    continue
+                except (ValueError, np.linalg.LinAlgError):
+                    # See CombinedMarket.fit's identical guard: a window length that scored
+                    # acceptably across historical rolling-origin splits can still fail to
+                    # re-fit on the literal final window, since real per-port volume data is
+                    # sparse enough to occasionally produce a degenerate (zero-variance)
+                    # anomaly series only in that exact window. Fall through to the same
+                    # lower-tier fallback used when no window was selected at all.
+                    self.logger.warning(
+                        f"LocalMarket {self.market_code}: selected window {label} for {key} "
+                        f"scored acceptably in rolling-origin validation but failed to re-fit on "
+                        f"the final window ending at {latest_date}; falling back to level-only fit"
+                    )
 
-            self.logger.warning(
-                f"LocalMarket {self.market_code}: no stable Step-1 window found for {key}, "
-                f"falling back to level-only fit"
-            )
+            else:
+                self.logger.warning(
+                    f"LocalMarket {self.market_code}: no stable Step-1 window found for {key}, "
+                    f"falling back to level-only fit"
+                )
             try:
                 params = fit_level_only_model(monthly, None, latest_date)
                 self.step1_models[key] = params
@@ -235,7 +250,18 @@ class LocalMarket:
 
         label, years = result
         train_start = latest_date - relativedelta(years=years) if years is not None else None
-        final_params = fit_fn(train_start, latest_date)
+        try:
+            final_params = fit_fn(train_start, latest_date)
+        except (ValueError, np.linalg.LinAlgError):
+            # See CombinedMarket.fit's identical guard: a window length that scored
+            # acceptably across historical rolling-origin splits can still fail to
+            # re-fit on the literal final window ending at latest_date.
+            self.logger.warning(
+                f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
+                f"scored acceptably in rolling-origin validation but failed to re-fit on the "
+                f"final window ending at {latest_date}; falling back to Step-1-only"
+            )
+            return None
         self.step2_stacked_models[key] = final_params["stacked"]
         self.step2_distance_only_models[key] = final_params["distance_only"]
         self.step2_window_labels[key] = label

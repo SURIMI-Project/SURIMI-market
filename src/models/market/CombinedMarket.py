@@ -9,6 +9,7 @@ from collections import defaultdict
 import logging
 import threading
 
+import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
@@ -75,18 +76,35 @@ class CombinedMarket:
             if result is not None:
                 label, years = result
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
-                params = fit_level_volume_model(monthly, train_start, latest_date)
-                self.models[key] = params
-                self.window_labels[key] = label
-                self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
-                selected[key] = label
-                continue
+                try:
+                    params = fit_level_volume_model(monthly, train_start, latest_date)
+                    self.models[key] = params
+                    self.window_labels[key] = label
+                    self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
+                    selected[key] = label
+                    continue
+                except (ValueError, np.linalg.LinAlgError):
+                    # The window length scored acceptably across historical rolling-origin
+                    # splits (each with its own, earlier train_end), but real volume data is
+                    # sparse enough that the literal final window (train_start..latest_date)
+                    # can still fail to fit -- e.g. every non-null landings_kg reading in this
+                    # exact window happens to be the sole representative of its calendar
+                    # month, making the volume-anomaly series degenerate (zero variance).
+                    # Cross-validation generalizing to historical splits doesn't guarantee the
+                    # production window itself is fittable, so fall through to the same
+                    # lower-tier fallback used when no window was selected at all.
+                    self.logger.warning(
+                        f"CombinedMarket {self.market_code}: selected window {label} for {key} "
+                        f"scored acceptably in rolling-origin validation but failed to re-fit on "
+                        f"the final window ending at {latest_date}; falling back to level-only fit"
+                    )
 
             # Fallback cascade (spec section 9 point 2): try level-only.
-            self.logger.warning(
-                f"CombinedMarket {self.market_code}: no stable level-volume window found "
-                f"for {key}, falling back to level-only fit"
-            )
+            else:
+                self.logger.warning(
+                    f"CombinedMarket {self.market_code}: no stable level-volume window found "
+                    f"for {key}, falling back to level-only fit"
+                )
             try:
                 params = fit_level_only_model(monthly, None, latest_date)
                 self.models[key] = params
