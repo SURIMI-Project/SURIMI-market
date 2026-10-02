@@ -110,7 +110,7 @@ import zipfile
 
 import pytest
 
-from data_prep.download import get_current_zip_filename, get_current_zip_url, download_and_extract
+from src.models.market.data_prep.download import get_current_zip_filename, get_current_zip_url, download_and_extract
 
 
 def test_get_current_zip_filename_extracts_dated_filename():
@@ -273,7 +273,7 @@ Create `src/models/market/data_prep/test/test_extract.py`:
 ```python
 import pandas as pd
 
-from data_prep.extract import filter_and_clean
+from src.models.market.data_prep.extract import filter_and_clean
 
 
 def _sample_raw_rows():
@@ -404,7 +404,7 @@ Create `src/models/market/data_prep/test/test_aggregate.py`:
 import pandas as pd
 import pytest
 
-from data_prep.aggregate import build_local_rows
+from src.models.market.data_prep.aggregate import build_local_rows
 
 
 def test_build_local_rows_produces_blended_and_per_size_rows():
@@ -521,7 +521,7 @@ Create `src/models/market/data_prep/test/test_combine.py`:
 import pandas as pd
 import pytest
 
-from data_prep.combine import build_combined_rows
+from src.models.market.data_prep.combine import build_combined_rows
 
 
 def test_build_combined_rows_sums_local_ports_under_shared_prefix():
@@ -639,7 +639,7 @@ Create `src/models/market/data_prep/test/test_size_ratios.py`:
 import pandas as pd
 import pytest
 
-from data_prep.size_ratios import compute_size_ratios
+from src.models.market.data_prep.size_ratios import compute_size_ratios
 
 
 def test_compute_size_ratios_averages_ratio_over_time():
@@ -739,7 +739,7 @@ Create `src/models/market/data_prep/test/test_output.py`:
 ```python
 import pandas as pd
 
-from data_prep.output import build_prices_csv_rows, write_prices_csv, write_size_ratios_csv
+from src.models.market.data_prep.output import build_prices_csv_rows, write_prices_csv, write_size_ratios_csv
 
 
 def test_build_prices_csv_rows_adds_constant_columns():
@@ -857,7 +857,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from data_prep.run import build_prefix_to_locals, run
+from src.models.market.data_prep.run import build_prefix_to_locals, run
 
 
 def test_build_prefix_to_locals_groups_by_prefix(tmp_path):
@@ -905,7 +905,7 @@ def test_run_builds_prices_and_size_ratios_csv(tmp_path):
     ])
 
     output_dir = tmp_path / "out"
-    with patch("data_prep.run.load_fish_sales_data", return_value=fake_raw):
+    with patch("src.models.market.data_prep.run.load_fish_sales_data", return_value=fake_raw):
         run(markets_csv, output_dir, gdb_path=tmp_path / "fake.gdb")
 
     prices = pd.read_csv(output_dir / "prices.csv")
