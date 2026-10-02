@@ -242,3 +242,119 @@ class MarketSystem:
                     "port_monthly": port_monthly,
                     "neighbor_signal": neighbor_signal,
                 }
+
+    def step(self):
+        current_date = pd.Timestamp(self.tick.get_date())
+        date_str = self.tick.get_datetime().strftime("%Y-%m-%d")
+
+        if date_str in self.pending_sales_summary:
+            for sale in self.pending_sales_summary.pop(date_str):
+                self._accumulate_market_catches(sale)
+
+        local_volumes = {code: lm.get_monthly_catch_snapshot() for code, lm in self.local_markets.items()}
+        combined_direct_volumes = {
+            code: cm.get_direct_catch_snapshot() for code, cm in self.combined_markets.items()
+        }
+
+        # Step 2 of spec section 5: CombinedMarket prices + total tick volumes.
+        combined_prices = {}
+        combined_total_volumes = {}
+        for prefix, combined_market in self.combined_markets.items():
+            children_codes = self.prefix_to_locals.get(prefix, [])
+            for key in combined_market.models.keys():
+                total_volume = combined_direct_volumes[prefix].get(key, 0.0)
+                total_volume += sum(local_volumes[c].get(key, 0.0) for c in children_codes)
+                combined_prices[(prefix, key)] = combined_market.get_price(
+                    key[0], key[1], current_date, total_volume
+                )
+                combined_total_volumes[(prefix, key)] = total_volume
+
+        # Step 3: Step 1 for every LocalMarket, every key, unconditionally
+        # (plan header decision 6 -- needed as neighbor fuel regardless of
+        # whether this port itself has real data this tick).
+        step1_predictions = {}
+        for code, local_market in self.local_markets.items():
+            for key in local_market.step1_models.keys():
+                volume = local_volumes[code].get(key, 0.0)
+                step1_predictions[(code, key)] = local_market.predict_step1(key[0], key[1], current_date, volume)
+
+        # Step 4: final reported price per LocalMarket (real-price-first;
+        # Step 2 only computed/used when this port itself lacks real data).
+        local_prices = {code: {} for code in self.local_markets}
+        for code, local_market in self.local_markets.items():
+            prefix = code[:2]
+            combined_market = self.combined_markets.get(prefix)
+
+            for key in local_market.step1_models.keys():
+                real_price = local_market.get_real_price(key[0], key[1], current_date)
+                if pd.notna(real_price):
+                    local_prices[code][key] = real_price
+                    continue
+
+                final_price = step1_predictions.get((code, key))
+
+                if key in local_market.step2_stacked_models and combined_market is not None:
+                    baseline_table = combined_market.get_baseline_price_table(key[0], key[1])
+                    if baseline_table is not None and current_date.month in baseline_table.index:
+                        anchor_value = baseline_table[current_date.month]
+                        high_tier_ports = self.high_tier_ports_by_key.get(key, set())
+                        neighbor_candidates = {
+                            other_code: predicted
+                            for (other_code, other_key), predicted in step1_predictions.items()
+                            if other_key == key and other_code != code and predicted is not None
+                        }
+                        neighbor_value = self._weighted_neighbor_value(code, high_tier_ports, neighbor_candidates)
+                        if neighbor_value is not None:
+                            step2_price = local_market.predict_step2(
+                                key[0], key[1], current_date, local_volumes[code].get(key, 0.0),
+                                anchor_value, neighbor_value,
+                            )
+                            if step2_price is not None:
+                                final_price = step2_price
+
+                local_prices[code][key] = final_price
+
+        # Step 5: adaptive volume-baseline updates (real observed volume only).
+        for code, local_market in self.local_markets.items():
+            for key, volume in local_volumes[code].items():
+                local_market.update_volume_baseline(key[0], key[1], current_date, volume)
+        for prefix, combined_market in self.combined_markets.items():
+            for (p, key), volume in combined_total_volumes.items():
+                if p == prefix:
+                    combined_market.update_volume_baseline(key[0], key[1], current_date, volume)
+
+        # Step 6: save history.
+        current_tick = self.tick.get_tick()
+        for code, local_market in self.local_markets.items():
+            local_market.record_history(current_tick, local_prices[code], local_volumes[code])
+        for prefix, combined_market in self.combined_markets.items():
+            prices_for_prefix = {
+                key: price for (p, key), price in combined_prices.items() if p == prefix
+            }
+            volumes_for_prefix = {
+                key: volume for (p, key), volume in combined_total_volumes.items() if p == prefix
+            }
+            combined_market.record_history(current_tick, prices_for_prefix, volumes_for_prefix)
+
+        # Step 7: clear accumulators, advance tick.
+        for local_market in self.local_markets.values():
+            local_market.clear_monthly_catch()
+        for combined_market in self.combined_markets.values():
+            combined_market.clear_direct_catch()
+        self.tick.increase_tick()
+
+    def _weighted_neighbor_value(
+        self, target_port: str, high_tier_ports: set, neighbor_candidates: dict[str, float]
+    ) -> float | None:
+        candidates = [
+            port for port in high_tier_ports
+            if port != target_port and port in neighbor_candidates and (target_port, port) in self.distance_lookup
+        ]
+        if not candidates:
+            return None
+
+        weights = {port: 1.0 / self.distance_lookup[(target_port, port)] for port in candidates}
+        total_weight = sum(weights.values())
+        if total_weight == 0:
+            return None
+        return sum(weights[port] * neighbor_candidates[port] for port in candidates) / total_weight

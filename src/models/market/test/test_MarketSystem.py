@@ -347,3 +347,76 @@ def test_fit_all_skips_step2_gracefully_for_port_with_no_high_tier_neighbor(capl
     # so it never qualifies as a neighbor *source* (spec section 9 point 3).
     assert ("ANE", "Fresh - Whole") not in system.local_markets["ESVLC"].step2_stacked_models
     assert any("No High-tier neighbor" in r.message or "no High-tier neighbor" in r.message for r in caplog.records)
+
+
+def _fitted_system():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
+    return system
+
+
+def test_step_uses_real_price_when_available_and_skips_prediction_reporting():
+    system = _fitted_system()
+    system.local_markets["ESALC"].price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))] = 7.77
+
+    system.step()
+
+    tick, snapshot = system.local_markets["ESALC"].price_history[-1]
+    assert snapshot["prices"][("ANE", "Fresh - Whole")] == 7.77
+
+
+def test_step_computes_step1_for_every_port_even_with_real_data(monkeypatch):
+    system = _fitted_system()
+    system.local_markets["ESALC"].price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))] = 7.77
+
+    calls = []
+    original = system.local_markets["ESALC"].predict_step1
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return original(*args, **kwargs)
+
+    system.local_markets["ESALC"].predict_step1 = spy
+    system.step()
+
+    assert len(calls) > 0  # Step 1 still ran even though ESALC had real data this tick
+
+
+def test_step_advances_tick_and_clears_accumulators():
+    system = _fitted_system()
+    system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 999.0)
+
+    assert system.tick.get_tick() == 0
+    system.step()
+
+    assert system.tick.get_tick() == 1
+    assert system.local_markets["ESALC"].get_monthly_catch_snapshot() == {}
+
+
+def test_step_updates_volume_baseline_from_real_observed_volume():
+    system = _fitted_system()
+    before = dict(system.local_markets["ESALC"].volume_baseline_stats[("ANE", "Fresh - Whole")])
+
+    system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 50000.0)
+    system.step()
+
+    after = system.local_markets["ESALC"].volume_baseline_stats[("ANE", "Fresh - Whole")]
+    assert after[1] != before.get(1)
+
+
+def test_step_records_history_for_combined_markets_too():
+    system = _fitted_system()
+    system.step()
+
+    assert len(system.combined_markets["ES"].price_history) == 1
+
+
+def test_step_falls_back_to_step1_when_step2_anchor_or_neighbor_unavailable():
+    # ESVLC never got Step 2 coefficients (no High-tier neighbor, Task 12) --
+    # its reported price must still be a valid Step-1 prediction, not None.
+    system = _fitted_system()
+    system.step()
+
+    tick, snapshot = system.local_markets["ESVLC"].price_history[-1]
+    assert snapshot["prices"][("ANE", "Fresh - Whole")] is not None
