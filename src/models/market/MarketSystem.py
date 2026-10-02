@@ -79,3 +79,72 @@ class MarketSystem:
             self.combined_markets[prefix] = CombinedMarket(prefix)
 
         return None
+
+    def update_sales(self, market_sales, start_date_time: int) -> MarketError | None:
+        for summary in market_sales:
+            market_code = summary.market_code
+            prefix = market_code[:2]
+            is_exact_local = market_code in self.local_markets
+            is_known_prefix = prefix in self.combined_markets
+
+            if not is_exact_local and not is_known_prefix:
+                return MarketError(
+                    grpc.StatusCode.FAILED_PRECONDITION,
+                    f"Market code {market_code} does not match any known local market "
+                    "or combined-market prefix.",
+                )
+
+            for sale in summary.sales:
+                if sale.quantity < 1e-323:
+                    return MarketError(
+                        grpc.StatusCode.INVALID_ARGUMENT,
+                        f"Quantity for market {market_code}, species {sale.species.species_code} "
+                        f"and category code {sale.category_code} is {sale.quantity}. "
+                        "It must be positive",
+                    )
+
+        current_time = self.tick.get_datetime()
+        # Match requested_time's tz-awareness to current_time's: self.tick's
+        # start_time may be naive (this plan's own setup_topology tests,
+        # Task 10) or UTC-aware (Elsa convention, real gRPC start_date_time
+        # epochs). Forcing tz=UTC unconditionally would raise "can't compare
+        # offset-naive and offset-aware datetimes" against a naive tick.
+        if current_time.tzinfo is None:
+            requested_time = datetime.datetime.fromtimestamp(start_date_time)
+        else:
+            requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
+
+        if requested_time > current_time:
+            date = requested_time.strftime("%Y-%m-%d")
+            self.pending_sales_summary.setdefault(date, []).append(market_sales)
+            return None
+        elif requested_time < current_time:
+            return MarketError(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                "'start_date_time cannot be earlier than the current time'",
+            )
+
+        self._accumulate_market_catches(market_sales)
+        return None
+
+    def _accumulate_market_catches(self, market_sales):
+        for summary in market_sales:
+            market_code = summary.market_code
+            local_market = self.local_markets.get(market_code)
+
+            for sale in summary.sales:
+                species_code = sale.species.species_code
+                category_code = sale.category_code
+                quantity = sale.quantity
+
+                if local_market is not None:
+                    local_market.add_monthly_catch(species_code, category_code, quantity)
+                    continue
+
+                prefix = market_code[:2]
+                combined_market = self.combined_markets[prefix]
+                combined_market.add_direct_catch(species_code, category_code, quantity)
+                self.logger.warning(
+                    f"Sale routed via catch-all: market_code={market_code} has no exact "
+                    f"local match, folded into CombinedMarket {prefix}'s direct accumulator."
+                )
