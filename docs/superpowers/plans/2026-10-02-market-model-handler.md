@@ -1188,7 +1188,7 @@ class CombinedMarket:
         """Real-price-first (spec section 8): check price_time_series, else predict."""
         key = (species_code, category_code)
         real_price = self.price_time_series.get((species_code, category_code, date))
-        if real_price is not None:
+        if pd.notna(real_price):
             return real_price
 
         if key not in self.models:
@@ -1204,11 +1204,12 @@ class CombinedMarket:
         return float(value) if pd.notna(value) else None
 
     def get_baseline_price_table(self, species_code: str, category_code: str) -> pd.Series | None:
-        """Frozen per-month seasonal baseline -- used as LocalMarket Step 2's static anchor."""
+        """Frozen per-month seasonal baseline (reindexed to months 1-12; genuinely-missing
+        months come back as NaN, never fabricated) -- used as LocalMarket Step 2's static anchor."""
         key = (species_code, category_code)
         if key not in self.models:
             return None
-        return self.models[key]["baseline_price"]
+        return self.models[key]["baseline_price"].reindex(range(1, 13))
 
     def record_history(self, tick: int, prices: dict, volumes: dict):
         self.price_history.append((tick, {"prices": dict(prices), "volumes": dict(volumes)}))
@@ -3039,7 +3040,7 @@ Append this method to the `MarketSystem` class:
 
             for key in local_market.step1_models.keys():
                 real_price = local_market.get_real_price(key[0], key[1], current_date)
-                if real_price is not None:
+                if pd.notna(real_price):
                     local_prices[code][key] = real_price
                     continue
 
