@@ -19,6 +19,12 @@ from .level_volume_model import (
     predict_level_only,
     score_mape,
 )
+from .stacked_model import (
+    fit_stacked_model,
+    predict_stacked_model,
+    fit_distance_only_model,
+    predict_distance_only_model,
+)
 from .window_selection import build_rolling_splits, select_best_window
 
 
@@ -173,3 +179,125 @@ class LocalMarket:
 
     def record_history(self, tick: int, prices: dict, catches: dict):
         self.price_history.append((tick, {"prices": dict(prices), "catches": dict(catches)}))
+
+    # --- Step 2 fitting (spec section 3/5; plan header decisions 3, 8, 9) ---
+
+    def fit_step2(
+        self,
+        species_code: str,
+        category_code: str,
+        port_monthly: pd.DataFrame,
+        anchor_series: pd.Series,
+        neighbor_signal: pd.Series,
+        latest_date: pd.Timestamp,
+    ) -> str | None:
+        key = (species_code, category_code)
+        rolling_splits = build_rolling_splits(latest_date)
+
+        def fit_fn(train_start, train_end):
+            stacked = fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end)
+            distance_only = fit_distance_only_model(
+                port_monthly, anchor_series, neighbor_signal, train_start, train_end
+            )
+            trial_volume = self._trial_baseline_volume(port_monthly, train_start, train_end)
+            return {"stacked": stacked, "distance_only": distance_only, "trial_volume": trial_volume}
+
+        def score_fn(params, test_start, test_end):
+            blended = self._blend_step2_predictions(port_monthly, anchor_series, neighbor_signal, params)
+            mask = (port_monthly["date"] >= test_start) & (port_monthly["date"] < test_end)
+            return score_mape(blended[mask], port_monthly["price"][mask])
+
+        result = select_best_window(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
+
+        if result is None:
+            self.logger.warning(
+                f"LocalMarket {self.market_code}: no stable Step-2 window found for {key}, "
+                f"falling back to Step-1-only"
+            )
+            return None
+
+        label, years = result
+        train_start = latest_date - relativedelta(years=years) if years is not None else None
+        final_params = fit_fn(train_start, latest_date)
+        self.step2_stacked_models[key] = final_params["stacked"]
+        self.step2_distance_only_models[key] = final_params["distance_only"]
+        self.step2_window_labels[key] = label
+        return label
+
+    def _trial_baseline_volume(self, port_monthly, train_start, train_end):
+        port = port_monthly.copy()
+        port["month"] = port["date"].dt.month
+        train = port[port["date"] < train_end]
+        if train_start is not None:
+            train = train[train["date"] >= train_start]
+        return train.groupby("month")["landings_kg"].mean()
+
+    def _blend_step2_predictions(self, port_monthly, anchor_series, neighbor_signal, params) -> pd.Series:
+        """Dynamic-switch-blended prediction used ONLY during fit_step2's rolling-origin
+        scoring (spec section 7's "score each with the same rolling-origin validation
+        methodology" applied to the compound Stacked/DistanceOnly fitting unit)."""
+        stacked_pred = predict_stacked_model(port_monthly, anchor_series, neighbor_signal, params["stacked"])
+        distance_pred = predict_distance_only_model(
+            port_monthly, anchor_series, neighbor_signal, params["distance_only"]
+        )
+
+        port = port_monthly.copy()
+        port["month"] = port["date"].dt.month
+        baseline_volume = params["trial_volume"]
+        volume_ratio = port["landings_kg"].fillna(0.0) / port["month"].map(baseline_volume)
+
+        use_distance_only = (
+            volume_ratio.isna()
+            | (volume_ratio < consts.LOW_VOLUME_RATIO_THRESHOLD)
+            | (volume_ratio > consts.HIGH_VOLUME_RATIO_THRESHOLD)
+        )
+        blended = stacked_pred.where(~use_distance_only, distance_pred)
+        blended.index = port_monthly.index
+        return blended
+
+    def predict_step2(
+        self,
+        species_code: str,
+        category_code: str,
+        date: pd.Timestamp,
+        volume: float,
+        anchor_value: float,
+        neighbor_value: float,
+    ) -> float | None:
+        """Runtime dynamic switch (spec section 5 step 4). VolumeRatio reads from
+        self.volume_baseline_stats -- the same incrementally-updated structure Step 1
+        seeds and update_volume_baseline keeps current (plan header decision 9), not a
+        separate Step-2-only baseline."""
+        key = (species_code, category_code)
+        if key not in self.step2_stacked_models or key not in self.step2_distance_only_models:
+            return None
+
+        stats = self.volume_baseline_stats.get(key, {})
+        month_stats = stats.get(date.month)
+        if month_stats is None or month_stats[1] == 0 or month_stats[0] <= 0:
+            volume_ratio = None
+        else:
+            baseline = month_stats[0] / month_stats[1]
+            volume_ratio = (volume / baseline) if baseline > 0 else None
+
+        use_distance_only = (
+            pd.isna(volume_ratio)
+            or volume_ratio < consts.LOW_VOLUME_RATIO_THRESHOLD
+            or volume_ratio > consts.HIGH_VOLUME_RATIO_THRESHOLD
+        )
+
+        single_row = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
+        anchor_series = pd.Series([anchor_value], index=[date])
+        neighbor_signal = pd.Series([neighbor_value], index=[date])
+
+        if use_distance_only:
+            predicted = predict_distance_only_model(
+                single_row, anchor_series, neighbor_signal, self.step2_distance_only_models[key]
+            )
+        else:
+            predicted = predict_stacked_model(
+                single_row, anchor_series, neighbor_signal, self.step2_stacked_models[key]
+            )
+
+        value = predicted.iloc[0]
+        return float(value) if pd.notna(value) else None

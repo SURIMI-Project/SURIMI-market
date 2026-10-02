@@ -167,3 +167,96 @@ def test_real_price_first_pattern_falls_through_on_nan_when_caller_guards_with_n
         "ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=500.0
     )
     assert price == pytest.approx(2.5, abs=0.5)
+
+
+from src.models.market import consts as market_consts
+
+
+def _synthetic_port_neighbor_anchor(seed=1):
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2018-01-01", periods=72, freq="MS")
+    baseline_price = pd.Series({m: 2.0 for m in range(1, 13)})
+
+    from src.models.market.stacked_model import build_static_anchor_series
+    anchor_series = build_static_anchor_series(dates, baseline_price)
+    neighbor_signal = pd.Series(2.0 + rng.normal(0, 0.3, len(dates)), index=dates)
+
+    volume = 500.0 + rng.normal(0, 40, len(dates))
+    price = (
+        2.0 - 0.001 * (volume - 500.0) + 0.5 * (neighbor_signal.to_numpy() - 2.0)
+        + rng.normal(0, 0.02, len(dates))
+    )
+    port_monthly = pd.DataFrame({"date": dates, "price": price, "landings_kg": volume})
+    return port_monthly, anchor_series, neighbor_signal
+
+
+def test_fit_step2_selects_a_window_and_freezes_both_submodels():
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    label = port.fit_step2(
+        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+    )
+
+    assert label is not None
+    assert ("ANE", "Fresh - Whole") in port.step2_stacked_models
+    assert ("ANE", "Fresh - Whole") in port.step2_distance_only_models
+
+
+def test_predict_step2_picks_stacked_when_volume_ratio_in_normal_range():
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    port.fit_step2(
+        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+    )
+
+    # Seed the baseline so VolumeRatio = 1.0 (normal) for this month.
+    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
+
+    price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
+                                anchor_value=2.0, neighbor_value=2.0)
+    assert price is not None
+
+
+def test_predict_step2_falls_back_to_distance_only_on_extreme_volume_ratio():
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    port.fit_step2(
+        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+    )
+    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
+
+    # Volume is 0 -> VolumeRatio = 0, below LOW_VOLUME_RATIO_THRESHOLD -> must use DistanceOnly.
+    stacked_price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
+                                        anchor_value=2.0, neighbor_value=2.0)
+    distance_only_price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=0.0,
+                                              anchor_value=2.0, neighbor_value=2.0)
+    assert distance_only_price is not None
+    assert distance_only_price != stacked_price
+
+
+def test_predict_step2_returns_none_when_no_step2_coefficients():
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
+                                anchor_value=2.0, neighbor_value=2.0)
+    assert price is None
+
+
+def test_fit_step2_returns_none_when_no_window_is_stable(caplog):
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    dates = pd.date_range("2023-01-01", periods=2, freq="MS")
+    port_monthly = pd.DataFrame({"date": dates, "price": [np.nan, np.nan], "landings_kg": [np.nan, np.nan]})
+    anchor_series = pd.Series([2.0, 2.0], index=dates)
+    neighbor_signal = pd.Series([2.0, 2.0], index=dates)
+
+    with caplog.at_level(logging.WARNING):
+        label = port.fit_step2(
+            "GHOST", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal,
+            latest_date=pd.Timestamp("2023-03-01"),
+        )
+
+    assert label is None
+    assert ("GHOST", "Fresh - Whole") not in port.step2_stacked_models
