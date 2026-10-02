@@ -58,6 +58,8 @@ def run_backtest_split(
     return_handler: bool = False,
 ):
     prices_df = pd.read_csv(f"{root_config_dir}/{scenario_id}/prices.csv", parse_dates=["date"])
+    if "size" not in prices_df.columns:
+        prices_df["size"] = None
     markets_df = pd.read_csv(f"{root_config_dir}/{scenario_id}/markets.csv")
 
     local_codes = markets_df[markets_df["market_code"].str.len() == 5]["market_code"].tolist()
