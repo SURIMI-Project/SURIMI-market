@@ -420,3 +420,31 @@ def test_step_falls_back_to_step1_when_step2_anchor_or_neighbor_unavailable():
 
     tick, snapshot = system.local_markets["ESVLC"].price_history[-1]
     assert snapshot["prices"][("ANE", "Fresh - Whole")] is not None
+
+
+def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
+    # ESALC and ESBCN are each other's dominant High-tier neighbor in
+    # _fitted_system()'s synthetic data (see
+    # test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor), so ESBCN
+    # genuinely exercises the Step 2 neighbor-signal path here, not a
+    # fallback-to-Step-1-only path.
+    #
+    # Two runs of the same fitted system and tick, differing only in
+    # whether ESALC has a real recorded price set for this tick.
+    system_without_real = _fitted_system()
+    system_without_real.step()
+    _, snapshot_without = system_without_real.local_markets["ESBCN"].price_history[-1]
+    price_without_real = snapshot_without["prices"][("ANE", "Fresh - Whole")]
+
+    system_with_real = _fitted_system()
+    system_with_real.local_markets["ESALC"].price_time_series[
+        ("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))
+    ] = 999.99  # a real price wildly different from anything Step 1 would predict
+    system_with_real.step()
+    _, snapshot_with = system_with_real.local_markets["ESBCN"].price_history[-1]
+    price_with_real = snapshot_with["prices"][("ANE", "Fresh - Whole")]
+
+    # ESBCN's own Step 2 output must be identical either way -- its neighbor
+    # signal comes from ESALC's Step-1 PREDICTION, which doesn't change based
+    # on whether ESALC also happens to have a real price on record this tick.
+    assert price_with_real == price_without_real
