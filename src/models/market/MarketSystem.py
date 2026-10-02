@@ -6,9 +6,12 @@ history/export (Task 14).
 """
 import datetime
 import logging
+from pathlib import Path
 
 import grpc
 import pandas as pd
+
+from surimi.v1 import species_price_pb2, species_pb2, get_species_prices_pb2
 
 from MarketError import MarketError
 
@@ -358,3 +361,56 @@ class MarketSystem:
         if total_weight == 0:
             return None
         return sum(weights[port] * neighbor_candidates[port] for port in candidates) / total_weight
+
+    def get_species_prices_message(self) -> get_species_prices_pb2.GetSpeciesPricesResponse:
+        messages = []
+        valid_count = 0
+        missing_count = 0
+
+        for code, local_market in self.local_markets.items():
+            if not local_market.price_history:
+                continue
+            _, latest_snapshot = local_market.price_history[-1]
+            for (species_code, category_code), price in latest_snapshot["prices"].items():
+                if price is None:
+                    missing_count += 1
+                    continue
+                valid_count += 1
+                messages.append(species_price_pb2.SpeciesPrice(
+                    species=species_pb2.Species(species_code=species_code),
+                    market_code=code,
+                    price=price,
+                    currency=self.currency,
+                    category_code=category_code,
+                ))
+
+        self.logger.info(f"Price summary -- valid: {valid_count}, missing: {missing_count}")
+        return get_species_prices_pb2.GetSpeciesPricesResponse(
+            species_price_summary=species_price_pb2.SpeciesPriceSummary(species_prices=messages)
+        )
+
+    def export_results(self, simulation_id: str, folder_path: str):
+        output_folder = Path(folder_path) / simulation_id
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        combined_path = output_folder / "combined_prices.csv"
+        with combined_path.open("w", newline="") as f:
+            f.write("tick,market_code,species,category_code,price,volume\n")
+            for prefix, combined_market in self.combined_markets.items():
+                for tick_id, snapshot in combined_market.price_history:
+                    for (species_code, category_code), price in snapshot["prices"].items():
+                        volume = snapshot["volumes"].get((species_code, category_code), 0.0)
+                        price_str = "" if price is None else f"{price:.4f}"
+                        f.write(f"{tick_id},{prefix},{species_code},{category_code},{price_str},{volume:.4f}\n")
+
+        local_path = output_folder / "local_prices.csv"
+        with local_path.open("w", newline="") as f:
+            f.write("tick,market_code,species,category_code,price,catch\n")
+            for code, local_market in self.local_markets.items():
+                for tick_id, snapshot in local_market.price_history:
+                    for (species_code, category_code), price in snapshot["prices"].items():
+                        catch = snapshot["catches"].get((species_code, category_code), 0.0)
+                        price_str = "" if price is None else f"{price:.4f}"
+                        f.write(f"{tick_id},{code},{species_code},{category_code},{price_str},{catch:.4f}\n")
+
+        self.logger.info(f"Export complete for simulation {simulation_id}")

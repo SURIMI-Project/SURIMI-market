@@ -448,3 +448,42 @@ def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
     # signal comes from ESALC's Step-1 PREDICTION, which doesn't change based
     # on whether ESALC also happens to have a real price on record this tick.
     assert price_with_real == price_without_real
+
+
+import tempfile
+from pathlib import Path
+
+
+def test_get_species_prices_message_includes_only_valid_prices():
+    system = _fitted_system()
+    system.step()
+
+    response = system.get_species_prices_message()
+    codes = {sp.species.species_code for sp in response.species_price_summary.species_prices}
+    assert "ANE" in codes
+    # Every message must carry a real, non-None price and the configured currency.
+    for sp in response.species_price_summary.species_prices:
+        assert sp.currency == "EUR"
+        assert sp.price is not None
+
+
+def test_get_species_prices_message_skips_markets_with_no_history_yet():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    # No fit_all() and no step() -- no price_history exists anywhere.
+    response = system.get_species_prices_message()
+    assert len(response.species_price_summary.species_prices) == 0
+
+
+def test_export_results_writes_local_and_combined_csv_files():
+    system = _fitted_system()
+    system.step()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        system.export_results("sim-001", tmp_dir)
+        sim_dir = Path(tmp_dir) / "sim-001"
+        assert (sim_dir / "combined_prices.csv").exists()
+        assert (sim_dir / "local_prices.csv").exists()
+
+        local_contents = (sim_dir / "local_prices.csv").read_text()
+        assert "ESALC" in local_contents
