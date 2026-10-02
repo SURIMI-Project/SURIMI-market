@@ -128,3 +128,77 @@ def test_init_simulation_succeeds_without_optional_size_ratios_csv(tmp_path):
     response, err = handler.init_simulation(_fake_simulation(), str(root_config_dir))
 
     assert err is None
+
+
+from surimi.v1 import sales_pb2, species_pb2, update_sales_pb2
+from google.protobuf.timestamp_pb2 import Timestamp
+
+
+def _init_handler(tmp_path):
+    root_config_dir = _write_minimal_config(tmp_path)
+    handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)
+    handler.init_simulation(_fake_simulation(), str(root_config_dir))
+    return handler
+
+
+def test_update_sales_accumulates_catch_for_current_tick(tmp_path):
+    handler = _init_handler(tmp_path)
+
+    sale = sales_pb2.Sale(
+        species=species_pb2.Species(species_code="ANE"),
+        category_code="Fresh - Whole",
+        quantity=100.0,
+        value=200.0,
+    )
+    market_sales = sales_pb2.MarketSales(market_code="ESALC", currency="EUR", sales=[sale])
+
+    ts = Timestamp()
+    ts.FromDatetime(datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc))
+    request = update_sales_pb2.UpdateSalesRequest(
+        sales_summary=sales_pb2.SalesSummary(market_sales=[market_sales]),
+        start_date_time=ts,
+    )
+
+    response, err = handler.update_sales(request)
+
+    assert err is None
+    assert response.simulation_id == "sim-1"
+    assert handler.market_system.local_markets["ESALC"].get_monthly_catch_snapshot()[("ANE", "Fresh - Whole")] == 100.0
+
+
+def test_simulate_step_advances_tick_when_time_matches(tmp_path):
+    handler = _init_handler(tmp_path)
+
+    response, err = handler.simulate_step(datetime.datetime(2024, 1, 1))
+
+    assert err is None
+    assert response.simulation_id == "sim-1"
+    assert handler.market_system.tick.get_tick() == 1
+
+
+def test_simulate_step_errors_on_time_mismatch(tmp_path):
+    handler = _init_handler(tmp_path)
+
+    response, err = handler.simulate_step(datetime.datetime(2099, 1, 1))
+
+    assert response is None
+    assert err is not None
+
+
+def test_get_species_prices_returns_latest_message(tmp_path):
+    handler = _init_handler(tmp_path)
+    handler.simulate_step(datetime.datetime(2024, 1, 1))
+
+    response = handler.get_species_prices()
+
+    assert len(response.species_price_summary.species_prices) > 0
+
+
+def test_finalise_simulation_writes_export_files(tmp_path):
+    handler = _init_handler(tmp_path)
+    handler.simulate_step(datetime.datetime(2024, 1, 1))
+
+    response = handler.finalise_simulation(str(tmp_path / "simulations"))
+
+    assert response.simulation_id == "sim-1"
+    assert (tmp_path / "simulations" / "scn" / "sim-1" / "local_prices.csv").exists()

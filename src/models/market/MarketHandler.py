@@ -2,13 +2,14 @@
 Handler plugin entrypoint (spec section 1), mirroring ElsaHandler's shape:
 config loading, grpc contract validation, wiring into MarketSystem.
 """
+import datetime
 import logging
 import os
 from pathlib import Path
 
 import grpc
 import pandas as pd
-from surimi.v1 import initialise_simulation_pb2
+from surimi.v1 import initialise_simulation_pb2, simulate_step_pb2, finalise_simulation_pb2, update_sales_pb2
 
 from MarketError import MarketError
 import Handler
@@ -96,17 +97,30 @@ class MarketHandler(Handler.Handler):
         self.logger.info(f"Tick {self.market_system.tick.get_tick()} initialized.")
         return initialise_simulation_pb2.InitialiseSimulationResponse(simulation_id=self.simulation_id), None
 
-    # The remaining Handler.Handler abstract methods (update_sales, simulate_step,
-    # get_species_prices, finalise_simulation) are implemented in Task 16. These
-    # stubs exist only so MarketHandler is concrete (instantiable) in the meantime.
     def update_sales(self, request):
-        raise NotImplementedError("update_sales is implemented in Task 16")
+        err = self.market_system.update_sales(
+            request.sales_summary.market_sales, request.start_date_time.seconds
+        )
+        return update_sales_pb2.UpdateSalesResponse(simulation_id=self.simulation_id), err
 
-    def simulate_step(self, controller_simulation_time):
-        raise NotImplementedError("simulate_step is implemented in Task 16")
+    def simulate_step(self, controller_simulation_time: datetime.datetime):
+        if controller_simulation_time != self.market_system.tick.get_datetime():
+            return None, MarketError(
+                grpc.StatusCode.NOT_FOUND,
+                f"The MarketService's time, {self.market_system.tick.get_timestamp()} does not "
+                f"match the input time of {controller_simulation_time.isoformat()}Z",
+            )
+
+        self.market_system.step()
+
+        tick = self.market_system.tick.get_tick()
+        self.logger.info(f"Tick {tick} completed.")
+        return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id), None
 
     def get_species_prices(self):
-        raise NotImplementedError("get_species_prices is implemented in Task 16")
+        return self.market_system.get_species_prices_message()
 
     def finalise_simulation(self, folder_path):
-        raise NotImplementedError("finalise_simulation is implemented in Task 16")
+        self.logger.info("Finalising simulation...")
+        self.market_system.export_results(self.simulation_id, str(Path(folder_path, self.scenario_id)))
+        return finalise_simulation_pb2.FinaliseSimulationResponse(simulation_id=self.simulation_id)
