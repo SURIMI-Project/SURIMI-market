@@ -90,9 +90,22 @@ def _system_with_topology():
     return system
 
 
+def _utc_epoch(dt: datetime.datetime) -> int:
+    """Encode a (possibly naive, semantically-UTC per Tick.reset()'s utcnow())
+    datetime as a genuine UTC epoch int -- the same contract update_sales's
+    start_date_time is held to in production (always a real UTC epoch, per
+    gRPC convention). A bare dt.timestamp() on a naive datetime assumes the
+    HOST's local timezone instead, which only round-trips correctly on a
+    UTC-host and silently breaks on any other (the bug this helper exists to
+    not reintroduce in test fixtures)."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.UTC)
+    return int(dt.timestamp())
+
+
 def test_update_sales_routes_exact_local_match_to_local_market():
     system = _system_with_topology()
-    err = system.update_sales(_market_sales("ESALC"), int(system.tick.get_datetime().timestamp()))
+    err = system.update_sales(_market_sales("ESALC"), _utc_epoch(system.tick.get_datetime()))
 
     assert err is None
     assert system.local_markets["ESALC"].get_monthly_catch_snapshot()[("ANE", "Fresh - Whole")] == 10.0
@@ -103,7 +116,7 @@ def test_update_sales_routes_unknown_prefix_match_to_combined_market_with_warnin
     system = _system_with_topology()
 
     with caplog.at_level(logging.WARNING):
-        err = system.update_sales(_market_sales("ESXXX"), int(system.tick.get_datetime().timestamp()))
+        err = system.update_sales(_market_sales("ESXXX"), _utc_epoch(system.tick.get_datetime()))
 
     assert err is None
     assert system.combined_markets["ES"].get_direct_catch_snapshot()[("ANE", "Fresh - Whole")] == 10.0
@@ -112,7 +125,7 @@ def test_update_sales_routes_unknown_prefix_match_to_combined_market_with_warnin
 
 def test_update_sales_routes_exact_two_letter_code_to_combined_market():
     system = _system_with_topology()
-    err = system.update_sales(_market_sales("FR"), int(system.tick.get_datetime().timestamp()))
+    err = system.update_sales(_market_sales("FR"), _utc_epoch(system.tick.get_datetime()))
 
     assert err is None
     assert system.combined_markets["FR"].get_direct_catch_snapshot()[("ANE", "Fresh - Whole")] == 10.0
@@ -120,7 +133,7 @@ def test_update_sales_routes_exact_two_letter_code_to_combined_market():
 
 def test_update_sales_rejects_code_matching_no_known_prefix():
     system = _system_with_topology()
-    err = system.update_sales(_market_sales("ZZXXX"), int(system.tick.get_datetime().timestamp()))
+    err = system.update_sales(_market_sales("ZZXXX"), _utc_epoch(system.tick.get_datetime()))
 
     assert err is not None
     assert err.status_code == StatusCode.FAILED_PRECONDITION
@@ -128,7 +141,7 @@ def test_update_sales_rejects_code_matching_no_known_prefix():
 
 def test_update_sales_rejects_non_positive_quantity():
     system = _system_with_topology()
-    err = system.update_sales(_market_sales("ESALC", quantity=-1.0), int(system.tick.get_datetime().timestamp()))
+    err = system.update_sales(_market_sales("ESALC", quantity=-1.0), _utc_epoch(system.tick.get_datetime()))
 
     assert err is not None
     assert err.status_code == StatusCode.INVALID_ARGUMENT
@@ -136,9 +149,37 @@ def test_update_sales_rejects_non_positive_quantity():
 
 def test_update_sales_defers_future_dated_sales():
     system = _system_with_topology()
-    future_ts = int((system.tick.get_datetime() + datetime.timedelta(days=31)).timestamp())
+    future_ts = _utc_epoch(system.tick.get_datetime() + datetime.timedelta(days=31))
     err = system.update_sales(_market_sales("ESALC"), future_ts)
 
     assert err is None
     assert system.local_markets["ESALC"].get_monthly_catch_snapshot() == {}
     assert len(system.pending_sales_summary) == 1
+
+
+def test_update_sales_interprets_start_date_time_as_utc_regardless_of_host_timezone():
+    system = _system_with_topology()  # current_time (naive) = 2024-01-01 00:00:00
+
+    # Unambiguous UTC epoch for exactly 2024-01-01T00:00:00Z, regardless of host tz.
+    utc_epoch = int(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC).timestamp())
+
+    err = system.update_sales(_market_sales("ESALC"), utc_epoch)
+
+    assert err is None
+    # Must accumulate immediately (same tick), not defer to pending_sales_summary --
+    # a buggy local-timezone interpretation would push this into the future on
+    # any non-UTC host and wrongly defer it instead.
+    assert system.local_markets["ESALC"].get_monthly_catch_snapshot()[("ANE", "Fresh - Whole")] == 10.0
+    assert system.pending_sales_summary == {}
+
+
+def test_update_sales_routes_correctly_with_utc_aware_tick():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC))
+    system.setup_topology(_markets_df())
+
+    utc_epoch = int(datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC).timestamp())
+    err = system.update_sales(_market_sales("ESALC"), utc_epoch)
+
+    assert err is None
+    assert system.local_markets["ESALC"].get_monthly_catch_snapshot()[("ANE", "Fresh - Whole")] == 10.0
+    assert system.pending_sales_summary == {}

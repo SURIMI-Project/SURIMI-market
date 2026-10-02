@@ -104,15 +104,17 @@ class MarketSystem:
                     )
 
         current_time = self.tick.get_datetime()
-        # Match requested_time's tz-awareness to current_time's: self.tick's
-        # start_time may be naive (this plan's own setup_topology tests,
-        # Task 10) or UTC-aware (Elsa convention, real gRPC start_date_time
-        # epochs). Forcing tz=UTC unconditionally would raise "can't compare
-        # offset-naive and offset-aware datetimes" against a naive tick.
+        # start_date_time is always a real UTC epoch (gRPC convention), so it
+        # must always be resolved in UTC first -- a bare fromtimestamp() would
+        # silently reinterpret it using the HOST machine's local timezone,
+        # not UTC. self.tick's start_time may itself be naive (this plan's
+        # own setup_topology tests, Task 10; also Tick.reset()'s utcnow(),
+        # which is naive-but-semantically-UTC) or UTC-aware (Elsa
+        # convention), so tzinfo is stripped afterwards only to match
+        # current_time's own awareness, never to change the resolved instant.
+        requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
         if current_time.tzinfo is None:
-            requested_time = datetime.datetime.fromtimestamp(start_date_time)
-        else:
-            requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
+            requested_time = requested_time.replace(tzinfo=None)
 
         if requested_time > current_time:
             date = requested_time.strftime("%Y-%m-%d")
