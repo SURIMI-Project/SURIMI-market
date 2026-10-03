@@ -192,6 +192,16 @@ class MarketSystem:
         for local_market in self.local_markets.values():
             all_keys.update(local_market.step1_models.keys())
 
+        # Built once per port (O(ports*keys)), not once per (port, key)
+        # (O(ports*keys^2)) -- the previous per-key rebuild was the dominant
+        # term in init_simulation's super-linear growth with contract species
+        # count, confirmed by the final whole-branch review (measured 23.7s /
+        # 56.5s / 134.2s at 5 / 10 / 20 species).
+        monthly_by_key_by_port = {
+            market_code: self._build_monthly_by_key(blended[blended["market_code"] == market_code])
+            for market_code in self.local_markets
+        }
+
         for key in all_keys:
             species_code, category_code = key
 
@@ -224,8 +234,7 @@ class MarketSystem:
                 if baseline_table is None:
                     continue
 
-                rows = blended[blended["market_code"] == market_code]
-                port_monthly = self._build_monthly_by_key(rows).get(key)
+                port_monthly = monthly_by_key_by_port[market_code].get(key)
                 if port_monthly is None:
                     continue
 
