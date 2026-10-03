@@ -106,9 +106,9 @@ def test_full_flow_handles_zero_volume_tick_gracefully():
 
 
 def test_full_flow_excludes_species_with_insufficient_history_without_crashing():
-    """THIN has only 1 month of data anywhere -- no CombinedMarket/LocalMarket
-    model can be fit for it. get_species_prices must simply omit it, not error
-    (spec section 9 point 4)."""
+    """THIN has zero rows anywhere -- no CombinedMarket/LocalMarket model can
+    even be attempted for it. get_species_prices must simply omit it, not
+    error (spec section 9 point 4)."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         root_config_dir = _write_two_port_config(Path(tmp_dir))
         handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)
