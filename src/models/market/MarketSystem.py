@@ -329,12 +329,20 @@ class MarketSystem:
                 local_prices[code][key] = final_price
 
         # Step 5: adaptive volume-baseline updates (real observed volume only).
+        # Both levels apply the SAME rule: a tick with zero recorded catch for
+        # a key contributes no information about that key's "normal month"
+        # and is skipped, not recorded as an explicit 0.0 (which would dilute
+        # the running mean and inflate every subsequent VolumeRatio). Local
+        # gets this for free (get_monthly_catch_snapshot only contains keys
+        # that actually received a catch this tick); Combined must filter
+        # explicitly, since combined_total_volumes always has an entry per
+        # contracted key (needed for get_price above), defaulting to 0.0.
         for code, local_market in self.local_markets.items():
             for key, volume in local_volumes[code].items():
                 local_market.update_volume_baseline(key[0], key[1], current_date, volume)
         for prefix, combined_market in self.combined_markets.items():
             for (p, key), volume in combined_total_volumes.items():
-                if p == prefix:
+                if p == prefix and volume > 0:
                     combined_market.update_volume_baseline(key[0], key[1], current_date, volume)
 
         # Step 6: save history.
