@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 import pytest
+from dateutil.relativedelta import relativedelta
 
 from src.models.market.LocalMarket import LocalMarket
 
@@ -261,6 +262,56 @@ def test_predict_step2_returns_none_when_no_step2_coefficients():
     price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
                                 anchor_value=2.0, neighbor_value=2.0)
     assert price is None
+
+
+def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit_fails(monkeypatch):
+    """Rolling-origin success doesn't guarantee the literal final window
+    (ending at latest_date, never exercised during scoring) is fittable --
+    a real example (MUT@ESLLC) had its best-scoring window's final window
+    fall mostly inside a real landings gap. fit_step2 must try the
+    next-best-scoring candidate instead of giving up straight to
+    Step-1-only."""
+    import src.models.market.LocalMarket as local_market_module
+
+    latest_date = pd.Timestamp("2024-01-01")
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+
+    # Discover which window this fixture naturally selects as best, with no
+    # monkeypatching in effect yet.
+    baseline_port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    baseline_port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
+    natural_label = baseline_port.fit_step2(
+        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=latest_date
+    )
+    assert natural_label is not None  # fixture must have a stable window to make this test meaningful
+
+    real_fit_stacked_model = local_market_module.fit_stacked_model
+
+    def flaky_fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end):
+        # Fail ONLY the natural best candidate's FINAL re-fit (train_end ==
+        # latest_date identifies "this is the final re-fit, not a
+        # rolling-origin scoring call") -- every rolling-origin call for
+        # every candidate, and every OTHER candidate's final re-fit, must
+        # keep succeeding normally.
+        from src.models.market import consts
+        years = consts.WINDOW_CANDIDATE_YEARS[natural_label]
+        natural_train_start = latest_date - relativedelta(years=years) if years is not None else None
+        if train_end == latest_date and train_start == natural_train_start:
+            raise ValueError("simulated: this port's real landings gap falls inside exactly this window")
+        return real_fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end)
+
+    monkeypatch.setattr(local_market_module, "fit_stacked_model", flaky_fit_stacked_model)
+
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
+    label = port.fit_step2(
+        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=latest_date
+    )
+
+    assert label is not None, "a fallback window should have been used instead of giving up to Step-1-only"
+    assert label != natural_label
+    assert ("ANE", "Fresh - Whole") in port.step2_stacked_models
+    assert ("ANE", "Fresh - Whole") in port.step2_distance_only_models
 
 
 def test_fit_step2_returns_none_when_no_window_is_stable(caplog):

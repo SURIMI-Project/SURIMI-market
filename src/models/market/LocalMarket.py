@@ -26,7 +26,7 @@ from .stacked_model import (
     fit_distance_only_model,
     predict_distance_only_model,
 )
-from .window_selection import build_rolling_splits, select_best_window
+from .window_selection import build_rolling_splits, select_best_window, rank_windows_by_score
 
 
 class LocalMarket:
@@ -239,33 +239,45 @@ class LocalMarket:
             mask = (port_monthly["date"] >= test_start) & (port_monthly["date"] < test_end)
             return score_mape(blended[mask], port_monthly["price"][mask])
 
-        result = select_best_window(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
+        ranked = rank_windows_by_score(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
 
-        if result is None:
+        if not ranked:
             self.logger.warning(
                 f"LocalMarket {self.market_code}: no stable Step-2 window found for {key}, "
                 f"falling back to Step-1-only"
             )
             return None
 
-        label, years = result
-        train_start = latest_date - relativedelta(years=years) if years is not None else None
-        try:
-            final_params = fit_fn(train_start, latest_date)
-        except (ValueError, np.linalg.LinAlgError):
-            # See CombinedMarket.fit's identical guard: a window length that scored
-            # acceptably across historical rolling-origin splits can still fail to
-            # re-fit on the literal final window ending at latest_date.
-            self.logger.warning(
-                f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
-                f"scored acceptably in rolling-origin validation but failed to re-fit on the "
-                f"final window ending at {latest_date}; falling back to Step-1-only"
-            )
-            return None
-        self.step2_stacked_models[key] = final_params["stacked"]
-        self.step2_distance_only_models[key] = final_params["distance_only"]
-        self.step2_window_labels[key] = label
-        return label
+        # Rolling-origin success does not guarantee the final re-fit (on the
+        # literal final window ending at latest_date, never attempted during
+        # scoring) succeeds -- the final window can differ in exactly which
+        # months it includes (e.g. a real landings gap that a shorter window
+        # falls mostly inside of). Try each ranked candidate's final re-fit
+        # in order, falling back to Step-1-only only if ALL of them fail --
+        # a less-preferred-by-score but FITTABLE window beats no Step 2
+        # model at all.
+        for label, years in ranked:
+            train_start = latest_date - relativedelta(years=years) if years is not None else None
+            try:
+                final_params = fit_fn(train_start, latest_date)
+            except (ValueError, np.linalg.LinAlgError):
+                self.logger.warning(
+                    f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
+                    f"scored acceptably in rolling-origin validation but failed to re-fit on the "
+                    f"final window ending at {latest_date}; trying the next-best-scoring window"
+                )
+                continue
+            self.step2_stacked_models[key] = final_params["stacked"]
+            self.step2_distance_only_models[key] = final_params["distance_only"]
+            self.step2_window_labels[key] = label
+            return label
+
+        self.logger.warning(
+            f"LocalMarket {self.market_code}: every candidate Step-2 window for {key} scored "
+            f"acceptably in rolling-origin validation but failed to re-fit on the final window "
+            f"ending at {latest_date}; falling back to Step-1-only"
+        )
+        return None
 
     def _trial_baseline_volume(self, port_monthly, train_start, train_end):
         port = port_monthly.copy()

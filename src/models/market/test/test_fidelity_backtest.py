@@ -52,7 +52,6 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
     # investigation behind each entry).
     KNOWN_LIMITATION_PAIRS = {
         ("ANE", "ESBRX"): "real price is exactly 0.5 EUR/kg in 3 of 24 held-out months (vs. an otherwise 1.5-3.8 range) -- looks like a data placeholder, not an organic near-zero-price pattern",
-        ("ANE", "ESCAR"): "only 5 of 24 held-out months have any prediction at all (sparse training coverage); one large single-month miss dominates the small-sample average",
         # NOTE: HKE/ESROS was previously listed here (59.8% MAPE, "UNRESOLVED,
         # FLAGGED FOR FOLLOW-UP" amplification). It is RESOLVED, not merely
         # improved: the final whole-branch review found that
@@ -67,29 +66,23 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
         # dropped from 59.8% to 38.9% MAPE -- under the ceiling -- and HKE has
         # zero failures across all 36 ports. This also confirms the bug was
         # real and material, not merely a lint-level nit.
-        ("MUT", "ESLLC"): (
-            "a knowingly-accepted regression (10.5% MAPE pre-fix -> 61.3% post-fix), traded off "
-            "against the High-tier fix's much larger net benefit elsewhere (HKE alone went from 5 "
-            "failing/starved ports to zero). Root cause, re-verified by independently reproducing "
-            "BOTH the pre-fix and post-fix window selection and MAPE directly (not inferred from the "
-            "diff): ESLLC/MUT's real landings_kg data for this pair stops at 2020-02-01 -- a ~4-year "
-            "gap, not merely 'the test window has none'. Pre-fix, rolling-origin validation selected "
-            "the 3yr Step-2 window (2019-01 onward) and fit succeeded (MAPE 10.52%). The corrected, "
-            "larger real neighbor pool (14 real candidates vs. 8 pre-fix, none of which were ever "
-            "ES/FR -- those rows never contribute a signal either way) changed the rolling-origin "
-            "scores enough that select_best_window instead picked the 2yr window (2019-12 onward), "
-            "which has only 3 non-null landings_kg rows (below fit_stacked_model's minimum of 4) -- "
-            "the gap starting 2020-02 falls almost entirely inside this shorter window. The stacked "
-            "fit raises, triggering the already-reviewed Task 12 fallback cascade down to "
-            "Step-1-level-only (confirmed: predict_step2 needs the Stacked fit specifically, so the "
-            "DistanceOnly model fitting fine at 2yr doesn't help here -- a possible future improvement "
-            "is falling back to the next-best-scoring window before falling back to Step-1-only, "
-            "out of scope for this fix). With no Step 2 signal and no live volume feed at all during "
-            "the test window, the model cannot adapt while the real price swings 3.33-8.41 EUR/kg over "
-            "those two years. As with the other entries here, real-price-first would mask this in live "
-            "production as soon as any real price arrives -- it is visible only because the backtest "
-            "deliberately withholds that safety net for its own test window."
-        ),
+        #
+        # NOTE: ANE/ESCAR was previously listed here ("only 5 of 24 held-out
+        # months have any prediction at all"). RESOLVED by the Step-2
+        # fallback-cascade fix (LocalMarket.fit_step2 now tries the
+        # next-best-scoring window before giving up to Step-1-only, instead
+        # of giving up the instant the single best-scoring window's final
+        # re-fit fails): coverage jumped to 24/24 months and MAPE dropped to
+        # 40.0%, both under the ceiling.
+        #
+        # NOTE: MUT/ESLLC was previously listed here (61.3% MAPE, a
+        # knowingly-accepted regression from the High-tier fix). Also
+        # RESOLVED by the same Step-2 fallback-cascade fix: a fallback window
+        # whose final re-fit succeeds is now used instead of giving up
+        # entirely to Step-1-only. MAPE dropped to 12.7% -- better than even
+        # the pre-High-tier-fix baseline of 10.5%/61.3%, confirming the
+        # cascade fix is a genuine, independent improvement, not merely
+        # reverting the High-tier fix's side effect.
     }
 
     failures = results[results["mape"] > MAX_ACCEPTABLE_MAPE]

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.models.market.window_selection import build_rolling_splits, select_best_window
+from src.models.market.window_selection import build_rolling_splits, select_best_window, rank_windows_by_score
 
 
 def test_build_rolling_splits_anchors_at_latest_date():
@@ -76,6 +76,44 @@ def test_select_best_window_respects_sanity_check_fn():
     result = select_best_window(candidates, rolling_splits, fit_fn, score_fn, sanity_check_fn)
 
     assert result is None
+
+
+def test_rank_windows_by_score_orders_all_candidates_best_first():
+    candidates = {"2yr": 2, "4yr": 4, "Full": None}
+    rolling_splits = [
+        (pd.Timestamp("2021-01-01"), pd.Timestamp("2023-01-01")),
+        (pd.Timestamp("2022-01-01"), pd.Timestamp("2024-01-01")),
+    ]
+    scores_by_label = {"2yr": 10.0, "4yr": 2.0, "Full": 8.0}
+
+    def fit_fn(train_start, train_end):
+        return {"train_start": train_start, "train_end": train_end}
+
+    def score_fn(params, test_start, test_end):
+        if params["train_start"] is None:
+            return scores_by_label["Full"]
+        years_back = round((params["train_end"] - params["train_start"]).days / 365.25)
+        label = {2: "2yr", 4: "4yr"}.get(years_back, "Full")
+        return scores_by_label[label]
+
+    ranked = rank_windows_by_score(candidates, rolling_splits, fit_fn, score_fn)
+
+    assert ranked == [("4yr", 4), ("Full", None), ("2yr", 2)]
+    # select_best_window must agree with the ranked list's first entry.
+    assert select_best_window(candidates, rolling_splits, fit_fn, score_fn) == ranked[0]
+
+
+def test_rank_windows_by_score_returns_empty_list_when_every_candidate_fails():
+    candidates = {"2yr": 2, "4yr": 4}
+    rolling_splits = [(pd.Timestamp("2021-01-01"), pd.Timestamp("2023-01-01"))]
+
+    def fit_fn(train_start, train_end):
+        raise ValueError("not enough usable training rows")
+
+    def score_fn(params, test_start, test_end):
+        raise AssertionError("score_fn should never be called if fit_fn always raises")
+
+    assert rank_windows_by_score(candidates, rolling_splits, fit_fn, score_fn) == []
 
 
 def test_select_best_window_skips_splits_with_no_valid_test_data():
