@@ -140,6 +140,42 @@ def test_get_baseline_price_table_reindexes_to_all_12_months_on_fallback():
     assert pd.notna(table[2])
 
 
+def test_get_live_anchor_series_varies_month_to_month_unlike_static_baseline():
+    market = CombinedMarket("ES")
+    own_monthly = _synthetic_monthly()
+    market.fit({("ANE", "Fresh - Whole"): own_monthly}, latest_date=pd.Timestamp("2024-01-01"))
+
+    live_series = market.get_live_anchor_series("ANE", "Fresh - Whole", own_monthly, own_monthly["date"])
+
+    assert live_series is not None
+    assert len(live_series) == len(own_monthly)
+    # Unlike the static table (one value per calendar month, repeating
+    # every year), the live series reflects real volume at each date, so
+    # two different Januaries should generally differ.
+    by_year = live_series.groupby(live_series.index.year).first()
+    assert by_year.nunique() > 1
+
+
+def test_get_live_anchor_series_reindexes_to_target_dates_with_nan_outside_own_range():
+    market = CombinedMarket("ES")
+    own_monthly = _synthetic_monthly(n_years=2)  # 2018-01 .. 2019-12
+    market.fit({("ANE", "Fresh - Whole"): own_monthly}, latest_date=pd.Timestamp("2020-01-01"))
+
+    target_dates = pd.date_range("2019-06-01", periods=12, freq="MS")  # extends past own_monthly's range
+    live_series = market.get_live_anchor_series("ANE", "Fresh - Whole", own_monthly, target_dates)
+
+    assert len(live_series) == len(target_dates)
+    assert pd.notna(live_series[pd.Timestamp("2019-06-01")])
+    assert pd.isna(live_series[pd.Timestamp("2020-05-01")])  # past own_monthly's last date
+
+
+def test_get_live_anchor_series_returns_none_when_no_frozen_model():
+    market = CombinedMarket("ES")
+    own_monthly = _synthetic_monthly()
+    result = market.get_live_anchor_series("GHOST", "Fresh - Whole", own_monthly, own_monthly["date"])
+    assert result is None
+
+
 def test_fit_excludes_species_with_zero_usable_data(caplog):
     market = CombinedMarket("ES")
     monthly = pd.DataFrame({

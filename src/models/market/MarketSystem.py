@@ -156,16 +156,32 @@ class MarketSystem:
                     f"local match, folded into CombinedMarket {prefix}'s direct accumulator."
                 )
 
-    def fit_all(self, prices_df: pd.DataFrame, latest_date: pd.Timestamp):
+    def fit_all(
+        self,
+        prices_df: pd.DataFrame,
+        latest_date: pd.Timestamp,
+        anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
+    ):
+        """anchor_scheme selects Step 2's anchor source (spec section 5's
+        open item / plan header decision 1): ANCHOR_SCHEME_STATIC (the
+        default, and the ONLY scheme the live production path ever uses)
+        anchors on CombinedMarket's frozen seasonal baseline;
+        ANCHOR_SCHEME_LIVE -- analysis-only, exercised by the fidelity
+        backtest harness to measure the alternative -- anchors on
+        CombinedMarket's own live tick-by-tick prediction instead. Nothing
+        about Step 1 or CombinedMarket's own fitting depends on
+        anchor_scheme; only _fit_step2_for_all_ports branches on it."""
         blended = prices_df[prices_df["size"].isna()]
         if self.species_codes:
             blended = blended[blended["species_code"].isin(self.species_codes)]
         if self.category_codes_contract:
             blended = blended[blended["category_code"].isin(self.category_codes_contract)]
 
+        combined_monthly_by_key = {}
         for prefix, combined_market in self.combined_markets.items():
             rows = blended[blended["market_code"] == prefix]
             monthly_by_key = self._build_monthly_by_key(rows)
+            combined_monthly_by_key[prefix] = monthly_by_key
             combined_market.fit(monthly_by_key, latest_date)
             combined_market.load_price_time_series(prices_df)
 
@@ -175,7 +191,7 @@ class MarketSystem:
             local_market.fit_step1(monthly_by_key, latest_date)
             local_market.load_price_time_series(prices_df)
 
-        self._fit_step2_for_all_ports(blended, latest_date)
+        self._fit_step2_for_all_ports(blended, latest_date, combined_monthly_by_key, anchor_scheme)
 
     def _build_monthly_by_key(self, rows: pd.DataFrame) -> dict[tuple[str, str], pd.DataFrame]:
         result = {}
@@ -187,7 +203,13 @@ class MarketSystem:
                 continue
         return result
 
-    def _fit_step2_for_all_ports(self, blended: pd.DataFrame, latest_date: pd.Timestamp):
+    def _fit_step2_for_all_ports(
+        self,
+        blended: pd.DataFrame,
+        latest_date: pd.Timestamp,
+        combined_monthly_by_key: dict[str, dict[tuple[str, str], pd.DataFrame]],
+        anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
+    ):
         all_keys = set()
         for local_market in self.local_markets.values():
             all_keys.update(local_market.step1_models.keys())
@@ -226,16 +248,30 @@ class MarketSystem:
 
                 prefix = market_code[:2]
                 combined_market = self.combined_markets.get(prefix)
-                baseline_table = (
-                    combined_market.get_baseline_price_table(species_code, category_code)
-                    if combined_market is not None
-                    else None
-                )
-                if baseline_table is None:
+                if combined_market is None:
                     continue
 
                 port_monthly = monthly_by_key_by_port[market_code].get(key)
                 if port_monthly is None:
+                    continue
+
+                if anchor_scheme == consts.ANCHOR_SCHEME_LIVE:
+                    own_monthly = combined_monthly_by_key.get(prefix, {}).get(key)
+                    anchor_series = (
+                        combined_market.get_live_anchor_series(
+                            species_code, category_code, own_monthly, port_monthly["date"]
+                        )
+                        if own_monthly is not None
+                        else None
+                    )
+                else:
+                    baseline_table = combined_market.get_baseline_price_table(species_code, category_code)
+                    anchor_series = (
+                        build_static_anchor_series(port_monthly["date"], baseline_table)
+                        if baseline_table is not None
+                        else None
+                    )
+                if anchor_series is None:
                     continue
 
                 neighbor_signal = distance_weighted_neighbor_signal(
@@ -248,7 +284,6 @@ class MarketSystem:
                     )
                     continue
 
-                anchor_series = build_static_anchor_series(port_monthly["date"], baseline_table)
                 local_market.fit_step2(
                     species_code, category_code, port_monthly, anchor_series, neighbor_signal, latest_date
                 )

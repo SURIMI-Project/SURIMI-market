@@ -1,12 +1,10 @@
 import os
 
-import numpy as np
 import pandas as pd
 import pytest
 
+from src.models.market import consts
 from src.models.market.test.fidelity_backtest_harness import run_backtest_split
-from src.models.market.level_volume_model import predict_level_volume
-from src.models.market.stacked_model import fit_stacked_model, fit_distance_only_model
 
 VALIDATED_SPECIES = ["ANE", "PIL", "HKE", "SAA", "MUT"]
 CONFIG_DIR = "config/northwestern_med"
@@ -129,77 +127,67 @@ def test_open_items_report():
             print(f"{species_code}: mean |Local(volume-weighted) - Combined| gap = {sum(gaps)/len(gaps):.2f}%")
 
     print("\n=== 3. Static vs. live Step-2 anchor comparison (spec sections 5/14) ===")
-    # NOTE (recorded after the final whole-branch review): this comparison is
-    # NOT a clean resolution of section 14's anchor-scheme open item, and
-    # should not be read as one. live_stacked/live_distance_only are always
-    # refit with train_start=None (full history), while static_stacked was
-    # fit with its own adaptively SELECTED window (section 7) -- so a gamma
-    # difference below confounds the anchor-scheme choice with the
-    # window-length choice; it cannot by itself say which anchor scheme is
-    # better. A real resolution needs a head-to-head MAPE comparison (via
-    # run_backtest_split) under the SAME window for both schemes -- not yet
-    # done. What this DOES establish: across all 156 fitted (species, port)
-    # pairs in the real data, static and live gammas disagree in SIGN 54.5%
-    # of the time and differ by more than 1.0 in magnitude 70.5% of the time
-    # -- divergence here is the norm, not an edge case, so this is not a
-    # question to leave open indefinitely.
-    sign_flips = 0
-    large_divergences = 0
-    total_pairs = 0
-    for species_code in VALIDATED_SPECIES:
-        key = (species_code, "Fresh - Whole")
-        combined_market = handler.market_system.combined_markets.get("ES")
-        if combined_market is None or key not in combined_market.models:
-            continue
+    # A REAL head-to-head: two independent, fully-stepped backtest runs over
+    # the identical as_of_date/test_horizon/species, one with each anchor
+    # scheme (MarketSystem.fit_all(..., anchor_scheme=...), both now
+    # production-supported paths -- STATIC remains the only scheme the live
+    # gRPC path ever uses by default). This replaces the previous
+    # gamma-coefficient-only comparison, which confounded anchor-scheme
+    # choice with window-length choice (the live refit always used full
+    # history, static used its own adaptively selected window) and could
+    # only observe divergence, never say which scheme was actually better.
+    live_results, live_handler = run_backtest_split(
+        root_config_dir=CONFIG_DIR.rsplit("/", 1)[0],
+        scenario_id=CONFIG_DIR.split("/")[-1],
+        as_of_date=pd.Timestamp("2022-01-01"),
+        test_horizon_years=2,
+        species_codes=VALIDATED_SPECIES,
+        anchor_scheme=consts.ANCHOR_SCHEME_LIVE,
+        return_handler=True,
+    )
 
-        combined_rows = blended[
-            (blended["market_code"] == "ES") & (blended["species_code"] == species_code)
-        ][["date", "price", "landings_kg"]].sort_values("date")
-        if combined_rows.empty:
-            continue
-        live_anchor_full = predict_level_volume(combined_rows, combined_market.models[key])
-        live_anchor_full.index = combined_rows["date"]
+    merged = results.merge(
+        live_results, on=["species_code", "market_code"], suffixes=("_static", "_live"), how="inner"
+    )
+    if merged.empty:
+        print("No (species, port) pairs comparable between the two anchor-scheme runs.")
+    else:
+        merged["mape_diff"] = merged["mape_live"] - merged["mape_static"]  # negative => live wins
 
-        for code, local_market in handler.market_system.local_markets.items():
-            fit_inputs = handler.market_system.step2_fit_inputs.get((code, key))
-            if fit_inputs is None or key not in local_market.step2_stacked_models:
-                continue
+        def _used_step2(h, species_code, market_code):
+            key = (species_code, "Fresh - Whole")
+            local_market = h.market_system.local_markets.get(market_code)
+            return local_market is not None and key in local_market.step2_stacked_models
 
-            port_monthly = fit_inputs["port_monthly"]
-            neighbor_signal = fit_inputs["neighbor_signal"]
-            train_end = port_monthly["date"].max()  # the same "latest_date" used at fit time
-
-            try:
-                live_stacked = fit_stacked_model(port_monthly, live_anchor_full, neighbor_signal, None, train_end)
-                live_distance_only = fit_distance_only_model(
-                    port_monthly, live_anchor_full, neighbor_signal, None, train_end
-                )
-            except (ValueError, np.linalg.LinAlgError) as e:
-                print(f"{species_code}@{code}: live-anchor variant failed to fit ({e}) -- "
-                      "static-anchor scheme is the only usable option for this port/species")
-                continue
-
-            static_stacked = local_market.step2_stacked_models[key]
-            static_gamma, live_gamma = static_stacked["gamma"], live_stacked["gamma"]
-            total_pairs += 1
-            sign_flip = (static_gamma > 0) != (live_gamma > 0)
-            large_divergence = abs(static_gamma - live_gamma) > 1.0
-            sign_flips += sign_flip
-            large_divergences += large_divergence
-            flag = " [SIGN FLIP]" if sign_flip else (" [large divergence]" if large_divergence else "")
-            print(
-                f"{species_code}@{code}: static-anchor gamma={static_gamma:.3f} vs. "
-                f"live-anchor gamma={live_gamma:.3f}{flag} "
-                f"(window-length confounded with anchor scheme -- see note above; not a resolved "
-                f"comparison by itself)"
-            )
-
-    if total_pairs:
-        print(
-            f"\nSection 3 summary: {sign_flips}/{total_pairs} pairs ({100*sign_flips/total_pairs:.1f}%) "
-            f"sign-flip between static and live anchor gamma; {large_divergences}/{total_pairs} "
-            f"({100*large_divergences/total_pairs:.1f}%) differ by >1.0 in magnitude. Section 14's "
-            f"anchor-scheme open item remains UNRESOLVED: this divergence rate is too high to treat "
-            f"as noise, but a window-length-matched head-to-head MAPE comparison is needed before "
-            f"concluding which scheme is actually better."
+        merged["step2_both_schemes"] = merged.apply(
+            lambda r: _used_step2(handler, r["species_code"], r["market_code"])
+            and _used_step2(live_handler, r["species_code"], r["market_code"]),
+            axis=1,
         )
+
+        static_wins = int((merged["mape_diff"] > 0).sum())
+        live_wins = int((merged["mape_diff"] < 0).sum())
+        ties = int((merged["mape_diff"] == 0).sum())
+        print(
+            f"Overall (all {len(merged)} comparable pairs, regardless of whether Step 2 was used "
+            f"under both schemes): static better in {static_wins}, live better in {live_wins}, "
+            f"tied in {ties}. Mean MAPE -- static: {merged['mape_static'].mean():.2f}%, "
+            f"live: {merged['mape_live'].mean():.2f}%."
+        )
+
+        clean = merged[merged["step2_both_schemes"]]
+        if clean.empty:
+            print("No pairs had Step 2 fitted under BOTH schemes -- cannot isolate anchor scheme alone.")
+        else:
+            clean_static_wins = int((clean["mape_diff"] > 0).sum())
+            clean_live_wins = int((clean["mape_diff"] < 0).sum())
+            clean_ties = int((clean["mape_diff"] == 0).sum())
+            print(
+                f"\nIsolated to the {len(clean)} pairs where Step 2 was actually fitted under BOTH "
+                f"schemes (the fair, confound-free comparison): static better in {clean_static_wins}, "
+                f"live better in {clean_live_wins}, tied in {clean_ties}. Mean MAPE -- "
+                f"static: {clean['mape_static'].mean():.2f}%, live: {clean['mape_live'].mean():.2f}%."
+            )
+            print(clean.sort_values("mape_diff")[
+                ["species_code", "market_code", "mape_static", "mape_live", "mape_diff"]
+            ].to_string(index=False))

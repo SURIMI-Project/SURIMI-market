@@ -196,13 +196,14 @@ what was actually validated.
    pattern as Elsa's `update_local_history` / `update_global_price_history`.
 7. **Clear this tick's catch accumulators**, advance the tick.
 
-**Open item, to be resolved empirically (see section 10):** whether the
-Step-2 anchor in step 4 should be `CombinedMarket`'s frozen seasonal
-baseline table (a static per-month shape — what the notebooks actually
-validated) or its live tick-specific prediction (a variant not yet
-backtested, which would give some protection against Local/Combined
-drift — see section 10). This must be settled via the fidelity backtest
-before being treated as final.
+**Resolved empirically (section 15):** the Step-2 anchor in step 4 uses
+`CombinedMarket`'s frozen seasonal baseline table (a static per-month
+shape — what the notebooks actually validated), confirmed in production
+as the better default by a real head-to-head fidelity backtest
+comparison against the live tick-specific alternative (static: better
+MAPE in 84 of 162 directly-comparable pairs vs. live's 78, lower mean
+MAPE). The live variant remains available (`ANCHOR_SCHEME_LIVE`) purely
+for this kind of analysis; the live production path always uses static.
 
 ## 6. What's frozen vs. adaptive
 
@@ -607,9 +608,10 @@ actual output, not a repeat of the abstract concern in section 8.
 
 - S3 sourcing specifics for the final deployment (flagged by the user
   as a follow-up discussion).
-- Whether the Step-2 anchor (section 5) should be `CombinedMarket`'s
-  static seasonal baseline or its live tick prediction — resolved via
-  the fidelity backtest, not assumed.
+- ~~Whether the Step-2 anchor (section 5) should be `CombinedMarket`'s
+  static seasonal baseline or its live tick prediction~~ — RESOLVED via
+  a real head-to-head fidelity backtest comparison (section 15): static
+  confirmed as the better default, by a modest but real margin.
 - Whether the Combined/Local consistency drift (section 10) needs an
   explicit reconciliation mechanism — resolved via measurement, not
   pre-built.
@@ -644,20 +646,31 @@ just a backtest curiosity — a production deployment relying on PIL
 prices during a transition period should expect a jump of this order
 until real data catches up.
 
-**Section 14's Step-2 anchor-scheme question — NOT resolved, now
-quantified.** The comparison implemented to investigate this
-(`test_open_items_report.py` section 3) fits the live-anchor variant
-with `train_start=None` (full history) while the static-anchor model
-being compared against was fit with its own adaptively *selected*
-window — so the comparison confounds anchor-scheme choice with
-window-length choice and cannot by itself say which anchor scheme is
-better. What it does establish: across all 156 fitted (species, port)
-pairs in the real data, static and live gammas disagree in sign 54.5%
-of the time and differ by more than 1.0 in magnitude 70.5% of the
-time — divergence here is the norm, not an edge case. This remains open
-and should not be treated as settled by plan header decision 1 alone;
-a window-length-matched head-to-head MAPE comparison (via
-`run_backtest_split` under both anchor schemes) is the needed next step.
+**Section 14's Step-2 anchor-scheme question — RESOLVED by a real,
+unconfounded head-to-head MAPE comparison.** The original comparison
+(gamma coefficients only, with the live variant always refit on full
+history regardless of what window static actually used) could only
+observe divergence, never say which scheme was better. Fixed properly:
+`MarketSystem.fit_all`/`_fit_step2_for_all_ports` now take an
+`anchor_scheme` parameter (`consts.ANCHOR_SCHEME_STATIC` /
+`ANCHOR_SCHEME_LIVE`; `CombinedMarket.get_live_anchor_series` provides
+the live source), defaulting to STATIC everywhere — the live production
+gRPC path is unaffected; only an explicit `anchor_scheme=LIVE` call (the
+fidelity backtest harness, for this comparison) exercises the
+alternative at all. `test_open_items_report.py` section 3 now runs TWO
+independent, fully-stepped backtests over the identical
+as_of_date/test_horizon/species — one per scheme — and compares the
+real, resulting MAPE directly, both overall and isolated to the 162 (of
+180) pairs where Step 2 was actually fitted under both schemes (the
+fair, confound-free subset). Result: **static wins** — better MAPE in
+84 of 162 pairs vs. live's 78, with a lower mean MAPE (39.9% vs. 40.5%).
+The margin is real but modest, not overwhelming: live wins by a large
+margin on some pairs too (e.g. MUT@ESARN: 40.8% → 18.9%; PIL@ESSPO:
+102.0% → 80.2%), and SAA's pairs are essentially a wash either way
+(sub-0.2-point differences throughout). This confirms plan header
+decision 1's original choice (made from the validated research
+notebook, before this measurement existed) was the right default, with
+real data now backing it rather than assuming it.
 
 **Section 11's fidelity-backtest precondition — NOT YET SATISFIED by the
 currently committed data.** The committed `config/northwestern_med/prices.csv`

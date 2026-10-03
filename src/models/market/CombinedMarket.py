@@ -181,6 +181,39 @@ class CombinedMarket:
         value = predicted.iloc[0]
         return float(value) if pd.notna(value) else None
 
+    def get_live_anchor_series(
+        self, species_code: str, category_code: str, own_monthly: pd.DataFrame, target_dates
+    ) -> pd.Series | None:
+        """
+        The alternate Step-2 anchor scheme (ANCHOR_SCHEME_LIVE, spec
+        section 5's open item / plan header decision 1) -- this market's
+        own frozen coefficients applied to its OWN real historical volume
+        at each date, varying month-to-month, unlike
+        get_baseline_price_table's fixed 12-month seasonal cycle.
+        Analysis-only: never used by the live production path, which
+        always calls get_baseline_price_table instead.
+
+        own_monthly is this CombinedMarket's own (date, price, landings_kg)
+        series (the same shape MarketSystem.fit_all already builds via
+        _build_monthly_by_key for this market_code/key, retained by the
+        caller since CombinedMarket itself doesn't keep it after fit()
+        returns). Returns None if this market has no frozen model for the
+        key at all; otherwise reindexed (by date) to target_dates, with
+        NaN for any date outside own_monthly's own range.
+        """
+        key = (species_code, category_code)
+        if key not in self.models:
+            return None
+
+        params = self.models[key]
+        if params.get("baseline_volume") is None:
+            predicted = predict_level_only(own_monthly, params)
+        else:
+            predicted = predict_level_volume(own_monthly, params)
+        predicted = predicted.copy()
+        predicted.index = own_monthly["date"]
+        return predicted.reindex(pd.DatetimeIndex(target_dates))
+
     def get_baseline_price_table(self, species_code: str, category_code: str) -> pd.Series | None:
         """
         Frozen per-month seasonal baseline -- used as LocalMarket Step 2's

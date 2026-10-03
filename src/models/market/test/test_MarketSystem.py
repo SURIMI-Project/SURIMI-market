@@ -3,6 +3,7 @@ import datetime
 import pandas as pd
 from grpc import StatusCode
 
+from src.models.market import consts
 from src.models.market.MarketSystem import MarketSystem, build_prefix_to_locals
 
 
@@ -319,6 +320,44 @@ def test_fit_all_high_tier_share_excludes_combined_market_aggregate_row():
     # The combined-market row itself is never a LocalMarket and must
     # never appear in a High-tier *set* at all, regardless of share.
     assert "ES" not in high_tier_ports
+
+
+def test_fit_all_defaults_to_static_anchor_scheme():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
+
+    key = ("ANE", "Fresh - Whole")
+    assert key in system.local_markets["ESALC"].step2_stacked_models  # unchanged from before anchor_scheme existed
+
+
+def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_step2_model():
+    key = ("ANE", "Fresh - Whole")
+    prices_df = _synthetic_prices_df()
+
+    static_system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    static_system.setup_topology(_markets_df_three_ports())
+    static_system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"))
+
+    live_system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    live_system.setup_topology(_markets_df_three_ports())
+    live_system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"), anchor_scheme=consts.ANCHOR_SCHEME_LIVE)
+
+    assert key in static_system.local_markets["ESALC"].step2_stacked_models
+    assert key in live_system.local_markets["ESALC"].step2_stacked_models
+    static_gamma = static_system.local_markets["ESALC"].step2_stacked_models[key]["gamma"]
+    live_gamma = live_system.local_markets["ESALC"].step2_stacked_models[key]["gamma"]
+    assert static_gamma != live_gamma  # different anchor source must produce a different fit
+
+    # Step 1 and CombinedMarket don't depend on anchor_scheme at all.
+    assert (
+        static_system.local_markets["ESALC"].step1_models[key]["alpha"]
+        == live_system.local_markets["ESALC"].step1_models[key]["alpha"]
+    )
+    assert (
+        static_system.combined_markets["ES"].models[key]["alpha"]
+        == live_system.combined_markets["ES"].models[key]["alpha"]
+    )
 
 
 def test_fit_all_retains_step2_fit_inputs_for_later_reuse():

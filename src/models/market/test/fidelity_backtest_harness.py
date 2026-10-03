@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
+from src.models.market import consts
 from src.models.market.MarketHandler import MarketHandler
 from src.models.market.level_volume_model import score_mape
 
@@ -58,6 +59,7 @@ def run_backtest_split(
     test_horizon_years: int,
     species_codes: list[str],
     return_handler: bool = False,
+    anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
 ):
     prices_df = pd.read_csv(f"{root_config_dir}/{scenario_id}/prices.csv", parse_dates=["date"])
     if "size" not in prices_df.columns:
@@ -95,6 +97,17 @@ def run_backtest_split(
         response, err = handler.init_simulation(simulation, tmp_root)
         if err is not None:
             raise RuntimeError(f"backtest init_simulation failed: {err.message}")
+
+        if anchor_scheme != consts.ANCHOR_SCHEME_STATIC:
+            # init_simulation always fits with the production default
+            # (static). Re-fit Step 2 with the requested alternate scheme
+            # on the SAME truncated data/latest_date before any stepping
+            # begins, so the comparison isolates anchor_scheme as the only
+            # variable -- Step 1 and CombinedMarket are refit identically
+            # either way (neither depends on anchor_scheme), only Step 2's
+            # models actually change.
+            latest_date = pd.Timestamp(truncated_prices["date"].max())
+            handler.market_system.fit_all(truncated_prices, latest_date, anchor_scheme=anchor_scheme)
 
         # From here on, the test window is driven by stepping the
         # market_system forward and feeding it that same window's REAL
