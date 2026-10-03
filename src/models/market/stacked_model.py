@@ -3,6 +3,7 @@ High-tier neighbor determination and distance-weighted neighbor signal
 construction (spec section 4's species-keying split, section 9.3). Step 2
 Stacked/DistanceOnly fit/predict functions are added in Task 8.
 """
+import numpy as np
 import pandas as pd
 
 from . import consts
@@ -60,9 +61,6 @@ def distance_weighted_neighbor_signal(
     neighbor_signal = weighted_sum / weight_total
     neighbor_signal[weight_total == 0] = float("nan")
     return neighbor_signal
-
-
-import numpy as np
 
 
 def build_static_anchor_series(dates, baseline_price_table: pd.Series) -> pd.Series:

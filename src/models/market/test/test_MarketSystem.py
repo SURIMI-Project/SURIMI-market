@@ -1,7 +1,6 @@
 import datetime
 
 import pandas as pd
-import pytest
 from grpc import StatusCode
 
 from src.models.market.MarketSystem import MarketSystem, build_prefix_to_locals

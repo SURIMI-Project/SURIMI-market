@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 from grpc import StatusCode
+from surimi.v1 import sales_pb2, species_pb2, update_sales_pb2
 
 from src.models.market.MarketHandler import MarketHandler
 
@@ -128,10 +130,6 @@ def test_init_simulation_succeeds_without_optional_size_ratios_csv(tmp_path):
     response, err = handler.init_simulation(_fake_simulation(), str(root_config_dir))
 
     assert err is None
-
-
-from surimi.v1 import sales_pb2, species_pb2, update_sales_pb2
-from google.protobuf.timestamp_pb2 import Timestamp
 
 
 def _init_handler(tmp_path):

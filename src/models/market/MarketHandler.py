@@ -4,7 +4,6 @@ config loading, grpc contract validation, wiring into MarketSystem.
 """
 import datetime
 import logging
-import os
 from pathlib import Path
 
 import grpc
