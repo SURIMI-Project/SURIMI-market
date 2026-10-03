@@ -196,7 +196,9 @@ class MarketSystem:
             species_code, category_code = key
 
             volume_rows = blended[
-                (blended["species_code"] == species_code) & (blended["category_code"] == category_code)
+                (blended["species_code"] == species_code)
+                & (blended["category_code"] == category_code)
+                & (blended["market_code"].isin(self.local_markets))
             ]
             volumes_by_port = volume_rows.groupby("market_code")["landings_kg"].sum().to_dict()
             high_tier_ports = compute_high_tier_ports(volumes_by_port)
