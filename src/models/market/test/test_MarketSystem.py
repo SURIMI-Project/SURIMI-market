@@ -271,6 +271,56 @@ def test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor():
     assert ("ANE", "Fresh - Whole") in system.local_markets["ESBCN"].step2_stacked_models
 
 
+def _prices_df_high_tier_share_straddles_threshold(n_years=6, seed=2):
+    """A (3% of real local volume) is genuinely High-tier among the real
+    local ports (A/B/C), but would be WRONGLY classified Mid-tier (1.5%)
+    if the combined-market 'ES' aggregate row -- which duplicates the
+    local total, not a fourth real port -- were counted in the
+    denominator. A direct regression test for the High-tier volume-share
+    fix (previously counted ES/FR, silently starving real ports of
+    neighbors)."""
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
+    rows = []
+    for port, base_volume in [("ESALC", 3.0), ("ESBCN", 3.0), ("ESVLC", 94.0)]:
+        volume = base_volume + rng.normal(0, base_volume * 0.01, len(dates))
+        price = 2.0 + rng.normal(0, 0.01, len(dates))
+        for d, p, v in zip(dates, price, volume):
+            rows.append({
+                "date": d, "market_code": port, "species_code": "ANE", "category_code": "Fresh - Whole",
+                "price": p, "landings_kg": v, "size": None,
+            })
+
+    df_local = pd.DataFrame(rows)
+    combined_rows = [
+        {
+            "date": d, "market_code": "ES", "species_code": "ANE", "category_code": "Fresh - Whole",
+            "price": group["price"].mean(), "landings_kg": group["landings_kg"].sum(), "size": None,
+        }
+        for d, group in df_local.groupby("date")
+    ]
+    return pd.concat([df_local, pd.DataFrame(combined_rows)], ignore_index=True)
+
+
+def test_fit_all_high_tier_share_excludes_combined_market_aggregate_row():
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    system.setup_topology(_markets_df_three_ports())
+    system.fit_all(_prices_df_high_tier_share_straddles_threshold(), latest_date=pd.Timestamp("2024-01-01"))
+
+    key = ("ANE", "Fresh - Whole")
+    high_tier_ports = system.high_tier_ports_by_key[key]
+
+    # ESALC's real share among local ports is 3/100 = 3% (High-tier,
+    # >2%). If the ES aggregate row were wrongly counted in the
+    # denominator (3/200 = 1.5%), it would be Mid-tier instead -- this
+    # assertion fails under the pre-fix computation.
+    assert "ESALC" in high_tier_ports
+    assert "ESBCN" in high_tier_ports
+    # The combined-market row itself is never a LocalMarket and must
+    # never appear in a High-tier *set* at all, regardless of share.
+    assert "ES" not in high_tier_ports
+
+
 def test_fit_all_retains_step2_fit_inputs_for_later_reuse():
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())
@@ -402,6 +452,27 @@ def test_step_updates_volume_baseline_from_real_observed_volume():
 
     after = system.local_markets["ESALC"].volume_baseline_stats[("ANE", "Fresh - Whole")]
     assert after[1] != before.get(1)
+
+
+def test_step_combined_market_skips_volume_baseline_update_on_a_zero_catch_tick():
+    system = _fitted_system()
+    key = ("ANE", "Fresh - Whole")
+    before = dict(system.combined_markets["ES"].volume_baseline_stats[key])
+
+    system.step()  # no add_monthly_catch calls anywhere this tick
+
+    after = system.combined_markets["ES"].volume_baseline_stats[key]
+    assert after.get(1) == before.get(1), (
+        "a zero-catch tick must not update the running mean (would dilute it toward 0 "
+        "and inflate every later VolumeRatio) -- LocalMarket already skips absent keys "
+        "for the same reason"
+    )
+
+    system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 1000.0)
+    system.step()
+
+    after_nonzero = system.combined_markets["ES"].volume_baseline_stats[key]
+    assert after_nonzero[2] != before.get(2), "a real, nonzero catch must still update the baseline"
 
 
 def test_step_records_history_for_combined_markets_too():
