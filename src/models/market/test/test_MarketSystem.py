@@ -537,6 +537,22 @@ def test_get_species_prices_message_includes_only_valid_prices():
         assert sp.price is not None
 
 
+def test_get_species_prices_message_works_before_the_first_step():
+    system = _fitted_system()  # fit_all() has run, step() has NOT
+
+    response = system.get_species_prices_message()
+
+    codes = {sp.species.species_code for sp in response.species_price_summary.species_prices}
+    assert "ANE" in codes
+    for sp in response.species_price_summary.species_prices:
+        assert sp.price is not None
+
+    # Calling it again must not have advanced the tick or recorded any
+    # history -- the live fallback is a read-only computation.
+    assert system.tick.get_tick() == 0
+    assert system.local_markets["ESALC"].price_history == []
+
+
 def test_get_species_prices_message_skips_markets_with_no_history_yet():
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())

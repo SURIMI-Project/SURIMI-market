@@ -270,6 +270,21 @@ class MarketSystem:
             code: cm.get_direct_catch_snapshot() for code, cm in self.combined_markets.items()
         }
 
+        combined_prices, combined_total_volumes, local_prices = self._compute_tick_prices(
+            current_date, local_volumes, combined_direct_volumes
+        )
+
+        self._advance_tick_state(current_date, local_volumes, combined_total_volumes, local_prices, combined_prices)
+
+    def _compute_tick_prices(self, current_date, local_volumes, combined_direct_volumes):
+        """Pure price computation for a single tick (spec section 5 steps
+        2-4): CombinedMarket prices, Step 1 for every LocalMarket/key, and
+        the final real-price-first/Step-2-switch reported price per
+        LocalMarket. No side effects (no history, no baseline update, no
+        tick advance) -- shared by step() and get_species_prices_message's
+        pre-first-step fallback, which calls this with zero volumes at the
+        current (not-yet-advanced) tick date instead of leaving callers an
+        empty response before the first SimulateStep."""
         # Step 2 of spec section 5: CombinedMarket prices + total tick volumes.
         combined_prices = {}
         combined_total_volumes = {}
@@ -328,6 +343,11 @@ class MarketSystem:
 
                 local_prices[code][key] = final_price
 
+        return combined_prices, combined_total_volumes, local_prices
+
+    def _advance_tick_state(
+        self, current_date, local_volumes, combined_total_volumes, local_prices, combined_prices
+    ):
         # Step 5: adaptive volume-baseline updates (real observed volume only).
         # Both levels apply the same INTENT: a tick with zero recorded catch
         # for a key contributes no information about that key's "normal
@@ -387,27 +407,38 @@ class MarketSystem:
         return sum(weights[port] * neighbor_candidates[port] for port in candidates) / total_weight
 
     def get_species_prices_message(self) -> get_species_prices_pb2.GetSpeciesPricesResponse:
-        # KNOWN GAP (flagged by the final whole-branch review, not yet
-        # fixed): a LocalMarket contributes nothing until its first
-        # price_history entry exists, i.e. until step() has run at least
-        # once. GetSpeciesPrices is an independent RPC with no ordering
-        # guarantee relative to SimulateStep, so a caller that queries
-        # prices before the first step gets a valid-but-EMPTY response here,
-        # unlike ElsaHandler (which seeds prices at init_simulation time via
-        # set_local_market_initial_price/update_global_price_history/
-        # set_missing_local_prices_with_global_fallback specifically so this
-        # RPC works before the first step). Fixing this means either seeding
-        # an initial snapshot in MarketHandler.init_simulation the same way,
-        # or explicitly documenting the contract difference for callers.
+        # GetSpeciesPrices is an independent RPC with no ordering guarantee
+        # relative to SimulateStep. A LocalMarket has no price_history entry
+        # until step() has run at least once, so a query before the first
+        # step falls back to computing a live snapshot directly (same
+        # computation step() itself would do, for a zero-catch tick at the
+        # current, not-yet-advanced tick date -- no history/baseline/tick
+        # side effects), instead of silently returning an empty response.
+        # This mirrors ElsaHandler's init-time price seeding
+        # (set_local_market_initial_price/update_global_price_history/
+        # set_missing_local_prices_with_global_fallback), computed lazily
+        # here rather than eagerly stored, since this plugin's price state
+        # lives in price_history rather than a separate live-price dict.
         messages = []
         valid_count = 0
         missing_count = 0
+        live_prices_by_port = None  # computed at most once, only if actually needed
 
         for code, local_market in self.local_markets.items():
-            if not local_market.price_history:
-                continue
-            _, latest_snapshot = local_market.price_history[-1]
-            for (species_code, category_code), price in latest_snapshot["prices"].items():
+            if local_market.price_history:
+                _, latest_snapshot = local_market.price_history[-1]
+                prices = latest_snapshot["prices"]
+            else:
+                if live_prices_by_port is None:
+                    current_date = pd.Timestamp(self.tick.get_date())
+                    zero_volumes = {c: {} for c in self.local_markets}
+                    zero_combined_direct = {p: {} for p in self.combined_markets}
+                    _, _, live_prices_by_port = self._compute_tick_prices(
+                        current_date, zero_volumes, zero_combined_direct
+                    )
+                prices = live_prices_by_port.get(code, {})
+
+            for (species_code, category_code), price in prices.items():
                 if price is None:
                     missing_count += 1
                     continue

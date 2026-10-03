@@ -675,17 +675,21 @@ Plan 1's output replaces the committed file — if the numbers move
 materially, the known-limitation list in `test_fidelity_backtest.py`
 needs re-confirming, not silently carried over.
 
-**`GetSpeciesPrices` before the first tick — a known, undocumented-until-now
-contract gap.** Unlike `ElsaHandler` (which seeds an initial price snapshot
-at `init_simulation` time specifically so this RPC works before the first
-`SimulateStep`), `MarketHandler` does not — a caller that queries prices
-before the first step gets a valid-but-empty response. `GetSpeciesPrices`
-is an independent RPC with no ordering guarantee relative to
-`SimulateStep`, so this is a real gap for any deployment that might query
-prices early, not just a theoretical one. Not fixed here; flagged for a
-follow-up task (either seed an initial snapshot the same way Elsa does,
-or document the contract difference for callers and have them tolerate
-an empty first response).
+**`GetSpeciesPrices` before the first tick — FIXED.** Unlike `ElsaHandler`
+(which seeds an initial price snapshot at `init_simulation` time
+specifically so this RPC works before the first `SimulateStep`),
+`MarketHandler` previously did not — a caller that queried prices before
+the first step got a valid-but-empty response. Fixed by extracting
+`MarketSystem.step()`'s price-computation logic (spec section 5 steps
+2-4) into a pure, side-effect-free `_compute_tick_prices` method, and
+having `get_species_prices_message` call it directly (for a zero-catch
+tick at the current, not-yet-advanced tick date) whenever a port has no
+`price_history` entry yet. This mirrors Elsa's init-time seeding intent
+but computes the fallback lazily rather than eagerly storing it, since
+this plugin's price state lives in `price_history` rather than a
+separate live-price dict — and since it reuses the same real-price-first
+path, a query before the first step can even surface a genuine real
+price if one already exists for the simulation's start date.
 
 **Two mechanical fixes applied as part of this review** (not open items,
 recorded here for completeness since they affect the numbers above):
