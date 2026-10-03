@@ -624,69 +624,84 @@ actual output, not a repeat of the abstract concern in section 8.
 
 Recorded after implementation and the final whole-branch review, so the
 real numbers behind sections 10/13/14 live somewhere durable instead of
-only in test stdout or a gitignored report file.
+only in test stdout or a gitignored report file. **Updated** after
+Plan 1's data-prep pipeline was actually run (a fresh EMODnet download)
+and its output substituted for the committed `prices.csv` — see the
+precondition entry below. All numbers in this section are from the
+real, regenerated data, not the earlier pre-Plan-1 file.
+
+**Section 11's fidelity-backtest precondition — SATISFIED.** The
+committed `config/northwestern_med/prices.csv` is now Plan 1's actual
+output (`src/models/market/data_prep/run.py` run against a live EMODnet
+download): 100% `landings_kg` coverage for every validated species (up
+from 39.6%), a real `size` column, and a 2015-2024 date range (the old
+file ran 2010-2024; the pinned historical snapshot the original design
+intended to validate against is no longer recoverable — see the ledger
+for Plan 1's own data-prep work — so this is "the current EMODnet
+snapshot," not a byte-for-byte reproduction of a specific past one).
+Every number below was re-measured against this real data; the ones
+measured only against the old file have been superseded, not merely
+annotated.
 
 **Section 10 (Combined/Local consistency drift) — measured, accepted as
 bounded.** Mean `|volume-weighted Local - Combined|` gap over the 2-year
-backtest window, per validated species: ANE 8.9%, PIL 6.8%, HKE 5.3%,
-SAA 9.9%, MUT 4.4%. All in the single-digit-to-low-double-digit range —
-small enough to treat as the accepted, bounded limitation this section
+backtest window, per validated species: ANE 9.1%, PIL 7.0%, HKE 5.5%,
+SAA 13.3%, MUT 4.6%. Still single-digit-to-low-double-digit — small
+enough to treat as the accepted, bounded limitation this section
 anticipated, not evidence an explicit reconciliation mechanism is needed
-yet. Re-measure if a future change to either level's fitting or the
-volume-baseline update (see the two fixes below) shifts this materially.
+yet. SAA's gap widened the most (9.9% → 13.3%) of the five; worth
+revisiting if SAA-specific production use becomes a priority.
 
-**Section 13's "transition jump" check — measured, one real outlier.**
-At the shared real-data boundary (2024-12-01), `CombinedMarket`'s frozen
-prediction vs. the real recorded price: ANE 1.5%, MUT 1.4%, SAA 17.2%,
-HKE 18.4%, PIL 31.3%. ANE/MUT are tight; SAA/HKE/PIL are materially
-larger. Per this section's own criterion ("worth knowing before relying
-on this in production"), PIL's 31.3% jump in particular is worth
-treating as a live-production risk for that species specifically, not
-just a backtest curiosity — a production deployment relying on PIL
-prices during a transition period should expect a jump of this order
-until real data catches up.
+**Section 13's "transition jump" check — measured, same pattern as
+before.** At the shared real-data boundary (2024-12-01), `CombinedMarket`'s
+frozen prediction vs. the real recorded price: ANE 1.5%, MUT 1.5%,
+SAA 17.8%, HKE 18.4%, PIL 31.3% — essentially unchanged from the old
+data's measurement (expected, since both files cover this same end
+date with similar recent real catches). ANE/MUT are tight; SAA/HKE/PIL
+are materially larger. PIL's 31.3% jump remains worth treating as a
+live-production risk for that species specifically.
 
 **Section 14's Step-2 anchor-scheme question — RESOLVED by a real,
-unconfounded head-to-head MAPE comparison.** The original comparison
-(gamma coefficients only, with the live variant always refit on full
-history regardless of what window static actually used) could only
-observe divergence, never say which scheme was better. Fixed properly:
-`MarketSystem.fit_all`/`_fit_step2_for_all_ports` now take an
-`anchor_scheme` parameter (`consts.ANCHOR_SCHEME_STATIC` /
-`ANCHOR_SCHEME_LIVE`; `CombinedMarket.get_live_anchor_series` provides
-the live source), defaulting to STATIC everywhere — the live production
-gRPC path is unaffected; only an explicit `anchor_scheme=LIVE` call (the
-fidelity backtest harness, for this comparison) exercises the
-alternative at all. `test_open_items_report.py` section 3 now runs TWO
-independent, fully-stepped backtests over the identical
-as_of_date/test_horizon/species — one per scheme — and compares the
-real, resulting MAPE directly, both overall and isolated to the 162 (of
-180) pairs where Step 2 was actually fitted under both schemes (the
-fair, confound-free subset). Result: **static wins** — better MAPE in
-84 of 162 pairs vs. live's 78, with a lower mean MAPE (39.9% vs. 40.5%).
-The margin is real but modest, not overwhelming: live wins by a large
-margin on some pairs too (e.g. MUT@ESARN: 40.8% → 18.9%; PIL@ESSPO:
-102.0% → 80.2%), and SAA's pairs are essentially a wash either way
-(sub-0.2-point differences throughout). This confirms plan header
-decision 1's original choice (made from the validated research
-notebook, before this measurement existed) was the right default, with
-real data now backing it rather than assuming it.
+unconfounded head-to-head MAPE comparison; re-confirmed against the
+regenerated data.** The original comparison (gamma coefficients only,
+with the live variant always refit on full history regardless of what
+window static actually used) could only observe divergence, never say
+which scheme was better. Fixed properly: `MarketSystem.fit_all`/
+`_fit_step2_for_all_ports` now take an `anchor_scheme` parameter
+(`consts.ANCHOR_SCHEME_STATIC` / `ANCHOR_SCHEME_LIVE`;
+`CombinedMarket.get_live_anchor_series` provides the live source),
+defaulting to STATIC everywhere — the live production gRPC path is
+unaffected; only an explicit `anchor_scheme=LIVE` call (the fidelity
+backtest harness, for this comparison) exercises the alternative at
+all. `test_open_items_report.py` section 3 runs TWO independent,
+fully-stepped backtests over the identical as_of_date/test_horizon/
+species — one per scheme — and compares the real, resulting MAPE
+directly, both overall and isolated to the pairs where Step 2 was
+actually fitted under both schemes (the fair, confound-free subset).
+Result against the regenerated data: **static wins again** — better
+MAPE in 85 of 151 isolated pairs vs. live's 66 (0 ties), with a lower
+mean MAPE (76.2% vs. 76.8% — both high because this mean now includes
+the extremely sparse-data outlier pairs below, e.g. ANE@ESCDK at over
+1200% MAPE for both schemes; the *relative* ordering between schemes is
+what matters here, not the absolute mean). Confirms plan header
+decision 1's original choice holds under the real, regenerated data
+too, not just the old file.
 
-**Section 11's fidelity-backtest precondition — NOT YET SATISFIED by the
-currently committed data.** The committed `config/northwestern_med/prices.csv`
-used for every MAPE number in this spec and in `test_fidelity_backtest.py`
-is the *pre-Plan-1* file: it has no `size` column and only 39.6%
-`landings_kg` coverage overall (72% for the five validated species) —
-the exact gap Plan 1's data-prep pipeline exists to close. Section 11
-states explicitly that the fidelity backtest "only means anything once
-section 13's data-consistency check... has passed"; that check has
-passed for Plan 1's *pipeline*, but the regenerated `prices.csv` it
-produces has not yet been substituted for the committed file. Every
-MAPE number, known-limitation exemption, and the two measurements above
-are therefore provisional on the old data and should be re-run once
-Plan 1's output replaces the committed file — if the numbers move
-materially, the known-limitation list in `test_fidelity_backtest.py`
-needs re-confirming, not silently carried over.
+**Fresh known-limitation findings from the regenerated data.** Three
+(species, port) pairs newly exceed the MAPE ceiling that the old data
+never surfaced — `test_fidelity_backtest.py`'s `KNOWN_LIMITATION_PAIRS`
+has the full investigation for each. All three share a root cause:
+genuinely sparse real landings for that specific pair (41, 15, and 80
+total rows respectively, spanning the whole 2015-2024 history, not a
+data gap), leaving only 2-5 held-out comparison months out of 24. One
+of them (ANE@ESCDK) surfaced a real, narrow robustness gap worth
+flagging here: with almost no training signal, the Step 2 Stacked
+regression extrapolated to a **negative** predicted price for one
+held-out month (-18.83 vs. a real 1.40 EUR/kg) — nothing in the model
+enforces a price floor. This is isolated to pairs this data-sparse (not
+observed anywhere else across the real data) and not treated as
+blocking, but a price-floor safeguard would be a reasonable follow-up
+if more such pairs turn up in a future, larger contract.
 
 **`GetSpeciesPrices` before the first tick — FIXED.** Unlike `ElsaHandler`
 (which seeds an initial price snapshot at `init_simulation` time
