@@ -382,6 +382,18 @@ class MarketSystem:
         return sum(weights[port] * neighbor_candidates[port] for port in candidates) / total_weight
 
     def get_species_prices_message(self) -> get_species_prices_pb2.GetSpeciesPricesResponse:
+        # KNOWN GAP (flagged by the final whole-branch review, not yet
+        # fixed): a LocalMarket contributes nothing until its first
+        # price_history entry exists, i.e. until step() has run at least
+        # once. GetSpeciesPrices is an independent RPC with no ordering
+        # guarantee relative to SimulateStep, so a caller that queries
+        # prices before the first step gets a valid-but-EMPTY response here,
+        # unlike ElsaHandler (which seeds prices at init_simulation time via
+        # set_local_market_initial_price/update_global_price_history/
+        # set_missing_local_prices_with_global_fallback specifically so this
+        # RPC works before the first step). Fixing this means either seeding
+        # an initial snapshot in MarketHandler.init_simulation the same way,
+        # or explicitly documenting the contract difference for callers.
         messages = []
         valid_count = 0
         missing_count = 0

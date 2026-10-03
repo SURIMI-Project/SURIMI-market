@@ -5,6 +5,13 @@ import pytest
 
 from src.models.market.test.fidelity_backtest_harness import run_backtest_split
 
+# PRECONDITION NOT YET SATISFIED (spec section 11/15): this backtest only
+# means anything once the real prices.csv it reads is Plan 1's regenerated
+# output. As of this writing, the committed config/northwestern_med/prices.csv
+# is still the PRE-Plan-1 file (no "size" column, 39.6% landings_kg
+# coverage) -- every MAPE number and known-limitation exemption below is
+# provisional on that old data and needs re-confirming once Plan 1's output
+# replaces the committed file. See spec section 15 for the full writeup.
 VALIDATED_SPECIES = ["ANE", "PIL", "HKE", "SAA", "MUT"]
 CONFIG_DIR = "config/northwestern_med"
 

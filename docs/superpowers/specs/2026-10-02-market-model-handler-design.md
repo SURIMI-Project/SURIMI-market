@@ -617,3 +617,84 @@ actual output, not a repeat of the abstract concern in section 8.
   adjustment once validated against the full fidelity backtest, rather
   than just the scratch-script checks performed during design — the
   candidate set was empirically tuned to this specific dataset.
+
+## 15. Measured results and current status of the open items above
+
+Recorded after implementation and the final whole-branch review, so the
+real numbers behind sections 10/13/14 live somewhere durable instead of
+only in test stdout or a gitignored report file.
+
+**Section 10 (Combined/Local consistency drift) — measured, accepted as
+bounded.** Mean `|volume-weighted Local - Combined|` gap over the 2-year
+backtest window, per validated species: ANE 8.9%, PIL 6.8%, HKE 5.3%,
+SAA 9.9%, MUT 4.4%. All in the single-digit-to-low-double-digit range —
+small enough to treat as the accepted, bounded limitation this section
+anticipated, not evidence an explicit reconciliation mechanism is needed
+yet. Re-measure if a future change to either level's fitting or the
+volume-baseline update (see the two fixes below) shifts this materially.
+
+**Section 13's "transition jump" check — measured, one real outlier.**
+At the shared real-data boundary (2024-12-01), `CombinedMarket`'s frozen
+prediction vs. the real recorded price: ANE 1.5%, MUT 1.4%, SAA 17.2%,
+HKE 18.4%, PIL 31.3%. ANE/MUT are tight; SAA/HKE/PIL are materially
+larger. Per this section's own criterion ("worth knowing before relying
+on this in production"), PIL's 31.3% jump in particular is worth
+treating as a live-production risk for that species specifically, not
+just a backtest curiosity — a production deployment relying on PIL
+prices during a transition period should expect a jump of this order
+until real data catches up.
+
+**Section 14's Step-2 anchor-scheme question — NOT resolved, now
+quantified.** The comparison implemented to investigate this
+(`test_open_items_report.py` section 3) fits the live-anchor variant
+with `train_start=None` (full history) while the static-anchor model
+being compared against was fit with its own adaptively *selected*
+window — so the comparison confounds anchor-scheme choice with
+window-length choice and cannot by itself say which anchor scheme is
+better. What it does establish: across all 156 fitted (species, port)
+pairs in the real data, static and live gammas disagree in sign 54.5%
+of the time and differ by more than 1.0 in magnitude 70.5% of the
+time — divergence here is the norm, not an edge case. This remains open
+and should not be treated as settled by plan header decision 1 alone;
+a window-length-matched head-to-head MAPE comparison (via
+`run_backtest_split` under both anchor schemes) is the needed next step.
+
+**Section 11's fidelity-backtest precondition — NOT YET SATISFIED by the
+currently committed data.** The committed `config/northwestern_med/prices.csv`
+used for every MAPE number in this spec and in `test_fidelity_backtest.py`
+is the *pre-Plan-1* file: it has no `size` column and only 39.6%
+`landings_kg` coverage overall (72% for the five validated species) —
+the exact gap Plan 1's data-prep pipeline exists to close. Section 11
+states explicitly that the fidelity backtest "only means anything once
+section 13's data-consistency check... has passed"; that check has
+passed for Plan 1's *pipeline*, but the regenerated `prices.csv` it
+produces has not yet been substituted for the committed file. Every
+MAPE number, known-limitation exemption, and the two measurements above
+are therefore provisional on the old data and should be re-run once
+Plan 1's output replaces the committed file — if the numbers move
+materially, the known-limitation list in `test_fidelity_backtest.py`
+needs re-confirming, not silently carried over.
+
+**`GetSpeciesPrices` before the first tick — a known, undocumented-until-now
+contract gap.** Unlike `ElsaHandler` (which seeds an initial price snapshot
+at `init_simulation` time specifically so this RPC works before the first
+`SimulateStep`), `MarketHandler` does not — a caller that queries prices
+before the first step gets a valid-but-empty response. `GetSpeciesPrices`
+is an independent RPC with no ordering guarantee relative to
+`SimulateStep`, so this is a real gap for any deployment that might query
+prices early, not just a theoretical one. Not fixed here; flagged for a
+follow-up task (either seed an initial snapshot the same way Elsa does,
+or document the contract difference for callers and have them tolerate
+an empty first response).
+
+**Two mechanical fixes applied as part of this review** (not open items,
+recorded here for completeness since they affect the numbers above):
+`MarketSystem._fit_step2_for_all_ports`'s High-tier volume-share
+computation was including the 2-letter combined-market aggregate rows
+(`ES`/`FR`) in its denominator, silently starving most ports of real
+neighbors (HKE went from 5 of 18 legitimate High-tier ports to all 18
+once fixed) — this resolved what had been an unexplained ~3x MAPE
+amplification at one port. Separately, `CombinedMarket`'s adaptive
+volume baseline was being diluted by an explicit 0.0 entry on every
+zero-catch tick, unlike `LocalMarket`'s baseline, which already skipped
+those ticks — both levels now apply the same rule.

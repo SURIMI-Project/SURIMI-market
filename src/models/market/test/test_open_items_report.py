@@ -129,6 +129,23 @@ def test_open_items_report():
             print(f"{species_code}: mean |Local(volume-weighted) - Combined| gap = {sum(gaps)/len(gaps):.2f}%")
 
     print("\n=== 3. Static vs. live Step-2 anchor comparison (spec sections 5/14) ===")
+    # NOTE (recorded after the final whole-branch review): this comparison is
+    # NOT a clean resolution of section 14's anchor-scheme open item, and
+    # should not be read as one. live_stacked/live_distance_only are always
+    # refit with train_start=None (full history), while static_stacked was
+    # fit with its own adaptively SELECTED window (section 7) -- so a gamma
+    # difference below confounds the anchor-scheme choice with the
+    # window-length choice; it cannot by itself say which anchor scheme is
+    # better. A real resolution needs a head-to-head MAPE comparison (via
+    # run_backtest_split) under the SAME window for both schemes -- not yet
+    # done. What this DOES establish: across all 156 fitted (species, port)
+    # pairs in the real data, static and live gammas disagree in SIGN 54.5%
+    # of the time and differ by more than 1.0 in magnitude 70.5% of the time
+    # -- divergence here is the norm, not an edge case, so this is not a
+    # question to leave open indefinitely.
+    sign_flips = 0
+    large_divergences = 0
+    total_pairs = 0
     for species_code in VALIDATED_SPECIES:
         key = (species_code, "Fresh - Whole")
         combined_market = handler.market_system.combined_markets.get("ES")
@@ -163,11 +180,26 @@ def test_open_items_report():
                 continue
 
             static_stacked = local_market.step2_stacked_models[key]
+            static_gamma, live_gamma = static_stacked["gamma"], live_stacked["gamma"]
+            total_pairs += 1
+            sign_flip = (static_gamma > 0) != (live_gamma > 0)
+            large_divergence = abs(static_gamma - live_gamma) > 1.0
+            sign_flips += sign_flip
+            large_divergences += large_divergence
+            flag = " [SIGN FLIP]" if sign_flip else (" [large divergence]" if large_divergence else "")
             print(
-                f"{species_code}@{code}: static-anchor gamma={static_stacked['gamma']:.3f} vs. "
-                f"live-anchor gamma={live_stacked['gamma']:.3f} "
-                f"(both fit successfully; relative MAPE comparison is test_fidelity_backtest.py's "
-                f"job for the static scheme -- this confirms the live scheme is at least a stable, "
-                f"fittable alternative worth backtesting head-to-head as a follow-up if these diverge "
-                f"substantially)"
+                f"{species_code}@{code}: static-anchor gamma={static_gamma:.3f} vs. "
+                f"live-anchor gamma={live_gamma:.3f}{flag} "
+                f"(window-length confounded with anchor scheme -- see note above; not a resolved "
+                f"comparison by itself)"
             )
+
+    if total_pairs:
+        print(
+            f"\nSection 3 summary: {sign_flips}/{total_pairs} pairs ({100*sign_flips/total_pairs:.1f}%) "
+            f"sign-flip between static and live anchor gamma; {large_divergences}/{total_pairs} "
+            f"({100*large_divergences/total_pairs:.1f}%) differ by >1.0 in magnitude. Section 14's "
+            f"anchor-scheme open item remains UNRESOLVED: this divergence rate is too high to treat "
+            f"as noise, but a window-length-matched head-to-head MAPE comparison is needed before "
+            f"concluding which scheme is actually better."
+        )
