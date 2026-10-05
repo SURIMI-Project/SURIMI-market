@@ -233,6 +233,29 @@ be updated later:
   either way) — only in what counts as a "normal" volume to compare
   against.
 
+**Periodic re-fitting ("rolling re-calibration") — investigated, not
+adopted; see section 15.** Whether frozen-forever should be relaxed to
+periodically re-fit against real data genuinely accumulating over
+calendar time (never during a synthetic forecast jump, which would be
+circular) was investigated as a real, measured alternative, scoped to
+`CombinedMarket` only. Result: a mixed, species-dependent effect on
+real-data accuracy (clear win for some species, clear loss for others)
+with no uniform benefit — parked as a known, tested-but-rejected
+alternative, not pursued further.
+
+**Model 2's fit itself — revised; see section 15 for the full
+investigation.** `fit_level_volume_model`/`predict_level_volume`
+(`level_volume_model.py`, shared by `CombinedMarket`'s Model 2 and
+`LocalMarket`'s Step 1) no longer fit a plain linear
+`price = baseline + alpha + beta*(volume-baseline_volume)`. The frozen
+coefficients now parameterize a log-price fit against a *relative*,
+*clamped* volume anomaly instead — the "price-related coefficients,
+frozen forever" characterization above still holds; what changed is the
+functional form those frozen coefficients plug into, not the
+frozen-vs-adaptive split itself. Step 2 (`stacked_model.py`) is
+unaffected and still uses the original plain-linear formula — an
+explicit, deliberate scope decision (section 15), not an oversight.
+
 ## 7. Adaptive training-window selection
 
 Rather than fitting every frozen coefficient set on a single, fixed
@@ -778,3 +801,102 @@ amplification at one port. Separately, `CombinedMarket`'s adaptive
 volume baseline was being diluted by an explicit 0.0 entry on every
 zero-catch tick, unlike `LocalMarket`'s baseline, which already skipped
 those ticks — both levels now apply the same rule.
+
+**Model 2's no-price-floor gap — investigated in depth, FIXED for
+CombinedMarket/Step 1; Step 2 explicitly deferred.** Building a 20-year
+synthetic scenario forecast (four catch trajectories, driven through the
+real `MarketHandler`) surfaced a genuine model limitation: under
+sustained, far-outside-training catch growth, `CombinedMarket`'s frozen
+linear Model 2 extrapolated MUT's price through zero into negative
+territory — the same class of issue as the ANE@ESCDK Step 2 finding
+above, confirmed via a second, independent trigger (a sustained trend
+vs. sparse training data) at a different level (`CombinedMarket` vs.
+`LocalMarket`).
+
+A hard price floor (clamp the output to a fixed minimum) was considered
+and rejected: any floor high enough to be a meaningful realism guarantee
+already conflicts with real historical prices for the more volatile
+species (ANE/PIL/SAA ports have genuinely recorded prices as low as
+2-6% of their own seasonal baseline), so the model would become
+structurally incapable of ever reproducing those real months again.
+
+The adopted fix is three changes stacked together, in
+`level_volume_model.py`'s `fit_level_volume_model`/
+`predict_level_volume` (shared by `CombinedMarket` Model 2 and
+`LocalMarket` Step 1 — deliberately applied to both, not forked):
+
+1. **Log-price fit** (`price = exp(baseline_log_price + alpha +
+   beta*vol_anom)` instead of linear) — mathematically guarantees the
+   prediction can never be negative. Compared head-to-head against a
+   dynamic-switch-based alternative (extending the existing
+   Stacked/DistanceOnly volume-ratio mechanism to substitute a
+   "normal month" prediction outside `[10%, 200%]` of baseline volume):
+   log-price never went negative even in the 20-year stress test
+   (minimum observed: 1.094), while the dynamic-switch extension
+   substantially reduced but did not eliminate the problem (minimum:
+   -0.510) because its fixed 200% threshold doesn't align with each
+   month's own actual zero-crossing point. Log-price won on both
+   robustness and real-data accuracy for most species.
+2. **Relative (not absolute) volume anomaly**
+   (`vol_anom = (volume-baseline_volume)/baseline_volume`) — found via a
+   direct observation against the published 20-year forecast chart: the
+   model's sensitivity to an identical relative catch scenario varied
+   2-6x across calendar months (confirmed against MUT's own fitted
+   parameters: a "2x normal catches" scenario swung Feb's price -14.6%
+   but Nov's -34.4%), because a single frozen `beta` applied to an
+   *absolute* kilogram difference hits naturally-high-volume months far
+   harder than low-volume ones for the same relative change. Making the
+   anomaly relative instead makes `beta` mean "% price change per %
+   volume change" uniformly across every month (confirmed: the swing
+   spread across all 12 months dropped to 0.0000pp).
+3. **Clamping** `vol_anom` to the min/max relative anomaly actually
+   observed in that pair's own training data, before applying `beta` —
+   `beta` is only validated within the range of evidence it was fit on;
+   this prevents extrapolating it further in either direction (glut or
+   scarcity) instead of just changing the shape of the extrapolation.
+   This is the most direct fix for the root cause common to every
+   extrapolation-driven finding in this investigation. It also
+   eliminated a previously-unexplained, intermittent `RuntimeWarning:
+   overflow encountered in exp` entirely (9 occurrences before, 0 after,
+   in the full test suite).
+
+Each change was validated empirically before being applied, via the
+same production code paths (the real `MarketHandler`/`run_backtest_split`
+harness, not a reimplementation) used throughout sections 10/14 above —
+including catching and fixing two methodological mistakes along the way
+before trusting results: an early comparison patched only
+`CombinedMarket`'s module reference and silently never exercised
+`LocalMarket`'s own Step 1 fit, understating the real change's effect on
+the ~160 local ports until corrected.
+
+**Real-data accuracy impact (CombinedMarket, volume-weighted MAPE,
+2022-2024 held-out window):** mixed, species-dependent, consistent with
+every other design choice in this project — no free lunch. MUT (the
+species that motivated this investigation) and HKE improve; ANE/PIL/SAA
+see modest regressions. Net effect on the port-level fidelity backtest:
+ANE@ESLLC and two previously-failing pairs (MUT@ESBLA, ANE@ESVLC) are
+now fixed; three HKE ports (ESQAJ, ESROS, ESSAG) remain above the MAPE
+ceiling despite substantial improvement from clamping (e.g. ESSAG
+97.1%->68.6%) — investigated and added to
+`test_fidelity_backtest.py`'s `KNOWN_LIMITATION_PAIRS`. Root cause,
+confirmed by inspecting real volumes directly: each port's actual
+2022-2023 landings collapsed to 1-23% of that calendar month's
+historical baseline, a genuine supply shock more severe than anything
+in that specific port's own training history — the same
+extrapolation-beyond-training-evidence problem as the rest of this
+section, just triggered by a real event on the scarcity side instead of
+a synthetic one on the glut side, and only partially resolved by
+clamping because the training range itself never covered an event this
+severe.
+
+**Step 2 remains explicitly out of scope for all three fixes above** —
+a deliberate scope decision, not an oversight. `stacked_model.py`'s
+Stacked/DistanceOnly regressions are a structurally separate fit (their
+own `delta`/`gamma`, their own volume-anomaly term, still absolute and
+still linear) that merely *consumes* Step 1's prediction as one input
+among several. The ANE@ESCDK negative-price case above is a Step 2
+problem, not a Step 1 one, and is therefore **not** fixed by any of
+this — confirmed directly (ESCDK's Step 1 prediction is safely positive
+post-fix; its final Step 2 output still goes negative). Tackling Step
+2's own floor/relative-anomaly/clamping equivalent is explicit,
+separate follow-up work.

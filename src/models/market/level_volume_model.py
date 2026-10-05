@@ -1,13 +1,58 @@
 """
-Seasonal baseline + volume-response model (spec section 3's "Model 2"):
-price = baseline_price[month] + alpha + beta * (volume - baseline_volume[month]).
+Seasonal baseline + volume-response model (spec section 3's "Model 2"), fit
+in log-price space against a RELATIVE volume anomaly (spec section 9's
+negative-price-extrapolation fix, extended):
+log(price) = baseline_log_price[month] + alpha + beta * vol_anom, where
+vol_anom = (volume - baseline_volume[month]) / baseline_volume[month] (a
+dimensionless "% above/below normal for this month" anomaly, not a raw
+kilogram difference) -- predicted price = exp(that).
+
+Three distinct fixes are stacked here, found and validated separately:
+  - Log-price (not raw price) as the fit target means a sustained,
+    far-outside-training volume swing bends the predicted price towards
+    zero instead of extrapolating straight through it -- confirmed
+    empirically (never goes negative, even under a 20-year sustained-growth
+    stress scenario where the original linear fit went negative).
+  - RELATIVE (not absolute) volume anomaly means beta means "% price change
+    per % volume change", uniformly across every calendar month, instead of
+    "% price change per extra KG" -- which, with a single frozen beta,
+    made the model's sensitivity to the SAME relative catch scenario wildly
+    uneven across months purely because each month's own typical volume
+    differs (confirmed both mathematically and visibly in a 20-year
+    scenario forecast: MUT's Sep/Oct/Nov, its lowest-price/highest-volume
+    months, swung 2-6x harder than its other months for the same scenario).
+  - CLAMPING vol_anom to the min/max relative anomaly actually observed
+    during training, before applying beta: beta is only validated within
+    the range of data it was fit on, so a real or synthetic volume anomaly
+    beyond that range holds steady at the most extreme validated response
+    instead of extrapolating beta further outward. This is the direct fix
+    for the root cause behind every extrapolation-driven finding in this
+    investigation, on BOTH sides: the original MUT near-zero-price stress
+    scenario (bounded far more comfortably with clamping than without) and
+    a newly-found real-data case (HKE@ESQAJ/ESROS/ESSAG, where an actual
+    2022-2023 catch collapse far outside training experience caused a
+    large price overshoot -- substantially reduced, though not fully
+    resolved, by clamping, e.g. ESSAG's held-out MAPE 97.1% -> 68.6%).
+All three are a net improvement in real-data accuracy for most, though not
+all, validated species (see
+docs/superpowers/specs/2026-10-02-market-model-handler-design.md section 15).
 
 Used identically for CombinedMarket's Model 2 and LocalMarket's Step 1 --
 the same fitting/prediction logic, just applied to combined-market-level
-or per-port-level monthly data (spec section 3).
+or per-port-level monthly data (spec section 3). Deliberately applied to
+BOTH: this is a shared, single implementation, not forked per caller.
+baseline_price (the plain arithmetic mean) is still computed and returned
+alongside baseline_log_price, unused by fitting/prediction here, purely so
+LocalMarket Step 2's static anchor (get_baseline_price_table/
+build_static_anchor_series) keeps reading the same key with the same
+(linear-space) meaning it always has -- Step 2 itself (its own separate
+delta/gamma regression, with its own separate, still-absolute volume
+anomaly term) is explicitly out of scope for this change; it still has no
+price-floor protection and no relative-volume fix of its own.
 
-Direct port of the validated fit_level_volume_model/predict_level_volume
-functions from the research, with column names adapted to the production
+Adapted from the validated fit_level_volume_model/predict_level_volume
+functions from the research (which also explored a log-price fit for the
+per-port Stacked model), with column names adapted to the production
 schema (date/price/landings_kg instead of Date/Price_EUR_kg/Volume_Kg).
 """
 import numpy as np
@@ -49,17 +94,20 @@ def fit_level_volume_model(
 ) -> dict:
     monthly = monthly.copy()
     monthly["month"] = monthly["date"].dt.month
+    monthly["log_price"] = np.log(monthly["price"])
 
     train = monthly[monthly["date"] < train_end]
     if train_start is not None:
         train = train[train["date"] >= train_start]
 
     baseline_price = train.groupby("month")["price"].mean()
+    baseline_log_price = train.groupby("month")["log_price"].mean()
     baseline_volume = train.groupby("month")["landings_kg"].mean()
 
-    train_price_anom = train["price"] - train["month"].map(baseline_price)
-    train_vol_anom = train["landings_kg"] - train["month"].map(baseline_volume)
-    fit_mask = train_price_anom.notna() & train_vol_anom.notna()
+    baseline_volume_mapped = train["month"].map(baseline_volume)
+    train_price_anom = train["log_price"] - train["month"].map(baseline_log_price)
+    train_vol_anom = (train["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    fit_mask = train_price_anom.notna() & train_vol_anom.notna() & (baseline_volume_mapped > 0)
 
     if fit_mask.sum() < 2 or train_vol_anom[fit_mask].var() == 0:
         raise ValueError("not enough usable training rows to fit level-volume model")
@@ -68,9 +116,12 @@ def fit_level_volume_model(
 
     return {
         "baseline_price": baseline_price,
+        "baseline_log_price": baseline_log_price,
         "baseline_volume": baseline_volume,
         "alpha": float(alpha),
         "beta": float(beta),
+        "vol_anom_min": float(train_vol_anom[fit_mask].min()),
+        "vol_anom_max": float(train_vol_anom[fit_mask].max()),
     }
 
 
@@ -78,10 +129,13 @@ def predict_level_volume(monthly: pd.DataFrame, params: dict) -> pd.Series:
     monthly = monthly.copy()
     monthly["month"] = monthly["date"].dt.month
 
-    vol_anom = monthly["landings_kg"] - monthly["month"].map(params["baseline_volume"])
-    predicted = (
-        monthly["month"].map(params["baseline_price"]) + params["alpha"] + params["beta"] * vol_anom
+    baseline_volume_mapped = monthly["month"].map(params["baseline_volume"])
+    vol_anom = (monthly["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    vol_anom = vol_anom.clip(lower=params["vol_anom_min"], upper=params["vol_anom_max"])
+    predicted_log = (
+        monthly["month"].map(params["baseline_log_price"]) + params["alpha"] + params["beta"] * vol_anom
     )
+    predicted = np.exp(predicted_log)
     predicted.index = monthly.index
     return predicted
 
