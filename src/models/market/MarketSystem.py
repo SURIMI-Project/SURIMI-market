@@ -443,35 +443,49 @@ class MarketSystem:
 
     def get_species_prices_message(self) -> get_species_prices_pb2.GetSpeciesPricesResponse:
         # GetSpeciesPrices is an independent RPC with no ordering guarantee
-        # relative to SimulateStep. A LocalMarket has no price_history entry
-        # until step() has run at least once, so a query before the first
-        # step falls back to computing a live snapshot directly (same
-        # computation step() itself would do, for a zero-catch tick at the
-        # current, not-yet-advanced tick date -- no history/baseline/tick
-        # side effects), instead of silently returning an empty response.
-        # This mirrors ElsaHandler's init-time price seeding
-        # (set_local_market_initial_price/update_global_price_history/
-        # set_missing_local_prices_with_global_fallback), computed lazily
-        # here rather than eagerly stored, since this plugin's price state
-        # lives in price_history rather than a separate live-price dict.
+        # relative to SimulateStep. A LocalMarket/CombinedMarket has no
+        # price_history entry until step() has run at least once, so a
+        # query before the first step falls back to computing a live
+        # snapshot directly (same computation step() itself would do, for
+        # a zero-catch tick at the current, not-yet-advanced tick date --
+        # no history/baseline/tick side effects), instead of silently
+        # returning an empty response. This mirrors ElsaHandler's init-time
+        # price seeding (set_local_market_initial_price/
+        # update_global_price_history/set_missing_local_prices_with_global_fallback),
+        # computed lazily here rather than eagerly stored, since this
+        # plugin's price state lives in price_history rather than a
+        # separate live-price dict.
+        #
+        # Also reports CombinedMarket prices under their own 2-letter
+        # market_code (e.g. "ES"), for parity with ElsaHandler -- which
+        # treats every markets.csv row, including 2-letter combined-market
+        # codes, as an ordinary local market and reports a price for it.
+        # Without this, a caller querying by market_code="ES" would get an
+        # answer from Elsa and nothing from this plugin, even though
+        # CombinedMarket computes and freezes its own price regardless.
         messages = []
         valid_count = 0
         missing_count = 0
-        live_prices_by_port = None  # computed at most once, only if actually needed
+        live_combined_prices = None  # (prefix, key) -> price; computed at most once, if needed
+        live_local_prices = None  # code -> {key: price}; computed at most once, if needed
+
+        def ensure_live_prices():
+            nonlocal live_combined_prices, live_local_prices
+            if live_local_prices is None:
+                current_date = pd.Timestamp(self.tick.get_date())
+                zero_volumes = {c: {} for c in self.local_markets}
+                zero_combined_direct = {p: {} for p in self.combined_markets}
+                live_combined_prices, _, live_local_prices = self._compute_tick_prices(
+                    current_date, zero_volumes, zero_combined_direct
+                )
 
         for code, local_market in self.local_markets.items():
             if local_market.price_history:
                 _, latest_snapshot = local_market.price_history[-1]
                 prices = latest_snapshot["prices"]
             else:
-                if live_prices_by_port is None:
-                    current_date = pd.Timestamp(self.tick.get_date())
-                    zero_volumes = {c: {} for c in self.local_markets}
-                    zero_combined_direct = {p: {} for p in self.combined_markets}
-                    _, _, live_prices_by_port = self._compute_tick_prices(
-                        current_date, zero_volumes, zero_combined_direct
-                    )
-                prices = live_prices_by_port.get(code, {})
+                ensure_live_prices()
+                prices = live_local_prices.get(code, {})
 
             for (species_code, category_code), price in prices.items():
                 if price is None:
@@ -481,6 +495,27 @@ class MarketSystem:
                 messages.append(species_price_pb2.SpeciesPrice(
                     species=species_pb2.Species(species_code=species_code),
                     market_code=code,
+                    price=price,
+                    currency=self.currency,
+                    category_code=category_code,
+                ))
+
+        for prefix, combined_market in self.combined_markets.items():
+            if combined_market.price_history:
+                _, latest_snapshot = combined_market.price_history[-1]
+                prices = latest_snapshot["prices"]
+            else:
+                ensure_live_prices()
+                prices = {key: price for (p, key), price in live_combined_prices.items() if p == prefix}
+
+            for (species_code, category_code), price in prices.items():
+                if price is None:
+                    missing_count += 1
+                    continue
+                valid_count += 1
+                messages.append(species_price_pb2.SpeciesPrice(
+                    species=species_pb2.Species(species_code=species_code),
+                    market_code=prefix,
                     price=price,
                     currency=self.currency,
                     category_code=category_code,

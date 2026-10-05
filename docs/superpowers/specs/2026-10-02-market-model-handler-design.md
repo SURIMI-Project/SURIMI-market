@@ -719,6 +719,31 @@ separate live-price dict — and since it reuses the same real-price-first
 path, a query before the first step can even surface a genuine real
 price if one already exists for the simulation's start date.
 
+**`GetSpeciesPrices` cross-model consistency with Elsa — gap found and
+FIXED.** Verified empirically (ran both handlers against the identical
+`config/northwestern_med` contract and diffed the resulting
+`market_code` sets): `ElsaHandler` treats every `markets.csv` row,
+including 2-letter combined-market codes (`ES`/`FR`), as an ordinary
+local market with no LOCODE-length distinction, and reports a price for
+them. This plugin's `GetSpeciesPrices` only ever iterated
+`self.local_markets`, so it structurally could never report a price
+under a 2-letter `market_code` even though `CombinedMarket` computes and
+freezes its own price regardless — a caller querying by
+`market_code="ES"` got an answer from Elsa and nothing from here. Fixed
+by also iterating `self.combined_markets` in `get_species_prices_message`
+(same price_history-or-live-fallback logic as local markets, reusing
+`_compute_tick_prices`'s already-computed `combined_prices`), reporting
+each `CombinedMarket`'s price under its own prefix as `market_code`.
+Message schema itself (field population: `species`, `market_code`,
+`price`, `currency`, `category_code`) was already identical between the
+two models; this was a content gap, not a schema one. Separately — found
+during this same comparison, out of scope for this plugin, reported but
+not fixed — `ElsaHandler.get_species_prices()` currently crashes
+unconditionally: `Tick.get_timestamp()` (Elsa's own, not this plugin's)
+returns an ISO string with no `'Z'`/offset suffix, which
+`protobuf.Timestamp.FromJsonString()` rejects, on a value that is
+computed but never even used afterward.
+
 **Two mechanical fixes applied as part of this review** (not open items,
 recorded here for completeness since they affect the numbers above):
 `MarketSystem._fit_step2_for_all_ports`'s High-tier volume-share

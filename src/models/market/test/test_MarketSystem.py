@@ -576,6 +576,41 @@ def test_get_species_prices_message_includes_only_valid_prices():
         assert sp.price is not None
 
 
+def test_get_species_prices_message_includes_combined_market_prices():
+    # Parity with ElsaHandler, which treats every markets.csv row --
+    # including 2-letter combined-market codes -- as an ordinary local
+    # market and reports a price for it. Without this, a caller querying
+    # by market_code="ES" gets an answer from Elsa and nothing from here.
+    system = _fitted_system()
+    system.step()
+
+    response = system.get_species_prices_message()
+    combined_prices = [
+        sp for sp in response.species_price_summary.species_prices if sp.market_code == "ES"
+    ]
+    assert combined_prices, "expected at least one SpeciesPrice reported under the combined-market code 'ES'"
+    for sp in combined_prices:
+        assert sp.species.species_code == "ANE"
+        assert sp.currency == "EUR"
+        assert sp.price is not None
+
+
+def test_get_species_prices_message_includes_combined_market_prices_before_the_first_step():
+    system = _fitted_system()  # fit_all() has run, step() has NOT
+
+    response = system.get_species_prices_message()
+    combined_prices = [
+        sp for sp in response.species_price_summary.species_prices if sp.market_code == "ES"
+    ]
+    assert combined_prices, "expected a live-computed combined-market price even before the first step"
+    for sp in combined_prices:
+        assert sp.price is not None
+
+    # Still a read-only computation -- no tick/history side effects.
+    assert system.tick.get_tick() == 0
+    assert system.combined_markets["ES"].price_history == []
+
+
 def test_get_species_prices_message_works_before_the_first_step():
     system = _fitted_system()  # fit_all() has run, step() has NOT
 
