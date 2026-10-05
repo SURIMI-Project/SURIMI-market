@@ -703,6 +703,29 @@ observed anywhere else across the real data) and not treated as
 blocking, but a price-floor safeguard would be a reasonable follow-up
 if more such pairs turn up in a future, larger contract.
 
+**`test/market/test_initialise_market_service.py` and
+`test/market/test_update_sales.py` do not test this plugin — found and
+closed.** Despite living under `test/market/`, both files construct an
+`ElsaHandler`, not `MarketHandler`, confirmed empirically (constructed
+the handler via the shared `market_service` fixture and printed its
+type). The shared `market_service`/`contract`/`config_dir` fixtures in
+the root `test/conftest.py` never set `MODEL_NAME`, so
+`MarketService.InitialiseSimulation` silently defaults to `"elsa"` —
+and that fixture's `PORT_A`/`PORT_B`-style codes are structurally
+incompatible with this plugin's 5-letter/2-letter LOCODE topology
+anyway (`build_prefix_to_locals` finds zero matches of either length),
+so forcing `MODEL_NAME=market` onto them would not even work. This
+means `test_update_sales.py`'s richer scenarios (accumulating landings
+across multiple `UpdateSales` calls, deferring future-dated landings
+into `pending_sales_summary`) had never been exercised against this
+plugin's own `MarketSystem.update_sales`, which implements the same
+mechanism. Closed by adding
+`test/market/test_update_sales_market_model.py`, with its own
+LOCODE-compatible fixtures, covering the same scenarios for real against
+`MarketHandler`/`MarketSystem` — verified via mutation testing (broke
+the accumulation to overwrite instead of add, confirmed the test fails
+cleanly; restored, confirmed it passes).
+
 **`GetSpeciesPrices` before the first tick — FIXED.** Unlike `ElsaHandler`
 (which seeds an initial price snapshot at `init_simulation` time
 specifically so this RPC works before the first `SimulateStep`),
