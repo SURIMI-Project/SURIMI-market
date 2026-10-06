@@ -685,14 +685,33 @@ anticipated, not evidence an explicit reconciliation mechanism is needed
 yet. SAA's gap widened the most (9.9% → 13.3%) of the five; worth
 revisiting if SAA-specific production use becomes a priority.
 
-**Section 13's "transition jump" check — measured, same pattern as
-before.** At the shared real-data boundary (2024-12-01), `CombinedMarket`'s
-frozen prediction vs. the real recorded price: ANE 1.5%, MUT 1.5%,
-SAA 17.8%, HKE 18.4%, PIL 31.3% — essentially unchanged from the old
-data's measurement (expected, since both files cover this same end
-date with similar recent real catches). ANE/MUT are tight; SAA/HKE/PIL
-are materially larger. PIL's 31.3% jump remains worth treating as a
-live-production risk for that species specifically.
+**Section 13's "transition jump" check — measured, re-measured after
+this investigation's fixes, and investigated to a root cause for PIL.**
+At the shared real-data boundary (2024-12-01), `CombinedMarket`'s frozen
+prediction vs. the real recorded price, re-measured against the current
+model (log-price + relative + clamped vol_anom): ANE 3.0%, MUT 4.9%,
+HKE 14.7%, SAA 20.8%, PIL 20.9%. ANE/MUT are tight; PIL and SAA are now
+roughly tied as the largest.
+
+PIL's jump was investigated directly, not left as an unexplained
+number. Root cause: PIL's real December volume has collapsed for three
+consecutive years (2022: 43k kg, 2023: 3.1k kg, 2024: 15k kg, vs. an
+80k-185k kg range in 2015-2021) -- but the price response has been
+inconsistent with the model's basic less-volume-means-higher-price
+assumption. 2023, the single most extreme collapse in the whole series,
+produced one of the *lowest* recorded prices (1.31); 2024, a milder
+collapse, produced one of the *highest* (3.04). A single frozen `beta`
+(the "Full" window was selected here) necessarily averages across this
+conflicting recent signal, so it undershoots the one tick actually
+measured (predicted 2.41 vs. real 3.04). This looks like a genuine
+externality the model has no way to see (a quota/closure effect,
+substitution by another species, import dynamics) rather than ordinary
+noise -- there is no model fix that would extract a signal that
+genuinely isn't there. This is the same underlying PIL volatility
+already responsible for its blanket `KNOWN_LIMITATION_SPECIES`
+exemption elsewhere in the fidelity backtest, not a new or separate
+gap -- confirmed as an understood, accepted limitation, not a live-
+production risk requiring further action.
 
 **Section 14's Step-2 anchor-scheme question — RESOLVED by a real,
 unconfounded head-to-head MAPE comparison; re-confirmed against the
