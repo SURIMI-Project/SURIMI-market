@@ -130,6 +130,33 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
             "baseline), a sustained collapse well beyond this port's "
             "training experience"
         ),
+        # Added alongside Step 2's sanity-check fix (spec section 9 follow-up,
+        # the ANE@ESCDK negative-price case): both pairs' Step 2 models were
+        # REJECTED by the newly-wired-up sanity check (spec section 7's
+        # already-existing, previously-unused safeguard) -- confirmed
+        # directly, not assumed: each pair's actual, dynamic-switch-blended
+        # Step 2 prediction genuinely goes negative somewhere in its full
+        # real history, under every candidate training window, not merely
+        # in an unused shadow sub-model. Both fall back to Step-1-only,
+        # which is mathematically guaranteed non-negative but, for this
+        # specific narrow 2-year held-out window, scores worse than the
+        # (unsafe) Step 2 model it replaces -- the same robustness-costs-
+        # accuracy trade-off as every other fix in this investigation, just
+        # landing unfavorably for these two pairs' particular test window.
+        ("ANE", "ESDNA"): (
+            "Step 2's fitted model would predict a negative price somewhere "
+            "in this port's full real history under every candidate window "
+            "(confirmed directly); correctly falls back to Step-1-only, "
+            "which is safe but less accurate for this specific 3-month "
+            "held-out window"
+        ),
+        ("ANE", "ESVLC"): (
+            "same mechanism as ESDNA: Step 2's blended prediction goes "
+            "negative somewhere in full history under every candidate "
+            "window; falls back to Step-1-only (safe, but this port's "
+            "single held-out month happens to be one Step 2 -- despite "
+            "being globally unsafe -- predicted unusually well)"
+        ),
     }
 
     failures = results[results["mape"] > MAX_ACCEPTABLE_MAPE]

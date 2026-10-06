@@ -252,9 +252,13 @@ coefficients now parameterize a log-price fit against a *relative*,
 *clamped* volume anomaly instead — the "price-related coefficients,
 frozen forever" characterization above still holds; what changed is the
 functional form those frozen coefficients plug into, not the
-frozen-vs-adaptive split itself. Step 2 (`stacked_model.py`) is
-unaffected and still uses the original plain-linear formula — an
-explicit, deliberate scope decision (section 15), not an oversight.
+frozen-vs-adaptive split itself. Step 2 (`stacked_model.py`) still uses
+the original plain-linear formula unmodified (no log-price/relative-
+anomaly/clamping equivalent of its own) — that part remains an explicit
+scope decision — but its fitting now rejects a candidate window whose
+prediction would go negative anywhere in the real history available,
+closing the negative-price gap through a different mechanism (section
+15).
 
 ## 7. Adaptive training-window selection
 
@@ -889,14 +893,62 @@ a synthetic one on the glut side, and only partially resolved by
 clamping because the training range itself never covered an event this
 severe.
 
-**Step 2 remains explicitly out of scope for all three fixes above** —
-a deliberate scope decision, not an oversight. `stacked_model.py`'s
+**Step 2 was explicitly out of scope for all three fixes above** —
+a deliberate scope decision, not an oversight, at the time. `stacked_model.py`'s
 Stacked/DistanceOnly regressions are a structurally separate fit (their
 own `delta`/`gamma`, their own volume-anomaly term, still absolute and
 still linear) that merely *consumes* Step 1's prediction as one input
 among several. The ANE@ESCDK negative-price case above is a Step 2
-problem, not a Step 1 one, and is therefore **not** fixed by any of
-this — confirmed directly (ESCDK's Step 1 prediction is safely positive
-post-fix; its final Step 2 output still goes negative). Tackling Step
-2's own floor/relative-anomaly/clamping equivalent is explicit,
-separate follow-up work.
+problem, not a Step 1 one, and was therefore **not** fixed by any of
+the Step 1/CombinedMarket work — confirmed directly (ESCDK's Step 1
+prediction was safely positive post-fix; its final Step 2 output still
+went negative). Addressed separately below.
+
+**Step 2's own negative-price gap — FIXED, via a different mechanism
+than Step 1's.** Investigated directly (not assumed): ESCDK's Step 2
+fit had `gamma = 23.87` (every 1 EUR/kg the neighbor signal deviates
+from normal shifts this port's price by ~24 EUR/kg), estimated from
+just 3 real calendar months of training data. This is not an
+extrapolation problem like Step 1's (a reasonable coefficient applied
+too far outside its range) — it's an *estimation instability* problem:
+a regression coefficient that is itself poorly constrained because
+there's almost no data to constrain it, so even a small, in-range
+neighbor-signal wobble produces an implausible swing.
+
+The fix reuses infrastructure that already existed and was already
+unit-tested but never actually used anywhere in production:
+`window_selection.py`'s `sanity_check_fn` parameter (spec section 7
+calls this "a required sanity-bound safeguard against catastrophic
+fits," but no caller — not `CombinedMarket.fit()`, not
+`LocalMarket.fit_step1()`, not `fit_step2()` — ever passed one).
+`LocalMarket.fit_step2()` now passes a `sanity_check_fn` that evaluates
+the *actual, dynamic-switch-blended* prediction (reusing
+`_blend_step2_predictions`, the same helper the fitting's own
+rolling-origin scoring already uses) across the full real history
+available, rejecting a candidate window if that blended prediction is
+ever non-positive anywhere. Two design iterations were tried and
+rejected empirically before landing on this: checking each sub-model
+(Stacked/DistanceOnly) independently against a synthetic cross-product
+of their individually-observed anomaly extremes was too conservative
+(rejected ANE@ESVLC's good fit over a combination that never actually
+co-occurred); checking only each candidate's own training rows was too
+lenient (never caught ESCDK at all, since its real failure occurs on a
+held-out date outside its 3-month training window). Checking the
+blended prediction against the full available history was the design
+that worked, confirmed both by fixing ESCDK (MAPE 247.4%->136.7%,
+falls back to Step-1-only, which is mathematically guaranteed
+non-negative) and by NOT over-rejecting good fits elsewhere.
+
+Scope and cost, measured directly: 7 additional (port, species) units
+(of 172 total) newly fall back to Step-1-only (10->17); net real-data
+accuracy impact is positive on average (mean MAPE diff -3.4pp across
+156 compared pairs, only 21 changed at all). Two pairs regress above
+the ceiling and are added to `KNOWN_LIMITATION_PAIRS`: ANE@ESDNA and
+ANE@ESVLC. Both were verified, not assumed, to be genuine catches, not
+over-aggressive false positives — each pair's actual blended Step 2
+prediction does go negative somewhere in its full real history under
+every candidate window; the narrow 2-year held-out test window used
+for scoring simply never happened to probe that region. Same
+robustness-costs-accuracy trade-off as every other fix in this
+investigation, landing unfavorably for these two pairs' specific test
+window.

@@ -239,7 +239,23 @@ class LocalMarket:
             mask = (port_monthly["date"] >= test_start) & (port_monthly["date"] < test_end)
             return score_mape(blended[mask], port_monthly["price"][mask])
 
-        ranked = rank_windows_by_score(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
+        def sanity_check_fn(params):
+            """Reject a candidate whose actual, dynamic-switch-blended prediction (spec
+            section 9 follow-up) goes non-positive anywhere in the real history available --
+            not each sub-model independently, since only one of Stacked/DistanceOnly is ever
+            selected per tick; an isolated bad value in whichever one ISN'T selected for any
+            real month would never actually be reached. A model that cannot sanely reproduce
+            a positive price anywhere in the real data available is unstable regardless of
+            its CV score -- this is the generic, already-tested sanity-bound safeguard from
+            spec section 7, applied here for the first time."""
+            blended = self._blend_step2_predictions(port_monthly, anchor_series, neighbor_signal, params)
+            valid = blended.notna()
+            blended_min = float(blended[valid].min()) if valid.any() else None
+            return blended_min is None or blended_min > 0
+
+        ranked = rank_windows_by_score(
+            consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn, sanity_check_fn
+        )
 
         if not ranked:
             self.logger.warning(
@@ -253,9 +269,9 @@ class LocalMarket:
         # scoring) succeeds -- the final window can differ in exactly which
         # months it includes (e.g. a real landings gap that a shorter window
         # falls mostly inside of). Try each ranked candidate's final re-fit
-        # in order, falling back to Step-1-only only if ALL of them fail --
-        # a less-preferred-by-score but FITTABLE window beats no Step 2
-        # model at all.
+        # in order, falling back to Step-1-only only if ALL of them fail the
+        # re-fit or the same sanity check -- a less-preferred-by-score but
+        # FITTABLE AND SANE window beats no Step 2 model at all.
         for label, years in ranked:
             train_start = latest_date - relativedelta(years=years) if years is not None else None
             try:
@@ -267,6 +283,14 @@ class LocalMarket:
                     f"final window ending at {latest_date}; trying the next-best-scoring window"
                 )
                 continue
+            if not sanity_check_fn(final_params):
+                self.logger.warning(
+                    f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
+                    f"scored acceptably in rolling-origin validation but its final re-fit would "
+                    f"predict a non-positive price somewhere in the real history available; "
+                    f"trying the next-best-scoring window"
+                )
+                continue
             self.step2_stacked_models[key] = final_params["stacked"]
             self.step2_distance_only_models[key] = final_params["distance_only"]
             self.step2_window_labels[key] = label
@@ -274,8 +298,8 @@ class LocalMarket:
 
         self.logger.warning(
             f"LocalMarket {self.market_code}: every candidate Step-2 window for {key} scored "
-            f"acceptably in rolling-origin validation but failed to re-fit on the final window "
-            f"ending at {latest_date}; falling back to Step-1-only"
+            f"acceptably in rolling-origin validation but failed to re-fit or failed the sanity "
+            f"check on the final window ending at {latest_date}; falling back to Step-1-only"
         )
         return None
 
