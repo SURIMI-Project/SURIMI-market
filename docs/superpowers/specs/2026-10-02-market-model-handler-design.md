@@ -37,10 +37,16 @@ established and tested in this codebase.
   the new model would define its own config file expectations and
   likely reuse this unchanged, but the details are a follow-up
   discussion).
-- Out of scope for this spec (flagged by the user as a follow-up
+- ~~Out of scope for this spec (flagged by the user as a follow-up
   discussion, not solved here): the precise interaction between "use
   real price if available, else predict" (see section 8) and how long
-  real data typically extends into a simulation's run.
+  real data typically extends into a simulation's run.~~ — RESOLVED
+  by investigation and discussion (section 15): real-price-first is a
+  one-time, never-refreshed snapshot, not an ongoing live feed, so its
+  usefulness shrinks to zero the moment `start_time` moves past
+  `prices.csv`'s own last real date. The model deliberately does NOT
+  compensate for this with any kind of startup "spin-up" or blended
+  transition -- confirmed as the right call, not a gap.
 
 ## 3. Class structure
 
@@ -952,3 +958,41 @@ for scoring simply never happened to probe that region. Same
 robustness-costs-accuracy trade-off as every other fix in this
 investigation, landing unfavorably for these two pairs' specific test
 window.
+
+**Section 2's real-price-first/`start_time` interaction — RESOLVED by
+investigation and discussion, no code change.** Traced the actual
+mechanism: `price_time_series` is populated exactly once, at
+`init_simulation`, directly from whatever `prices.csv` contains at that
+moment, and nothing in `MarketSystem` ever adds to it afterward —
+unlike catches (`update_sales`), which are a genuine ongoing live feed
+(including deferring future-dated sales via `pending_sales_summary`
+until the tick clock reaches them). So real-price-first's usefulness
+for a given simulation is entirely a function of the gap between
+`start_time` and `prices.csv`'s own last real date, which is fixed the
+moment that file was generated. Concretely, using this project's own
+`northwestern_med` data (real data ends 2024-12-01): a simulation
+started long after that date gets zero real-price-first benefit from
+tick one onward, exactly like the unshaded (pure-forecast) portion of
+the 20-year scenario-forecast artifact, just starting immediately
+instead of after a 10-year head start. This reframes real-price-first
+as primarily a backtesting convenience (deliberately starting
+`start_time` years in the past to exploit a long stretch of
+already-known real data) rather than an ongoing production feature —
+for a live deployment started close to the present, the frozen model's
+own predictive accuracy carries essentially the entire run.
+
+Explicitly considered and rejected: some kind of startup "spin-up" or
+blended transition for the first few ticks after a `start_time` with no
+real-price-first coverage. Rejected because the frozen coefficients
+don't become more trustworthy with elapsed simulation time — they are
+exactly as valid on tick 1 as on tick 1000 (nothing re-fits them
+mid-run, by design — section 6), so dampening or blending early
+predictions toward some other reference would be an arbitrary patch
+with no more justification than the hard price floor rejected earlier
+in this section. The genuine risk underneath the spin-up instinct —
+deploying frozen coefficients against a market that may have drifted
+since `prices.csv` was generated — is real, but the correct lever is
+operational (keep `prices.csv` reasonably fresh via the data-prep
+pipeline relative to actual deployment time), not a runtime mechanism
+inside the model itself. Confirmed: direct start (no spin-up) is the
+correct, deliberate design, not a gap.
