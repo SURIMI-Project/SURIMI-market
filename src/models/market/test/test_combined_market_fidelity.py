@@ -22,54 +22,49 @@ CONFIG_DIR = "config/northwestern_med"
 # specific historical number.
 MAX_ACCEPTABLE_MAPE = 50.0
 
-# Individually-investigated, pair-specific exemption -- same house
-# convention as test_fidelity_backtest.py's own KNOWN_LIMITATION_PAIRS.
-# This is the FIRST-EVER CombinedMarket-level accuracy check in the suite
-# (test_fidelity_backtest.py only ever covered LocalMarket), so this is a
-# newly-surfaced, PRE-EXISTING limitation, not a regression introduced by
-# this plan's trend-term work -- confirmed two ways: (1) this pair's
-# CombinedMarket fit has no gamma/trend term at all in this backtest
-# window (passes_trend_gate returns False against the pre-2022 training
-# data available as of the backtest's as_of_date -- the sign-agreement
-# requirement across all 12 calendar months isn't yet met with only 7
-# years of evidence, vs. the 10 full years used by
-# test_CombinedMarket.py's real-data trend-selection test, where it does
-# pass); (2) the root cause itself is orthogonal to a trend term anyway --
-# FR's blended HKE price falls ~45% (9.07->3.97 EUR/kg) from 2021-12 to
-# 2022-12 while real landings stay within a broadly normal range for
-# several of those same months (e.g. 2022-10 at 107% of its own
-# calendar-month baseline) -- a demand-side price shock decoupled from the
-# landings-volume anomaly signal the level-volume model relies on. A trend
-# term models a sustained multi-year direction, not a single-year demand
-# shock, so it would not have fixed this even had it been eligible here.
-KNOWN_LIMITATION_PAIRS = {
-    ("HKE", "FR"): (
-        "FR's blended HKE price falls ~45% (9.07->3.97 EUR/kg) from "
-        "2021-12 to 2022-12 while real landings stay within a broadly "
-        "normal range for several of those same months (e.g. 2022-10 at "
-        "107% of calendar-month baseline) -- a demand-side price shock "
-        "decoupled from the landings-volume anomaly signal the "
-        "level-volume model relies on. No trend term is active for this "
-        "pair in this backtest window (passes_trend_gate fails on the "
-        "pre-2022 training data available at as_of_date), so this is a "
-        "pre-existing baseline-model limitation, not something the trend "
-        "term introduced or could have fixed."
-    ),
-}
-
 
 @pytest.mark.skipif(
     not os.path.exists(f"{CONFIG_DIR}/prices.csv"),
     reason="requires config/northwestern_med/prices.csv",
 )
 def test_combined_market_accuracy_within_acceptable_mape():
+    # as_of_date/test_horizon_years deliberately differ from
+    # test_fidelity_backtest.py's own 2022-01-01/2yr split: the trend gate
+    # (passes_trend_gate) needs ~9+ years of real history to reach unanimous
+    # month-sign agreement for ANE@ES -- confirmed directly that a
+    # 2022-01-01 cutoff (7yr training history) leaves the gate False (one
+    # dissenting calendar month) and so never exercises the trend term at
+    # all anywhere in the backtest. Cutting over at 2024-01-01 instead (9yr
+    # training history, the gate's own empirically-confirmed activation
+    # point) leaves a full 12 months of real, still-genuinely-held-out data
+    # (2024-01 through 2024-12, the real dataset's final year) for
+    # comparison, while actually letting ANE@ES pick up its trend term --
+    # see the assertion below, which confirms this directly rather than
+    # assuming it.
     results, handler = run_backtest_split(
         root_config_dir=CONFIG_DIR.rsplit("/", 1)[0],
         scenario_id=CONFIG_DIR.split("/")[-1],
-        as_of_date=pd.Timestamp("2022-01-01"),
-        test_horizon_years=2,
+        as_of_date=pd.Timestamp("2024-01-01"),
+        test_horizon_years=1,
         species_codes=VALIDATED_SPECIES,
         return_handler=True,
+    )
+
+    # Confirm the trend term is actually active for ANE@ES in this backtest
+    # (not merely assumed) -- and nowhere else, matching Task 5's real-data
+    # pin (test_CombinedMarket.py::test_real_data_selects_trend_only_for_ane_at_es).
+    # Without this, a future change to the gate or the data could silently
+    # revert this test to measuring ANE@ES's no-trend baseline again (as
+    # happened with the original 2022-01-01/2yr split) without anyone
+    # noticing, defeating this test's whole purpose.
+    trend_bearing = {
+        (market_code, species)
+        for market_code, combined_market in handler.market_system.combined_markets.items()
+        for species, category in combined_market.models
+        if category == CATEGORY and "gamma" in combined_market.models[(species, category)]
+    }
+    assert trend_bearing == {("ES", "ANE")}, (
+        f"expected the trend term to be active for ES/ANE only, got: {trend_bearing}"
     )
 
     prices = pd.read_csv(f"{CONFIG_DIR}/prices.csv", low_memory=False)
@@ -110,18 +105,7 @@ def test_combined_market_accuracy_within_acceptable_mape():
     print(results_df.sort_values(["species_code", "market_code"]).to_string(index=False))
 
     failures = results_df[results_df["mape"] > MAX_ACCEPTABLE_MAPE]
-    is_known_pair = failures.apply(
-        lambda r: (r["species_code"], r["market_code"]) in KNOWN_LIMITATION_PAIRS, axis=1
-    )
-    known_limitation_failures = failures[is_known_pair]
-    unexpected_failures = failures[~is_known_pair]
-
-    if not known_limitation_failures.empty:
-        print(f"\n{len(known_limitation_failures)} known-limitation failure(s) (documented, not blocking):")
-        print(known_limitation_failures.sort_values(["species_code", "market_code"]).to_string(index=False))
-
-    assert unexpected_failures.empty, (
-        f"{len(unexpected_failures)} CombinedMarket (species, market) pairs are NOT covered by any "
-        f"documented known limitation and exceeded the {MAX_ACCEPTABLE_MAPE}% MAPE ceiling:\n"
-        f"{unexpected_failures.to_string(index=False)}"
+    assert failures.empty, (
+        f"{len(failures)} CombinedMarket (species, market) pairs exceeded the "
+        f"{MAX_ACCEPTABLE_MAPE}% MAPE ceiling:\n{failures.to_string(index=False)}"
     )
