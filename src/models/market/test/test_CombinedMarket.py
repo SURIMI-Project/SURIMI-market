@@ -310,3 +310,57 @@ def test_get_live_anchor_series_unaffected_by_trend_term():
     live_series = market.get_live_anchor_series("ANE", "Fresh - Whole", monthly, monthly["date"])
     assert live_series is not None
     assert len(live_series) == len(monthly)
+
+
+import os
+
+VALIDATED_SPECIES = ["ANE", "PIL", "HKE", "SAA", "MUT"]
+CATEGORY = "Fresh - Whole"
+CONFIG_DIR = "config/northwestern_med"
+
+
+def _build_monthly_from_real_prices(market_code, species_code):
+    from src.models.market.level_volume_model import build_complete_monthly_series
+
+    prices = pd.read_csv(f"{CONFIG_DIR}/prices.csv", low_memory=False)
+    prices["date"] = pd.to_datetime(prices["date"])
+    if "size" not in prices.columns:
+        prices["size"] = None
+    blended = prices[prices["size"].isna()]
+    rows = blended[
+        (blended["market_code"] == market_code)
+        & (blended["category_code"] == CATEGORY)
+        & (blended["species_code"] == species_code)
+    ]
+    return build_complete_monthly_series(rows)
+
+
+@pytest.mark.skipif(
+    not os.path.exists(f"{CONFIG_DIR}/prices.csv"),
+    reason="requires config/northwestern_med/prices.csv",
+)
+def test_real_data_selects_trend_only_for_ane_at_es():
+    expected_trend = {("ES", "ANE")}  # the one key validated during investigation
+
+    for market_code in ["ES", "FR"]:
+        market = CombinedMarket(market_code)
+        monthly_by_key = {
+            (species, CATEGORY): _build_monthly_from_real_prices(market_code, species)
+            for species in VALIDATED_SPECIES
+        }
+        monthly_by_key = {k: v for k, v in monthly_by_key.items() if not v.empty}
+        latest_date = pd.Timestamp(
+            max(m["date"].max() for m in monthly_by_key.values())
+        )
+
+        market.fit(monthly_by_key, latest_date=latest_date)
+
+        for species in VALIDATED_SPECIES:
+            key = (species, CATEGORY)
+            if key not in market.models:
+                continue
+            has_trend = "gamma" in market.models[key]
+            should_have_trend = (market_code, species) in expected_trend
+            assert has_trend == should_have_trend, (
+                f"{market_code}/{species}: expected trend={should_have_trend}, got {has_trend}"
+            )
