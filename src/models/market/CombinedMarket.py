@@ -192,6 +192,8 @@ class CombinedMarket:
         monthly = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
         if params.get("baseline_volume") is None:
             predicted = predict_level_only(monthly, params)
+        elif "gamma" in params:
+            predicted = predict_level_volume_trend(monthly, params)
         else:
             predicted = predict_level_volume(monthly, params)
         value = predicted.iloc[0]
