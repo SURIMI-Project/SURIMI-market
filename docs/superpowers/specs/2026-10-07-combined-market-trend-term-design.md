@@ -81,16 +81,18 @@ def fit_level_volume_trend_model(monthly, train_start, train_end):
     span in years, used as the forward clamp bound).
     """
 
-def predict_level_volume_trend(monthly, params, train_end):
+def predict_level_volume_trend(monthly, params):
     """
     Same as predict_level_volume, plus + params["gamma"] * trend_years,
-    where trend_years is clamped to [0, params["trend_years_max"]] --
-    mirrors the existing vol_anom_min/max clamp exactly: a coefficient is
-    only validated within the range of evidence it was fit on, so the
-    trend cannot be extrapolated further forward than the number of years
-    of real history it was estimated from.
+    where trend_years = (date - params["train_end"]) / 365.25 (params
+    stores its own fit's train_end, so this function needs no third
+    argument) clamped to [-params["trend_years_max"], params["trend_years_max"]]
+    -- bounds how far the trend can be extrapolated, in either direction,
+    to the number of years of real history it was estimated from.
     """
 ```
+
+> **Correction (made during Task 2's implementation):** the original version of this document clamped the lower bound to `0` instead of `-trend_years_max`, and passed `train_end` as a third argument instead of storing it in `params`. The zero-lower-bound reasoning (the trend should contribute nothing for any date at or before `train_end`) doesn't survive contact with how `gamma` is actually fit: `fit_level_volume_trend_model` regresses against the raw, unclamped (negative) `trend_years` for every training row, so a `[0, ·]` predict-time clamp makes `predict` inconsistent with what `fit` assumed — confirmed empirically (training-window MAPE 11.82% with the `[0, ·]` clamp vs. 1.15% with the symmetric one, same fitted `gamma`). The symmetric clamp fixes that inconsistency and has zero effect on the feature's production-critical paths: window-length selection only ever scores test dates `>= train_end` (non-negative `trend_years` either way), and the final deployed forecast only ever queries dates after `train_end` too. The only case the lower bound actually governs is `get_price` querying a historical gap date within the training span with no real-price-first match — a rare edge case, now handled by the more internally-consistent symmetric clamp instead of an unmotivated floor at zero. The storing-`train_end`-in-`params` change is purely a signature simplification matching `predict_level_volume`'s existing 2-argument shape; no behavior change.
 
 `CombinedMarket.fit()`, for a key that passes the gate: runs the *existing, unmodified* `select_best_window`/`rolling_splits`/`score_mape` machinery exactly as today, just fitting/scoring `fit_level_volume_trend_model`/`predict_level_volume_trend` instead of the plain functions, to choose the window length. For a key that does not pass the gate: entirely unchanged, today's code path, byte-for-byte.
 
