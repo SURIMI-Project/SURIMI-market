@@ -170,12 +170,31 @@ def test_trend_prediction_clamps_beyond_the_training_window_span():
          "price": [None], "landings_kg": [1000.0]}
     )
 
+    # Test lower bound: date far in the past, before training window by more than trend_years_max
+    far_past = pd.DataFrame(
+        {"date": [train_end - pd.DateOffset(years=int(params["trend_years_max"]) + 1)],
+         "price": [None], "landings_kg": [1000.0]}
+    )
+    way_past_min = pd.DataFrame(
+        {"date": [train_end - pd.DateOffset(years=int(params["trend_years_max"]) + 2)],
+         "price": [None], "landings_kg": [1000.0]}
+    )
+
     pred_cutoff = predict_level_volume_trend(at_cutoff, params)
     pred_far = predict_level_volume_trend(far_future, params)
     pred_beyond_max = predict_level_volume_trend(way_past_max, params)
+    pred_far_past = predict_level_volume_trend(far_past, params)
+    pred_way_past_min = predict_level_volume_trend(way_past_min, params)
 
-    assert pred_far.iloc[0] > pred_cutoff.iloc[0]  # trend continues forward...
-    assert pred_far.iloc[0] == pytest.approx(pred_beyond_max.iloc[0], rel=1e-9)  # ...but clamps, doesn't keep climbing
+    # Forward clamp: trend continues forward...
+    assert pred_far.iloc[0] > pred_cutoff.iloc[0]
+    # ...but clamps at forward bound
+    assert pred_far.iloc[0] == pytest.approx(pred_beyond_max.iloc[0], rel=1e-9)
+
+    # Backward clamp: trend continues backward...
+    assert pred_far_past.iloc[0] < pred_cutoff.iloc[0]
+    # ...but clamps at backward bound
+    assert pred_far_past.iloc[0] == pytest.approx(pred_way_past_min.iloc[0], rel=1e-9)
 
 
 def test_trend_fit_raises_on_insufficient_data():

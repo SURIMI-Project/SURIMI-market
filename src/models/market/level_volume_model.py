@@ -205,9 +205,9 @@ def predict_level_volume_trend(monthly: pd.DataFrame, params: dict) -> pd.Series
     Trend-augmented sibling of predict_level_volume. trend_years is
     computed from params["train_end"] (so this function, like
     predict_level_volume, only ever needs (monthly, params)) and clamped
-    to [0, params["trend_years_max"]] -- the trend cannot be extrapolated
-    forward further than the years of real evidence it was estimated
-    from, mirroring the existing vol_anom_min/max clamp exactly.
+    to [-params["trend_years_max"], params["trend_years_max"]] -- the trend cannot be extrapolated
+    beyond the training window span in either direction, mirroring the
+    existing vol_anom_min/max clamp exactly.
     """
     monthly = monthly.copy()
     monthly["month"] = monthly["date"].dt.month
