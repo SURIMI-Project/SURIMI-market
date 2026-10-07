@@ -40,10 +40,32 @@ def test_fails_with_insufficient_history():
 
 
 def test_fails_when_a_month_has_zero_variance_in_years():
-    # Degenerate: every observation of January falls in the same year --
-    # no year-over-year slope is estimable for that month at all.
-    dates = pd.date_range("2015-01-01", periods=11, freq="MS")  # Jan 2015 .. Nov 2015, one year only
+    # Degenerate: January has multiple observations (n >= 3) but all from
+    # the same calendar year, so sxx == 0 -- no year-over-year slope is
+    # estimable for that month at all. Other months have normal 3-year
+    # data with clear positive trend to ensure the gate reaches January's
+    # sxx == 0 check (not failing earlier on insufficient history).
+    dates = []
+    prices = []
+
+    # January: 3 observations, all from 2015 (sxx will be 0)
+    dates.extend([
+        pd.Timestamp(2015, 1, 1),
+        pd.Timestamp(2015, 1, 15),
+        pd.Timestamp(2015, 1, 28),
+    ])
+    prices.extend([2.0, 2.05, 2.02])
+
+    # Other months: one observation per year (2015, 2016, 2017)
+    # with consistent positive trend to ensure they all pass their checks
+    for month in range(2, 13):
+        for year in [2015, 2016, 2017]:
+            dates.append(pd.Timestamp(year=year, month=month, day=15))
+            prices.append(2.0 + (year - 2015) * 0.15)  # Clear positive trend
+
     monthly = pd.DataFrame({
-        "date": dates, "price": np.linspace(2.0, 2.5, 11), "landings_kg": [1000.0] * 11,
+        "date": dates,
+        "price": prices,
+        "landings_kg": [1000.0] * len(dates),
     })
     assert passes_trend_gate(monthly) is False

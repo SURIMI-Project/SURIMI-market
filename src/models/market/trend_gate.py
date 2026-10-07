@@ -14,6 +14,24 @@ from . import consts
 
 
 def passes_trend_gate(monthly: pd.DataFrame) -> bool:
+    """
+    Determine whether a (species_code, category_code) key's CombinedMarket
+    fit should include a trend term using per-calendar-month OLS regression
+    on the complete real historical record.
+
+    Returns True iff all 12 calendar months exhibit unanimous sign agreement
+    in their year-over-year price slopes, AND at least TREND_GATE_MIN_SIGNIFICANT_MONTHS
+    are individually statistically significant (|t| > TREND_GATE_T_THRESHOLD) in
+    that same direction. Returns False for any month with fewer than 3 years
+    of data, or if all years in any month are identical (no slope estimable).
+
+    Args:
+        monthly: DataFrame with columns date, price, landings_kg (price/landings_kg
+                 may be NaN for gaps). Only date and price are read.
+
+    Returns:
+        bool: True if gate passes; False otherwise.
+    """
     monthly = monthly.dropna(subset=["price"]).copy()
     monthly["year"] = monthly["date"].dt.year
     monthly["month"] = monthly["date"].dt.month
@@ -38,6 +56,10 @@ def passes_trend_gate(monthly: pd.DataFrame) -> bool:
         residuals = prices - (intercept + slope * years)
         s2 = (residuals ** 2).sum() / (n - 2)
         se_slope = np.sqrt(s2 / sxx)
+        # Edge case: if slope != 0 and se_slope == 0 (perfect fit with zero
+        # residual variance), t_stat would be infinity. We conservatively treat
+        # it as non-significant (t=0), though this is extremely unlikely with
+        # real noisy price data.
         t_stat = slope / se_slope if se_slope > 0 else 0.0
 
         slopes[month] = slope
