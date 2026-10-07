@@ -220,3 +220,38 @@ def test_direct_catch_accumulator_for_sales_routed_straight_to_the_prefix():
 
     market.clear_direct_catch()
     assert market.get_direct_catch_snapshot() == {}
+
+
+def _trending_synthetic_monthly(n_years=10, seed=0):
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2015-01-01", periods=n_years * 12, freq="MS")
+    volume = 1000.0 + rng.normal(0, 50, len(dates))
+    years = dates.year.to_numpy(dtype=float)
+    price = (
+        2.0 - 0.001 * (volume - 1000.0)
+        + 0.1 * (years - years.min())
+        + rng.normal(0, 0.01, len(dates))
+    )
+    return pd.DataFrame({"date": dates, "price": price, "landings_kg": volume})
+
+
+def test_fit_includes_trend_for_a_key_that_passes_the_gate():
+    market = CombinedMarket("ES")
+    monthly_by_key = {("ANE", "Fresh - Whole"): _trending_synthetic_monthly()}
+
+    market.fit(monthly_by_key, latest_date=pd.Timestamp("2025-01-01"))
+
+    assert "gamma" in market.models[("ANE", "Fresh - Whole")]
+
+
+def test_fit_excludes_trend_for_a_key_that_fails_the_gate():
+    # _synthetic_monthly (already defined above in this file) has no
+    # embedded trend -- flat price around 2.0 plus noise -- so it must not
+    # pass the gate, and the frozen model must be the plain (non-trend)
+    # shape, exactly as before this feature existed.
+    market = CombinedMarket("ES")
+    monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
+
+    market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+
+    assert "gamma" not in market.models[("ANE", "Fresh - Whole")]

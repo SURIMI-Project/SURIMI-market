@@ -17,10 +17,13 @@ from . import consts
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
+    fit_level_volume_trend_model,
+    predict_level_volume_trend,
     fit_level_only_model,
     predict_level_only,
     score_mape,
 )
+from .trend_gate import passes_trend_gate
 from .window_selection import build_rolling_splits, select_best_window
 
 
@@ -62,14 +65,24 @@ class CombinedMarket:
 
         for key, monthly in monthly_by_key.items():
             rolling_splits = build_rolling_splits(latest_date)
+            trend_eligible = passes_trend_gate(monthly)
 
-            def fit_fn(train_start, train_end, _monthly=monthly):
-                return fit_level_volume_model(_monthly, train_start, train_end)
+            if trend_eligible:
+                def fit_fn(train_start, train_end, _monthly=monthly):
+                    return fit_level_volume_trend_model(_monthly, train_start, train_end)
 
-            def score_fn(params, test_start, test_end, _monthly=monthly):
-                predicted = predict_level_volume(_monthly, params)
-                mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
-                return score_mape(predicted[mask], _monthly["price"][mask])
+                def score_fn(params, test_start, test_end, _monthly=monthly):
+                    predicted = predict_level_volume_trend(_monthly, params)
+                    mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
+                    return score_mape(predicted[mask], _monthly["price"][mask])
+            else:
+                def fit_fn(train_start, train_end, _monthly=monthly):
+                    return fit_level_volume_model(_monthly, train_start, train_end)
+
+                def score_fn(params, test_start, test_end, _monthly=monthly):
+                    predicted = predict_level_volume(_monthly, params)
+                    mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
+                    return score_mape(predicted[mask], _monthly["price"][mask])
 
             result = select_best_window(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
 
@@ -77,7 +90,10 @@ class CombinedMarket:
                 label, years = result
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
                 try:
-                    params = fit_level_volume_model(monthly, train_start, latest_date)
+                    if trend_eligible:
+                        params = fit_level_volume_trend_model(monthly, train_start, latest_date)
+                    else:
+                        params = fit_level_volume_model(monthly, train_start, latest_date)
                     self.models[key] = params
                     self.window_labels[key] = label
                     self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
