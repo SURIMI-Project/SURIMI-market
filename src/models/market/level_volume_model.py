@@ -140,6 +140,95 @@ def predict_level_volume(monthly: pd.DataFrame, params: dict) -> pd.Series:
     return predicted
 
 
+def fit_level_volume_trend_model(monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp) -> dict:
+    """
+    Trend-augmented sibling of fit_level_volume_model (spec
+    2026-10-07-combined-market-trend-term-design.md, section 4). Extends
+    the existing 1-D vol_anom -> price_anom regression to a 2-D
+    least-squares fit adding trend_years = (date - train_end) / 365.25 as
+    a second predictor (zero at train_end, negative across the training
+    window). Only ever called for a key that has already passed
+    trend_gate.passes_trend_gate -- this function itself does not re-check
+    eligibility.
+    """
+    monthly = monthly.copy()
+    monthly["month"] = monthly["date"].dt.month
+    monthly["log_price"] = np.log(monthly["price"])
+    monthly["trend_years"] = (monthly["date"] - train_end).dt.days / 365.25
+
+    train = monthly[monthly["date"] < train_end]
+    if train_start is not None:
+        train = train[train["date"] >= train_start]
+
+    baseline_price = train.groupby("month")["price"].mean()
+    baseline_log_price = train.groupby("month")["log_price"].mean()
+    baseline_volume = train.groupby("month")["landings_kg"].mean()
+
+    baseline_volume_mapped = train["month"].map(baseline_volume)
+    train_price_anom = train["log_price"] - train["month"].map(baseline_log_price)
+    train_vol_anom = (train["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    fit_mask = train_price_anom.notna() & train_vol_anom.notna() & (baseline_volume_mapped > 0)
+
+    if fit_mask.sum() < 3 or train_vol_anom[fit_mask].var() == 0:
+        raise ValueError("not enough usable training rows to fit level-volume-trend model")
+
+    X = np.column_stack([
+        np.ones(int(fit_mask.sum())),
+        train_vol_anom[fit_mask].to_numpy(),
+        train["trend_years"][fit_mask].to_numpy(),
+    ])
+    y = train_price_anom[fit_mask].to_numpy()
+    coeffs, *_ = np.linalg.lstsq(X, y, rcond=None)
+    alpha, beta, gamma = coeffs
+
+    years_trained = (
+        (train_end - train["date"].min()).days / 365.25 if train_start is None
+        else (train_end - train_start).days / 365.25
+    )
+
+    return {
+        "baseline_price": baseline_price,
+        "baseline_log_price": baseline_log_price,
+        "baseline_volume": baseline_volume,
+        "alpha": float(alpha),
+        "beta": float(beta),
+        "gamma": float(gamma),
+        "vol_anom_min": float(train_vol_anom[fit_mask].min()),
+        "vol_anom_max": float(train_vol_anom[fit_mask].max()),
+        "trend_years_max": float(years_trained),
+        "train_end": train_end,
+    }
+
+
+def predict_level_volume_trend(monthly: pd.DataFrame, params: dict) -> pd.Series:
+    """
+    Trend-augmented sibling of predict_level_volume. trend_years is
+    computed from params["train_end"] (so this function, like
+    predict_level_volume, only ever needs (monthly, params)) and clamped
+    to [0, params["trend_years_max"]] -- the trend cannot be extrapolated
+    forward further than the years of real evidence it was estimated
+    from, mirroring the existing vol_anom_min/max clamp exactly.
+    """
+    monthly = monthly.copy()
+    monthly["month"] = monthly["date"].dt.month
+    monthly["trend_years"] = (monthly["date"] - params["train_end"]).dt.days / 365.25
+    monthly["trend_years"] = monthly["trend_years"].clip(lower=-params["trend_years_max"], upper=params["trend_years_max"])
+
+    baseline_volume_mapped = monthly["month"].map(params["baseline_volume"])
+    vol_anom = (monthly["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    vol_anom = vol_anom.clip(lower=params["vol_anom_min"], upper=params["vol_anom_max"])
+
+    predicted_log = (
+        monthly["month"].map(params["baseline_log_price"])
+        + params["alpha"]
+        + params["beta"] * vol_anom
+        + params["gamma"] * monthly["trend_years"]
+    )
+    predicted = np.exp(predicted_log)
+    predicted.index = monthly.index
+    return predicted
+
+
 def score_mape(predicted: pd.Series, actual: pd.Series) -> float | None:
     """Mean absolute percentage error, ignoring rows where either side is NaN or actual is 0."""
     valid = predicted.notna() & actual.notna() & (actual != 0)

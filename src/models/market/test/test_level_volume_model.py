@@ -9,6 +9,8 @@ from src.models.market.level_volume_model import (
     build_complete_monthly_series,
     fit_level_only_model,
     predict_level_only,
+    fit_level_volume_trend_model,
+    predict_level_volume_trend,
 )
 
 
@@ -125,3 +127,73 @@ def test_fit_level_only_model_raises_on_zero_price_data():
     })
     with pytest.raises(ValueError):
         fit_level_only_model(monthly, train_start=None, train_end=pd.Timestamp("2018-04-01"))
+
+
+def _make_trending_monthly(n_years=6, base_price=2.0, vol_response=-0.001, price_trend_per_year=0.1, seed=0):
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
+    volume = 1000.0 + rng.normal(0, 50, len(dates))
+    years = dates.year.to_numpy(dtype=float)
+    price = (
+        base_price + vol_response * (volume - 1000.0)
+        + price_trend_per_year * (years - years.min())
+        + rng.normal(0, 0.01, len(dates))
+    )
+    return pd.DataFrame({"date": dates, "price": price, "landings_kg": volume})
+
+
+def test_trend_fit_recovers_a_positive_trend_and_predicts_forward():
+    monthly = _make_trending_monthly(price_trend_per_year=0.1)
+    train_end = pd.Timestamp("2023-01-01")
+    params = fit_level_volume_trend_model(monthly, train_start=None, train_end=train_end)
+
+    assert params["gamma"] > 0  # constructed with a positive price trend
+    assert params["train_end"] == train_end
+    assert params["trend_years_max"] == pytest.approx(5.0, abs=0.01)
+
+    predicted = predict_level_volume_trend(monthly, params)
+    assert len(predicted) == len(monthly)
+    train_mask = monthly["date"] < train_end
+    mape = score_mape(predicted[train_mask], monthly["price"][train_mask])
+    assert mape < 5.0  # well-fit synthetic data on its own training window
+
+
+def test_trend_prediction_clamps_beyond_the_training_window_span():
+    monthly = _make_trending_monthly(price_trend_per_year=0.1)
+    train_end = pd.Timestamp("2023-01-01")
+    params = fit_level_volume_trend_model(monthly, train_start=None, train_end=train_end)
+
+    at_cutoff = pd.DataFrame({"date": [train_end], "price": [None], "landings_kg": [1000.0]})
+    far_future = pd.DataFrame({"date": [pd.Timestamp("2050-01-01")], "price": [None], "landings_kg": [1000.0]})
+    way_past_max = pd.DataFrame(
+        {"date": [train_end + pd.DateOffset(years=int(params["trend_years_max"]) + 1)],
+         "price": [None], "landings_kg": [1000.0]}
+    )
+
+    pred_cutoff = predict_level_volume_trend(at_cutoff, params)
+    pred_far = predict_level_volume_trend(far_future, params)
+    pred_beyond_max = predict_level_volume_trend(way_past_max, params)
+
+    assert pred_far.iloc[0] > pred_cutoff.iloc[0]  # trend continues forward...
+    assert pred_far.iloc[0] == pytest.approx(pred_beyond_max.iloc[0], rel=1e-9)  # ...but clamps, doesn't keep climbing
+
+
+def test_trend_fit_raises_on_insufficient_data():
+    monthly = pd.DataFrame({
+        "date": pd.to_datetime(["2020-01-01", "2020-02-01"]),
+        "price": [2.0, 2.1],
+        "landings_kg": [1000.0, 1000.0],
+    })
+    with pytest.raises(ValueError):
+        fit_level_volume_trend_model(monthly, train_start=None, train_end=pd.Timestamp("2020-03-01"))
+
+
+def test_trend_fit_raises_when_volume_has_zero_variance():
+    dates = pd.date_range("2018-01-01", periods=24, freq="MS")
+    monthly = pd.DataFrame({
+        "date": dates,
+        "price": np.linspace(1.8, 2.2, 24),
+        "landings_kg": [1000.0] * 24,  # zero variance
+    })
+    with pytest.raises(ValueError):
+        fit_level_volume_trend_model(monthly, train_start=None, train_end=pd.Timestamp("2020-01-01"))
