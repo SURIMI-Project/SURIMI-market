@@ -58,6 +58,8 @@ schema (date/price/landings_kg instead of Date/Price_EUR_kg/Volume_Kg).
 import numpy as np
 import pandas as pd
 
+from src.models.market import consts
+
 
 def fit_level_only_model(
     monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp
@@ -140,93 +142,83 @@ def predict_level_volume(monthly: pd.DataFrame, params: dict) -> pd.Series:
     return predicted
 
 
-def fit_level_volume_trend_model(monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp) -> dict:
+def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict:
     """
-    Trend-augmented sibling of fit_level_volume_model (spec
-    2026-10-07-combined-market-trend-term-design.md, section 4). Extends
-    the existing 1-D vol_anom -> price_anom regression to a 2-D
-    least-squares fit adding trend_years = (date - train_end) / 365.25 as
-    a second predictor (zero at train_end, negative across the training
-    window). Only ever called for a key that has already passed
-    trend_gate.passes_trend_gate -- this function itself does not re-check
-    eligibility.
+    Trend rate (spec 2026-10-08-combined-market-trend-term-v2-design.md
+    section 3, Step 3). Builds sequential TREND_RATE_BLOCK_YEARS-year
+    blocks forward from the oldest available real price observation,
+    stopping once the next block would extend past train_end (any
+    partial remainder nearest train_end is simply unused -- this matches
+    the spec's own worked example: ES's ~10yr history yields exactly 3
+    blocks, not 3.33). Each block's mean log-price is one data point; rate
+    is the slope of a straight line through those points
+    (numpy.polyfit), with the x-axis in years relative to train_end
+    (negative for historical blocks, matching predict_trend_correction's
+    trend_years convention exactly). Completely independent of window
+    selection -- this function never reads or influences which window
+    CombinedMarket.fit() picks.
+
+    Returns {"rate": 0.0, ...} (a harmless no-op, not a raised error) when
+    fewer than 2 blocks fit -- a straight line needs at least 2 points,
+    and real history shorter than 2*TREND_RATE_BLOCK_YEARS years is a
+    normal, expected case (e.g. a newly-onboarded species/market), not a
+    fitting failure.
     """
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
-    monthly["log_price"] = np.log(monthly["price"])
-    monthly["trend_years"] = (monthly["date"] - train_end).dt.days / 365.25
+    history = monthly.dropna(subset=["price"]).copy()
+    history = history[history["date"] < train_end].sort_values("date")
+    if history.empty:
+        return {"rate": 0.0, "years_trained": 0.0}
 
-    train = monthly[monthly["date"] < train_end]
-    if train_start is not None:
-        train = train[train["date"] >= train_start]
+    history["log_price"] = np.log(history["price"])
+    block_days = pd.Timedelta(days=consts.TREND_RATE_BLOCK_YEARS * 365.25)
 
-    baseline_price = train.groupby("month")["price"].mean()
-    baseline_log_price = train.groupby("month")["log_price"].mean()
-    baseline_volume = train.groupby("month")["landings_kg"].mean()
+    oldest = history["date"].min()
+    years_trained = (train_end - oldest).days / 365.25
 
-    baseline_volume_mapped = train["month"].map(baseline_volume)
-    train_price_anom = train["log_price"] - train["month"].map(baseline_log_price)
-    train_vol_anom = (train["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
-    fit_mask = train_price_anom.notna() & train_vol_anom.notna() & (baseline_volume_mapped > 0)
+    block_centers = []
+    block_averages = []
+    block_start = oldest
+    while block_start + block_days <= train_end:
+        block_end = block_start + block_days
+        block = history[(history["date"] >= block_start) & (history["date"] < block_end)]
+        if len(block) > 0:
+            center_date = block_start + (block_end - block_start) / 2
+            block_centers.append((center_date - train_end).days / 365.25)
+            block_averages.append(block["log_price"].mean())
+        block_start = block_end
 
-    if fit_mask.sum() < 3 or train_vol_anom[fit_mask].var() == 0:
-        raise ValueError("not enough usable training rows to fit level-volume-trend model")
+    if len(block_centers) < 2:
+        return {"rate": 0.0, "years_trained": max(years_trained, 0.0)}
 
-    X = np.column_stack([
-        np.ones(int(fit_mask.sum())),
-        train_vol_anom[fit_mask].to_numpy(),
-        train["trend_years"][fit_mask].to_numpy(),
-    ])
-    y = train_price_anom[fit_mask].to_numpy()
-    coeffs, *_ = np.linalg.lstsq(X, y, rcond=None)
-    alpha, beta, gamma = coeffs
-
-    years_trained = (
-        (train_end - train["date"].min()).days / 365.25 if train_start is None
-        else (train_end - train_start).days / 365.25
-    )
-
-    return {
-        "baseline_price": baseline_price,
-        "baseline_log_price": baseline_log_price,
-        "baseline_volume": baseline_volume,
-        "alpha": float(alpha),
-        "beta": float(beta),
-        "gamma": float(gamma),
-        "vol_anom_min": float(train_vol_anom[fit_mask].min()),
-        "vol_anom_max": float(train_vol_anom[fit_mask].max()),
-        "trend_years_max": float(years_trained),
-        "train_end": train_end,
-    }
+    rate, _ = np.polyfit(block_centers, block_averages, 1)
+    return {"rate": float(rate), "years_trained": float(years_trained)}
 
 
-def predict_level_volume_trend(monthly: pd.DataFrame, params: dict) -> pd.Series:
+def predict_trend_correction(monthly: pd.DataFrame, params: dict) -> pd.Series:
     """
-    Trend-augmented sibling of predict_level_volume. trend_years is
-    computed from params["train_end"] (so this function, like
-    predict_level_volume, only ever needs (monthly, params)) and clamped
-    to [-params["trend_years_max"], params["trend_years_max"]] -- the trend cannot be extrapolated
-    beyond the training window span in either direction, mirroring the
-    existing vol_anom_min/max clamp exactly.
+    Multiplicative trend correction (spec v2 section 3, Step 4):
+    exp(confidence * rate * clip(trend_years, 0, years_trained)). Returns
+    a correction FACTOR, not a price -- callers multiply this onto
+    predict_level_volume's (or predict_level_only's) own output.
+    trend_years is computed from params["trend_train_end"], mirroring
+    v1's predict_level_volume_trend, but clamped to [0, years_trained],
+    NOT symmetric -- the v2 spec's section 3 Step 4 explains why this
+    differs from v1's symmetric clamp fix: v1's gamma was fit via
+    regression directly against unclamped, negative trend_years values
+    for training rows, so an asymmetric predict-time clamp would have
+    been inconsistent with what that fit assumed. Here, the rate is
+    measured purely from block averages with no per-row regression
+    against trend_years at all, so there is no equivalent fitting-time
+    assumption to be inconsistent with -- any date at or before
+    train_end gets a correction of exactly 1.0 (no-op), matching that
+    every historical date is covered by get_price's real-price-first path
+    before this model is ever reached anyway.
     """
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
-    monthly["trend_years"] = (monthly["date"] - params["train_end"]).dt.days / 365.25
-    monthly["trend_years"] = monthly["trend_years"].clip(lower=-params["trend_years_max"], upper=params["trend_years_max"])
-
-    baseline_volume_mapped = monthly["month"].map(params["baseline_volume"])
-    vol_anom = (monthly["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
-    vol_anom = vol_anom.clip(lower=params["vol_anom_min"], upper=params["vol_anom_max"])
-
-    predicted_log = (
-        monthly["month"].map(params["baseline_log_price"])
-        + params["alpha"]
-        + params["beta"] * vol_anom
-        + params["gamma"] * monthly["trend_years"]
-    )
-    predicted = np.exp(predicted_log)
-    predicted.index = monthly.index
-    return predicted
+    trend_years = (monthly["date"] - params["trend_train_end"]).dt.days / 365.25
+    trend_years = trend_years.clip(lower=0.0, upper=params["trend_years_trained"])
+    correction = np.exp(params["trend_confidence"] * params["trend_rate"] * trend_years)
+    correction.index = monthly.index
+    return correction
 
 
 def score_mape(predicted: pd.Series, actual: pd.Series) -> float | None:

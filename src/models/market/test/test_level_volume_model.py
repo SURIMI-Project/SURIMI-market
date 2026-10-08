@@ -9,8 +9,8 @@ from src.models.market.level_volume_model import (
     build_complete_monthly_series,
     fit_level_only_model,
     predict_level_only,
-    fit_level_volume_trend_model,
-    predict_level_volume_trend,
+    fit_trend_rate_model,
+    predict_trend_correction,
 )
 
 
@@ -129,90 +129,110 @@ def test_fit_level_only_model_raises_on_zero_price_data():
         fit_level_only_model(monthly, train_start=None, train_end=pd.Timestamp("2018-04-01"))
 
 
-def _make_trending_monthly(n_years=6, base_price=2.0, vol_response=-0.001, price_trend_per_year=0.1, seed=0):
+def _make_trending_monthly(n_years=10, slope=0.1, seed=0):
     rng = np.random.default_rng(seed)
-    dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
-    volume = 1000.0 + rng.normal(0, 50, len(dates))
+    dates = pd.date_range("2015-01-01", periods=n_years * 12, freq="MS")
     years = dates.year.to_numpy(dtype=float)
-    price = (
-        base_price + vol_response * (volume - 1000.0)
-        + price_trend_per_year * (years - years.min())
-        + rng.normal(0, 0.01, len(dates))
-    )
-    return pd.DataFrame({"date": dates, "price": price, "landings_kg": volume})
+    price = 2.0 + slope * (years - years.min()) + rng.normal(0, 0.01, len(dates))
+    return pd.DataFrame({"date": dates, "price": price, "landings_kg": [1000.0] * len(dates)})
 
 
-def test_trend_fit_recovers_a_positive_trend_and_predicts_forward():
-    monthly = _make_trending_monthly(price_trend_per_year=0.1)
-    train_end = pd.Timestamp("2023-01-01")
-    params = fit_level_volume_trend_model(monthly, train_start=None, train_end=train_end)
+def test_fit_trend_rate_model_measures_a_positive_rate_from_rising_blocks():
+    monthly = _make_trending_monthly(n_years=10, slope=0.1, seed=0)
+    train_end = pd.Timestamp("2025-01-01")
 
-    assert params["gamma"] > 0  # constructed with a positive price trend
-    assert params["train_end"] == train_end
-    assert params["trend_years_max"] == pytest.approx(5.0, abs=0.01)
+    params = fit_trend_rate_model(monthly, train_end)
 
-    predicted = predict_level_volume_trend(monthly, params)
-    assert len(predicted) == len(monthly)
-    train_mask = monthly["date"] < train_end
-    mape = score_mape(predicted[train_mask], monthly["price"][train_mask])
-    assert mape < 5.0  # well-fit synthetic data on its own training window
+    assert params["rate"] == pytest.approx(0.0423, abs=0.001)
+    assert params["years_trained"] == pytest.approx(10.0, abs=0.01)
 
 
-def test_trend_prediction_clamps_beyond_the_training_window_span():
-    monthly = _make_trending_monthly(price_trend_per_year=0.1)
-    train_end = pd.Timestamp("2023-01-01")
-    params = fit_level_volume_trend_model(monthly, train_start=None, train_end=train_end)
+def test_fit_trend_rate_model_returns_zero_rate_with_fewer_than_two_blocks():
+    # 5 years of history and 3-year blocks gives exactly one full block
+    # (years 0-3) plus a 2-year remainder too short for a second block --
+    # a least-squares line needs at least 2 points, so this measures a
+    # harmless rate of 0.0 rather than raising or crashing.
+    monthly = _make_trending_monthly(n_years=5, slope=0.1, seed=0)
+    train_end = pd.Timestamp("2020-01-01")
 
-    at_cutoff = pd.DataFrame({"date": [train_end], "price": [None], "landings_kg": [1000.0]})
-    far_future = pd.DataFrame({"date": [pd.Timestamp("2050-01-01")], "price": [None], "landings_kg": [1000.0]})
-    way_past_max = pd.DataFrame(
-        {"date": [train_end + pd.DateOffset(years=int(params["trend_years_max"]) + 1)],
-         "price": [None], "landings_kg": [1000.0]}
-    )
+    params = fit_trend_rate_model(monthly, train_end)
 
-    # Test lower bound: date far in the past, before training window by more than trend_years_max
-    far_past = pd.DataFrame(
-        {"date": [train_end - pd.DateOffset(years=int(params["trend_years_max"]) + 1)],
-         "price": [None], "landings_kg": [1000.0]}
-    )
-    way_past_min = pd.DataFrame(
-        {"date": [train_end - pd.DateOffset(years=int(params["trend_years_max"]) + 2)],
-         "price": [None], "landings_kg": [1000.0]}
-    )
-
-    pred_cutoff = predict_level_volume_trend(at_cutoff, params)
-    pred_far = predict_level_volume_trend(far_future, params)
-    pred_beyond_max = predict_level_volume_trend(way_past_max, params)
-    pred_far_past = predict_level_volume_trend(far_past, params)
-    pred_way_past_min = predict_level_volume_trend(way_past_min, params)
-
-    # Forward clamp: trend continues forward...
-    assert pred_far.iloc[0] > pred_cutoff.iloc[0]
-    # ...but clamps at forward bound
-    assert pred_far.iloc[0] == pytest.approx(pred_beyond_max.iloc[0], rel=1e-9)
-
-    # Backward clamp: trend continues backward...
-    assert pred_far_past.iloc[0] < pred_cutoff.iloc[0]
-    # ...but clamps at backward bound
-    assert pred_far_past.iloc[0] == pytest.approx(pred_way_past_min.iloc[0], rel=1e-9)
+    assert params["rate"] == 0.0
+    assert params["years_trained"] == pytest.approx(5.0, abs=0.01)
 
 
-def test_trend_fit_raises_on_insufficient_data():
-    monthly = pd.DataFrame({
-        "date": pd.to_datetime(["2020-01-01", "2020-02-01"]),
-        "price": [2.0, 2.1],
+def test_fit_trend_rate_model_handles_empty_history():
+    monthly = pd.DataFrame({"date": pd.to_datetime([]), "price": [], "landings_kg": []})
+    params = fit_trend_rate_model(monthly, pd.Timestamp("2020-01-01"))
+    assert params == {"rate": 0.0, "years_trained": 0.0}
+
+
+def test_predict_trend_correction_is_identity_at_and_before_train_end():
+    monthly = _make_trending_monthly(n_years=10, slope=0.1, seed=0)
+    train_end = pd.Timestamp("2025-01-01")
+    rate_params = fit_trend_rate_model(monthly, train_end)
+    params = {
+        "trend_rate": rate_params["rate"],
+        "trend_years_trained": rate_params["years_trained"],
+        "trend_confidence": 1.0,
+        "trend_train_end": train_end,
+    }
+
+    at_or_before = pd.DataFrame({
+        "date": [train_end, train_end - pd.DateOffset(years=3)],
+        "price": [None, None],
         "landings_kg": [1000.0, 1000.0],
     })
-    with pytest.raises(ValueError):
-        fit_level_volume_trend_model(monthly, train_start=None, train_end=pd.Timestamp("2020-03-01"))
+    correction = predict_trend_correction(at_or_before, params)
+    assert correction.iloc[0] == pytest.approx(1.0)
+    assert correction.iloc[1] == pytest.approx(1.0)
 
 
-def test_trend_fit_raises_when_volume_has_zero_variance():
-    dates = pd.date_range("2018-01-01", periods=24, freq="MS")
-    monthly = pd.DataFrame({
-        "date": dates,
-        "price": np.linspace(1.8, 2.2, 24),
-        "landings_kg": [1000.0] * 24,  # zero variance
-    })
-    with pytest.raises(ValueError):
-        fit_level_volume_trend_model(monthly, train_start=None, train_end=pd.Timestamp("2020-01-01"))
+def test_predict_trend_correction_grows_forward_and_clamps_at_years_trained():
+    monthly = _make_trending_monthly(n_years=10, slope=0.1, seed=0)
+    train_end = pd.Timestamp("2025-01-01")
+    rate_params = fit_trend_rate_model(monthly, train_end)
+    params = {
+        "trend_rate": rate_params["rate"],
+        "trend_years_trained": rate_params["years_trained"],
+        "trend_confidence": 1.0,
+        "trend_train_end": train_end,
+    }
+
+    one_year_out = pd.DataFrame(
+        {"date": [train_end + pd.DateOffset(years=1)], "price": [None], "landings_kg": [1000.0]}
+    )
+    far_future = pd.DataFrame(
+        {"date": [train_end + pd.DateOffset(years=20)], "price": [None], "landings_kg": [1000.0]}
+    )
+    at_years_trained_bound = pd.DataFrame(
+        {
+            "date": [train_end + pd.Timedelta(days=rate_params["years_trained"] * 365.25)],
+            "price": [None],
+            "landings_kg": [1000.0],
+        }
+    )
+
+    corr_1yr = predict_trend_correction(one_year_out, params).iloc[0]
+    corr_far = predict_trend_correction(far_future, params).iloc[0]
+    corr_bound = predict_trend_correction(at_years_trained_bound, params).iloc[0]
+
+    assert corr_1yr > 1.0  # positive rate -> correction grows forward
+    assert corr_far == pytest.approx(corr_bound, rel=1e-6)  # clamped, doesn't keep extrapolating
+
+
+def test_predict_trend_correction_is_a_no_op_at_zero_confidence():
+    monthly = _make_trending_monthly(n_years=10, slope=0.1, seed=0)
+    train_end = pd.Timestamp("2025-01-01")
+    rate_params = fit_trend_rate_model(monthly, train_end)
+    params = {
+        "trend_rate": rate_params["rate"],
+        "trend_years_trained": rate_params["years_trained"],
+        "trend_confidence": 0.0,
+        "trend_train_end": train_end,
+    }
+
+    far_future = pd.DataFrame(
+        {"date": [train_end + pd.DateOffset(years=5)], "price": [None], "landings_kg": [1000.0]}
+    )
+    assert predict_trend_correction(far_future, params).iloc[0] == pytest.approx(1.0)
