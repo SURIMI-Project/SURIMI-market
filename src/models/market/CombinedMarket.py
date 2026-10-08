@@ -17,13 +17,13 @@ from . import consts
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
-    fit_level_volume_trend_model,
-    predict_level_volume_trend,
+    fit_trend_rate_model,
+    predict_trend_correction,
     fit_level_only_model,
     predict_level_only,
     score_mape,
 )
-from .trend_gate import passes_trend_gate
+from .trend_confidence import compute_trend_confidence
 from .window_selection import build_rolling_splits, select_best_window
 
 
@@ -60,29 +60,31 @@ class CombinedMarket:
         (spec section 7). Falls back to a level-only fit (spec section 9
         point 2) if no window produces a stable level-volume model; excludes
         the key entirely (spec section 9 point 4) if even that fails.
+
+        Window selection and the frozen baseline (baseline_price/alpha/beta)
+        are completely unconditional -- identical for every key, with no
+        trend-related branching anywhere in this path (spec
+        2026-10-08-combined-market-trend-term-v2-design.md section 3, Step
+        1 / Global Constraints). Trend confidence and rate (Steps 2-3) are
+        computed separately from the complete monthly series and attached
+        to the frozen params afterward via _attach_trend_params -- for
+        every key that gets a model at all, main path or fallback alike --
+        so get_price() never needs to branch on whether a key "has" a
+        trend; the correction it applies is just ~1.0 (a no-op) for a
+        non-trending key.
         """
         selected: dict[tuple[str, str], str | None] = {}
 
         for key, monthly in monthly_by_key.items():
             rolling_splits = build_rolling_splits(latest_date)
-            trend_eligible = passes_trend_gate(monthly)
 
-            if trend_eligible:
-                def fit_fn(train_start, train_end, _monthly=monthly):
-                    return fit_level_volume_trend_model(_monthly, train_start, train_end)
+            def fit_fn(train_start, train_end, _monthly=monthly):
+                return fit_level_volume_model(_monthly, train_start, train_end)
 
-                def score_fn(params, test_start, test_end, _monthly=monthly):
-                    predicted = predict_level_volume_trend(_monthly, params)
-                    mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
-                    return score_mape(predicted[mask], _monthly["price"][mask])
-            else:
-                def fit_fn(train_start, train_end, _monthly=monthly):
-                    return fit_level_volume_model(_monthly, train_start, train_end)
-
-                def score_fn(params, test_start, test_end, _monthly=monthly):
-                    predicted = predict_level_volume(_monthly, params)
-                    mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
-                    return score_mape(predicted[mask], _monthly["price"][mask])
+            def score_fn(params, test_start, test_end, _monthly=monthly):
+                predicted = predict_level_volume(_monthly, params)
+                mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
+                return score_mape(predicted[mask], _monthly["price"][mask])
 
             result = select_best_window(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
 
@@ -90,10 +92,8 @@ class CombinedMarket:
                 label, years = result
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
                 try:
-                    if trend_eligible:
-                        params = fit_level_volume_trend_model(monthly, train_start, latest_date)
-                    else:
-                        params = fit_level_volume_model(monthly, train_start, latest_date)
+                    params = fit_level_volume_model(monthly, train_start, latest_date)
+                    self._attach_trend_params(params, monthly, latest_date)
                     self.models[key] = params
                     self.window_labels[key] = label
                     self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
@@ -123,6 +123,7 @@ class CombinedMarket:
                 )
             try:
                 params = fit_level_only_model(monthly, None, latest_date)
+                self._attach_trend_params(params, monthly, latest_date)
                 self.models[key] = params
                 self.window_labels[key] = "level-only-fallback"
                 selected[key] = "level-only-fallback"
@@ -134,6 +135,21 @@ class CombinedMarket:
                 selected[key] = None
 
         return selected
+
+    def _attach_trend_params(self, params: dict, monthly: pd.DataFrame, train_end: pd.Timestamp) -> None:
+        """
+        spec 2026-10-08-combined-market-trend-term-v2-design.md section 3,
+        Steps 2-4: continuous confidence + block-based rate, computed from
+        the complete real historical record and attached unconditionally
+        -- same procedure for every key, main level-volume path and the
+        level-only fallback alike, so get_price() can apply the correction
+        without ever checking which path produced a given key's params.
+        """
+        trend_rate_params = fit_trend_rate_model(monthly, train_end)
+        params["trend_confidence"] = compute_trend_confidence(monthly)
+        params["trend_rate"] = trend_rate_params["rate"]
+        params["trend_years_trained"] = trend_rate_params["years_trained"]
+        params["trend_train_end"] = train_end
 
     def _seed_volume_baseline_stats(self, key, monthly, train_start, train_end):
         monthly = monthly.copy()

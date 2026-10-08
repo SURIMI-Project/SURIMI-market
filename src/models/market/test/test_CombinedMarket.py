@@ -235,26 +235,60 @@ def _trending_synthetic_monthly(n_years=10, seed=0):
     return pd.DataFrame({"date": dates, "price": price, "landings_kg": volume})
 
 
-def test_fit_includes_trend_for_a_key_that_passes_the_gate():
+def test_fit_attaches_trend_params_to_every_key():
     market = CombinedMarket("ES")
-    monthly_by_key = {("ANE", "Fresh - Whole"): _trending_synthetic_monthly()}
-
+    monthly_by_key = {
+        ("ANE", "Fresh - Whole"): _trending_synthetic_monthly(),
+        ("MUT", "Fresh - Whole"): _synthetic_monthly(),
+    }
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2025-01-01"))
 
-    assert "gamma" in market.models[("ANE", "Fresh - Whole")]
+    for key in monthly_by_key:
+        params = market.models[key]
+        for field in ("trend_confidence", "trend_rate", "trend_years_trained", "trend_train_end"):
+            assert field in params
+        assert 0.0 <= params["trend_confidence"] <= 1.0
+
+    # The trending series must measure meaningfully higher confidence than
+    # the flat one -- confirms each key's own monthly data is actually
+    # threaded through, not a shared or stale value.
+    trending_confidence = market.models[("ANE", "Fresh - Whole")]["trend_confidence"]
+    flat_confidence = market.models[("MUT", "Fresh - Whole")]["trend_confidence"]
+    assert trending_confidence == pytest.approx(1.0)
+    assert flat_confidence == pytest.approx(1 / 12)
 
 
-def test_fit_excludes_trend_for_a_key_that_fails_the_gate():
-    # _synthetic_monthly (already defined above in this file) has no
-    # embedded trend -- flat price around 2.0 plus noise -- so it must not
-    # pass the gate, and the frozen model must be the plain (non-trend)
-    # shape, exactly as before this feature existed.
-    market = CombinedMarket("ES")
-    monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
+def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatch):
+    # The regression test spec section 6 calls out directly: this is what
+    # would have caught v1's bug (trend-eligibility changing which window
+    # gets selected, and so changing baseline_price). Patches
+    # compute_trend_confidence's return value directly rather than
+    # constructing a low/high-confidence dataset pair -- confidence is a
+    # pure side-computation attached AFTER fit() has already chosen a
+    # window and baseline (Task 3's own design), so this isolates the
+    # invariant ("confidence can never affect window selection or the
+    # baseline fit") from any incidental correlation between "this series
+    # has a trend" and "window scoring happens to prefer a different
+    # window length for unrelated data reasons."
+    monthly = _trending_synthetic_monthly()
+    key = ("ANE", "Fresh - Whole")
+    latest_date = pd.Timestamp("2025-01-01")
 
-    market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+    monkeypatch.setattr("src.models.market.CombinedMarket.compute_trend_confidence", lambda m: 0.0)
+    market_low = CombinedMarket("ES")
+    market_low.fit({key: monthly}, latest_date=latest_date)
 
-    assert "gamma" not in market.models[("ANE", "Fresh - Whole")]
+    monkeypatch.setattr("src.models.market.CombinedMarket.compute_trend_confidence", lambda m: 1.0)
+    market_high = CombinedMarket("ES")
+    market_high.fit({key: monthly}, latest_date=latest_date)
+
+    assert market_low.window_labels[key] == market_high.window_labels[key]
+    params_low = market_low.models[key]
+    params_high = market_high.models[key]
+    pd.testing.assert_series_equal(params_low["baseline_price"], params_high["baseline_price"])
+    pd.testing.assert_series_equal(params_low["baseline_log_price"], params_high["baseline_log_price"])
+    assert params_low["alpha"] == params_high["alpha"]
+    assert params_low["beta"] == params_high["beta"]
 
 
 def test_get_price_uses_trend_augmented_prediction_when_model_has_trend():
