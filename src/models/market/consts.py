@@ -49,13 +49,10 @@ ROLLING_TEST_HORIZON_YEARS = 2
 ANCHOR_SCHEME_STATIC = "static"
 ANCHOR_SCHEME_LIVE = "live"
 
-# Trend-term gate (spec 2026-10-07-combined-market-trend-term-design.md,
-# section 3): per-calendar-month OLS on the FULL real historical record
-# (no train/test split), used to decide whether a (species_code,
-# category_code) key's CombinedMarket fit should include a trend term at
-# all. Deliberately strict -- chosen to cleanly separate the one
-# validated real case (ANE@ES: 12/12 months agree in sign, 11/12
-# individually significant) from the nearest false positive (HKE@FR:
-# 12/12 sign agreement, but only 2/12 significant).
-TREND_GATE_T_THRESHOLD = 2.0
-TREND_GATE_MIN_SIGNIFICANT_MONTHS = 9
+# Trend confidence (spec 2026-10-08-combined-market-trend-term-v2-design.md
+# section 3, Step 2): per-calendar-month OLS on the FULL real historical
+# record (no train/test split), continuous -- NOT a pass/fail gate (v1's
+# TREND_GATE_MIN_SIGNIFICANT_MONTHS threshold is gone; see
+# trend_confidence.py). confidence = (months individually significant in
+# the majority sign direction) / 12.
+TREND_CONFIDENCE_T_THRESHOLD = 2.0
