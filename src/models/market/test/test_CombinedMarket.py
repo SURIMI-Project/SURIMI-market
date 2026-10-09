@@ -50,7 +50,14 @@ def test_get_price_falls_through_to_frozen_model_when_real_price_is_nan():
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
 
-    market.price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"))] = float("nan")
+    market.load_price_time_series(pd.DataFrame({
+        "date": pd.to_datetime(["2024-02-01"]),
+        "market_code": ["ES"],
+        "species_code": ["ANE"],
+        "category_code": ["Fresh - Whole"],
+        "price": [float("nan")],
+        "size": [None],
+    }))
 
     price = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=1000.0)
     assert price is not None
@@ -79,7 +86,7 @@ def test_load_price_time_series_excludes_per_size_rows():
         "size": [None, "1"],
     }))
 
-    assert market.price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"))] == 2.0
+    assert market.real_prices.get("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01")) == 2.0
 
 
 def test_get_price_returns_none_for_unknown_species():

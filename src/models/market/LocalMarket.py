@@ -17,13 +17,12 @@ from .PriceModel import PriceModel
 from .TrendCorrection import TrendCorrection
 from .LevelOnlyModel import LevelOnlyModel
 from .LevelVolumeModel import LevelVolumeModel
+from .VolumeBaselineTracker import VolumeBaselineTracker
+from .RealPriceLookup import RealPriceLookup
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
     score_mape,
-    compute_volume_baseline_stats,
-    apply_volume_baseline_update,
-    populate_price_time_series,
     with_month_column,
 )
 from .stacked_model import (
@@ -66,8 +65,8 @@ class LocalMarket:
         self.step2_distance_only_models: dict[tuple[str, str], dict] = {}
         self.step2_window_labels: dict[tuple[str, str], str] = {}
 
-        self.volume_baseline_stats: dict[tuple[str, str], dict[int, tuple[float, int]]] = {}
-        self.price_time_series: dict[tuple[str, str, pd.Timestamp], float] = {}
+        self.volume_baseline: dict[tuple[str, str], VolumeBaselineTracker] = {}
+        self.real_prices = RealPriceLookup()
 
         self._monthly_catch = CatchAccumulator()
         self.price_history = []  # [(tick, {"prices": {...}, "catches": {...}})]
@@ -151,7 +150,9 @@ class LocalMarket:
         return selected
 
     def _seed_volume_baseline_stats(self, key, monthly, train_start, train_end):
-        self.volume_baseline_stats[key] = compute_volume_baseline_stats(monthly, train_start, train_end)
+        tracker = VolumeBaselineTracker()
+        tracker.seed(monthly, train_start, train_end)
+        self.volume_baseline[key] = tracker
 
     @staticmethod
     def _date_indexed(series: pd.Series, monthly: pd.DataFrame) -> pd.Series:
@@ -165,7 +166,10 @@ class LocalMarket:
 
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
         key = (species_code, category_code)
-        result = apply_volume_baseline_update(self.volume_baseline_stats, key, date, volume)
+        tracker = self.volume_baseline.get(key)
+        if tracker is None:
+            return
+        result = tracker.update(date, volume)
         if result is None:
             return
         month, new_mean = result
@@ -189,10 +193,10 @@ class LocalMarket:
     # --- Real-price-first ---
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
-        populate_price_time_series(self.price_time_series, prices_df, self.market_code)
+        self.real_prices.load(prices_df, self.market_code)
 
     def get_real_price(self, species_code: str, category_code: str, date: pd.Timestamp) -> float | None:
-        return self.price_time_series.get((species_code, category_code, date))
+        return self.real_prices.get(species_code, category_code, date)
 
     def record_history(self, tick: int, prices: dict, catches: dict):
         self.price_history.append((tick, {"prices": dict(prices), "catches": dict(catches)}))
@@ -311,20 +315,15 @@ class LocalMarket:
         anchor_value: float,
         neighbor_value: float,
     ) -> float | None:
-        """Runtime dynamic switch. VolumeRatio reads from self.volume_baseline_stats,
+        """Runtime dynamic switch. VolumeRatio reads from self.volume_baseline,
         the same incrementally-updated structure Step 1 seeds and
         update_volume_baseline keeps current -- not a separate Step-2-only baseline."""
         key = (species_code, category_code)
         if key not in self.step2_stacked_models or key not in self.step2_distance_only_models:
             return None
 
-        stats = self.volume_baseline_stats.get(key, {})
-        month_stats = stats.get(date.month)
-        if month_stats is None or month_stats[1] == 0 or month_stats[0] <= 0:
-            volume_ratio = float("nan")
-        else:
-            baseline = month_stats[0] / month_stats[1]
-            volume_ratio = (volume / baseline) if baseline > 0 else float("nan")
+        tracker = self.volume_baseline.get(key)
+        volume_ratio = tracker.ratio(date, volume) if tracker is not None else float("nan")
 
         use_distance_only = should_use_distance_only(volume_ratio)
 

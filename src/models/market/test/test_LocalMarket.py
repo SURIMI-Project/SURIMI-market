@@ -6,6 +6,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from src.models.market.LocalMarket import LocalMarket, Step2FitInputs
+from src.models.market.VolumeBaselineTracker import VolumeBaselineTracker
 
 
 def _synthetic_monthly(n_years=6, seed=0):
@@ -149,7 +150,14 @@ def test_real_price_first_pattern_falls_through_on_nan_when_caller_guards_with_n
 
     # Simulate a loaded blended row with a missing/NaN price for this date (as
     # load_price_time_series would store verbatim for such a row).
-    port.price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"))] = float("nan")
+    port.load_price_time_series(pd.DataFrame({
+        "date": pd.to_datetime(["2024-02-01"]),
+        "market_code": ["ESALC"],
+        "species_code": ["ANE"],
+        "category_code": ["Fresh - Whole"],
+        "price": [float("nan")],
+        "size": [None],
+    }))
 
     real_price = port.get_real_price("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"))
     assert real_price is not None  # a stored value was found (not a missing-key None)
@@ -211,7 +219,9 @@ def test_predict_step2_picks_stacked_when_volume_ratio_in_normal_range():
     )
 
     # Seed the baseline so VolumeRatio = 1.0 (normal) for this month.
-    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
+    tracker = VolumeBaselineTracker()
+    tracker.update(pd.Timestamp("2024-01-01"), volume=500.0)
+    port.volume_baseline[("ANE", "Fresh - Whole")] = tracker
 
     price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
                                 anchor_value=2.0, neighbor_value=2.0)
@@ -229,7 +239,9 @@ def test_predict_step2_falls_back_to_distance_only_on_extreme_volume_ratio():
             latest_date=pd.Timestamp("2024-01-01"),
         ),
     )
-    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
+    tracker = VolumeBaselineTracker()
+    tracker.update(pd.Timestamp("2024-01-01"), volume=500.0)
+    port.volume_baseline[("ANE", "Fresh - Whole")] = tracker
 
     # Volume is 0 -> VolumeRatio = 0, below LOW_VOLUME_RATIO_THRESHOLD -> must use DistanceOnly.
     stacked_price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
@@ -254,7 +266,9 @@ def test_predict_step2_falls_back_to_distance_only_on_nan_volume():
             latest_date=pd.Timestamp("2024-01-01"),
         ),
     )
-    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
+    tracker = VolumeBaselineTracker()
+    tracker.update(pd.Timestamp("2024-01-01"), volume=500.0)
+    port.volume_baseline[("ANE", "Fresh - Whole")] = tracker
 
     distance_only_price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=0.0,
                                               anchor_value=2.0, neighbor_value=2.0)
@@ -267,17 +281,18 @@ def test_predict_step2_falls_back_to_distance_only_on_nan_volume():
 
 def test_predict_step2_falls_back_to_distance_only_when_month_has_no_seeded_baseline():
     """Regression test for the None->NaN fix in predict_step2: when no
-    volume_baseline_stats entry exists at all for the queried month (as
-    opposed to an entry existing but evaluating to a NaN ratio), volume_ratio
-    must become float("nan") (not None), so should_use_distance_only's `|`
+    volume_baseline entry exists at all for the queried month (as opposed to
+    an entry existing but evaluating to a NaN ratio), volume_ratio must
+    become float("nan") (not None), so should_use_distance_only's `|`
     comparisons don't raise and the call still routes to DistanceOnly.
 
-    Note: fit_base_models itself seeds volume_baseline_stats for every month present
-    in its training data (via _seed_volume_baseline_stats), and the synthetic
-    6-year fixture below covers all 12 months -- so simply skipping an explicit
-    seeding line is not enough to produce a genuinely absent month entry. The
-    stats dict for this key is cleared after fitting to force month_stats to
-    be None, exactly as if nothing had ever been seeded for it.
+    Note: fit_base_models itself seeds a VolumeBaselineTracker for every month
+    present in its training data (via _seed_volume_baseline_stats), and the
+    synthetic 6-year fixture below covers all 12 months -- so simply skipping
+    an explicit seeding line is not enough to produce a genuinely absent
+    month entry. The tracker for this key is replaced with a fresh, empty one
+    after fitting to force month_stats to be None, exactly as if nothing had
+    ever been seeded for it.
     """
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
@@ -289,7 +304,7 @@ def test_predict_step2_falls_back_to_distance_only_when_month_has_no_seeded_base
             latest_date=pd.Timestamp("2024-01-01"),
         ),
     )
-    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {}  # no month entries at all
+    port.volume_baseline[("ANE", "Fresh - Whole")] = VolumeBaselineTracker()  # no month entries at all
 
     date = pd.Timestamp("2024-01-01")
     price = port.predict_step2("ANE", "Fresh - Whole", date, volume=500.0, anchor_value=2.0, neighbor_value=2.0)

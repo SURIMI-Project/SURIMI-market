@@ -105,9 +105,14 @@ def test_full_flow_real_price_overrides_prediction_end_to_end():
         handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)
         handler.init_simulation(_fake_simulation(), str(root_config_dir))
 
-        handler.market_system.local_markets["ESALC"].price_time_series[
-            ("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))
-        ] = 123.45
+        handler.market_system.local_markets["ESALC"].load_price_time_series(pd.DataFrame({
+            "date": pd.to_datetime(["2024-01-01"]),
+            "market_code": ["ESALC"],
+            "species_code": ["ANE"],
+            "category_code": ["Fresh - Whole"],
+            "price": [123.45],
+            "size": [None],
+        }))
 
         handler.simulate_step(datetime.datetime(2024, 1, 1))
         prices = handler.get_species_prices()

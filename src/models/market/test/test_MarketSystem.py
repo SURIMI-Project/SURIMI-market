@@ -432,7 +432,14 @@ def _fitted_system():
 
 def test_step_uses_real_price_when_available_and_skips_prediction_reporting():
     system = _fitted_system()
-    system.local_markets["ESALC"].price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))] = 7.77
+    system.local_markets["ESALC"].load_price_time_series(pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01"]),
+        "market_code": ["ESALC"],
+        "species_code": ["ANE"],
+        "category_code": ["Fresh - Whole"],
+        "price": [7.77],
+        "size": [None],
+    }))
 
     system.step()
 
@@ -442,7 +449,14 @@ def test_step_uses_real_price_when_available_and_skips_prediction_reporting():
 
 def test_step_computes_base_model_for_every_port_even_with_real_data(monkeypatch):
     system = _fitted_system()
-    system.local_markets["ESALC"].price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))] = 7.77
+    system.local_markets["ESALC"].load_price_time_series(pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01"]),
+        "market_code": ["ESALC"],
+        "species_code": ["ANE"],
+        "category_code": ["Fresh - Whole"],
+        "price": [7.77],
+        "size": [None],
+    }))
 
     calls = []
     original = system.local_markets["ESALC"].predict_from_base_model
@@ -470,23 +484,31 @@ def test_step_advances_tick_and_clears_accumulators():
 
 def test_step_updates_volume_baseline_from_real_observed_volume():
     system = _fitted_system()
-    before = dict(system.local_markets["ESALC"].volume_baseline_stats[("ANE", "Fresh - Whole")])
+    # NOTE: VolumeBaselineTracker exposes no public getter for the raw
+    # (running_sum, running_count) pair -- only .ratio()/.update(). This
+    # test's intent is specifically to observe that running-mean bookkeeping
+    # changed, so it reaches into the tracker's private _stats rather than
+    # inferring the same fact indirectly through .ratio().
+    before = dict(system.local_markets["ESALC"].volume_baseline[("ANE", "Fresh - Whole")]._stats)
 
     system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 50000.0)
     system.step()
 
-    after = system.local_markets["ESALC"].volume_baseline_stats[("ANE", "Fresh - Whole")]
+    after = system.local_markets["ESALC"].volume_baseline[("ANE", "Fresh - Whole")]._stats
     assert after[1] != before.get(1)
 
 
 def test_step_combined_market_skips_volume_baseline_update_on_a_zero_catch_tick():
     system = _fitted_system()
     key = ("ANE", "Fresh - Whole")
-    before = dict(system.combined_markets["ES"].volume_baseline_stats[key])
+    # NOTE: see test_step_updates_volume_baseline_from_real_observed_volume --
+    # reaching into VolumeBaselineTracker._stats directly since there's no
+    # public getter for the raw (running_sum, running_count) pair.
+    before = dict(system.combined_markets["ES"].volume_baseline[key]._stats)
 
     system.step()  # no add_monthly_catch calls anywhere this tick
 
-    after = system.combined_markets["ES"].volume_baseline_stats[key]
+    after = system.combined_markets["ES"].volume_baseline[key]._stats
     assert after.get(1) == before.get(1), (
         "a zero-catch tick must not update the running mean (would dilute it toward 0 "
         "and inflate every later VolumeRatio) -- LocalMarket already skips absent keys "
@@ -496,7 +518,7 @@ def test_step_combined_market_skips_volume_baseline_update_on_a_zero_catch_tick(
     system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 1000.0)
     system.step()
 
-    after_nonzero = system.combined_markets["ES"].volume_baseline_stats[key]
+    after_nonzero = system.combined_markets["ES"].volume_baseline[key]._stats
     assert after_nonzero[2] != before.get(2), "a real, nonzero catch must still update the baseline"
 
 
@@ -530,9 +552,14 @@ def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
     price_without_real = snapshot_without["prices"][("ANE", "Fresh - Whole")]
 
     system_with_real = _fitted_system()
-    system_with_real.local_markets["ESALC"].price_time_series[
-        ("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))
-    ] = 999.99  # a real price wildly different from anything Step 1 would predict
+    system_with_real.local_markets["ESALC"].load_price_time_series(pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01"]),
+        "market_code": ["ESALC"],
+        "species_code": ["ANE"],
+        "category_code": ["Fresh - Whole"],
+        "price": [999.99],  # a real price wildly different from anything Step 1 would predict
+        "size": [None],
+    }))
     system_with_real.step()
     _, snapshot_with = system_with_real.local_markets["ESBCN"].price_history[-1]
     price_with_real = snapshot_with["prices"][("ANE", "Fresh - Whole")]

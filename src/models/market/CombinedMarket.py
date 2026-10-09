@@ -16,14 +16,13 @@ from .PriceModel import PriceModel
 from .TrendCorrection import TrendCorrection
 from .LevelOnlyModel import LevelOnlyModel
 from .LevelVolumeModel import LevelVolumeModel
+from .VolumeBaselineTracker import VolumeBaselineTracker
+from .RealPriceLookup import RealPriceLookup
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
     fit_trend_rate_model,
     score_mape,
-    compute_volume_baseline_stats,
-    apply_volume_baseline_update,
-    populate_price_time_series,
 )
 from .trend_confidence import compute_trend_confidence
 from .window_selection import build_rolling_splits, select_best_window
@@ -43,11 +42,10 @@ class CombinedMarket:
         self.models: dict[tuple[str, str], PriceModel] = {}
         self.window_labels: dict[tuple[str, str], str] = {}
 
-        # (species_code, category_code) -> {month: (running_sum, running_count)}
-        self.volume_baseline_stats: dict[tuple[str, str], dict[int, tuple[float, int]]] = {}
+        # (species_code, category_code) -> VolumeBaselineTracker
+        self.volume_baseline: dict[tuple[str, str], VolumeBaselineTracker] = {}
 
-        # (species_code, category_code, date) -> real recorded price
-        self.price_time_series: dict[tuple[str, str, pd.Timestamp], float] = {}
+        self.real_prices = RealPriceLookup()
 
         self.price_history = []  # [(tick, {"prices": {...}, "volumes": {...}})]
 
@@ -138,12 +136,17 @@ class CombinedMarket:
         )
 
     def _seed_volume_baseline_stats(self, key, monthly, train_start, train_end):
-        self.volume_baseline_stats[key] = compute_volume_baseline_stats(monthly, train_start, train_end)
+        tracker = VolumeBaselineTracker()
+        tracker.seed(monthly, train_start, train_end)
+        self.volume_baseline[key] = tracker
 
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
         """Incremental, never-decaying running mean."""
         key = (species_code, category_code)
-        result = apply_volume_baseline_update(self.volume_baseline_stats, key, date, volume)
+        tracker = self.volume_baseline.get(key)
+        if tracker is None:
+            return
+        result = tracker.update(date, volume)
         if result is None:
             return
         month, new_mean = result
@@ -152,14 +155,14 @@ class CombinedMarket:
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
         """Load real recorded prices for this market_code."""
-        populate_price_time_series(self.price_time_series, prices_df, self.market_code)
+        self.real_prices.load(prices_df, self.market_code)
 
     def get_price(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
     ) -> float | None:
-        """Real-price-first: check price_time_series, else predict."""
+        """Real-price-first: check real_prices, else predict."""
         key = (species_code, category_code)
-        real_price = self.price_time_series.get((species_code, category_code, date))
+        real_price = self.real_prices.get(species_code, category_code, date)
         if pd.notna(real_price):
             return real_price
 
