@@ -419,6 +419,15 @@ What this changes, concretely:
   inverse-distance-weighting function, called from both the fit-time
   series construction and the runtime scalar computation.
 
+> **Naming note:** `Step2Model` (and `PriceModel`/`LevelVolumeModel`
+> above it, to a lesser degree) inherited "Step 1"/"Step 2" terminology
+> from the existing code — which is exactly the non-descriptive naming
+> called out in §6. Don't carry that forward uncritically: whoever
+> implements this should pick names that say what the thing *is*
+> (e.g. something naming the neighbor-informed/distance-weighted
+> behavior) rather than which numbered step produced it, at the same
+> time the rename in §6 happens — not before, and not separately.
+
 What does **not** change:
 
 - `window_selection.py` stays exactly as-is — it's already generic,
@@ -440,6 +449,26 @@ target shape is agreed, not alongside anything else.
 ---
 
 ## 6. Deferred / Future Work
+
+### Rename "Step 1"/"Step 2" to something descriptive
+
+Raised 2026-10-09: `fit_step1`/`fit_step2`, `step1_models`,
+`step2_stacked_models`/`step2_distance_only_models`, `predict_step1`/
+`predict_step2`, `get_step1_historical_series` — none of these names say
+what the thing *is* (a level-volume fit; a neighbor-informed,
+distance-weighted blend with a volume-stability switch), only which
+numbered stage of the pipeline produced it. A reader has to already know
+the pipeline to decode the name, rather than the name teaching them the
+pipeline.
+
+Deliberately not done now — this spans most of `LocalMarket.py` plus
+every caller in `MarketSystem.py` and every test that references these
+names, and renaming is cheapest done once alongside Phase C (§5), when
+`step1_models`/`step2_*_models` are being replaced with typed objects
+anyway. Doing it twice (rename now, restructure later) would be wasted
+churn. Candidate direction, to revisit then rather than decide now: name
+by what each stage *is* (its own model type/role), not by its position in
+a numbered sequence.
 
 ### Validate the trend correction at LocalMarket Step 1 (port level)
 
