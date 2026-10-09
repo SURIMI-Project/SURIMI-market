@@ -313,18 +313,21 @@ broken, but each is a concrete readability/maintainability cost.
 
 **Partially implemented.** Phase A (`CatchAccumulator`, below), Phase B
 (`should_use_distance_only`, `compute_inverse_distance_weights`,
-`Step2FitInputs` — fixing #1, #8, #2), and Phase C1 (`PriceModel`,
+`Step2FitInputs` — fixing #1, #8, #2), Phase C1 (`PriceModel`,
 `TrendCorrection`, `LevelOnlyModel`, `LevelVolumeModel` — fixing #3 and #4
 for the base model; also renamed `LocalMarket`'s `step1_*` members to
-`models`/`fit_base_models`/`predict_from_base_model`/`get_base_predicted_series`)
+`models`/`fit_base_models`/`predict_from_base_model`/`get_base_predicted_series`),
+and Phase C2 (`VolumeBaselineTracker`, `RealPriceLookup` — replacing the
+shared `level_volume_model.py` free functions and raw per-key dicts
+`CombinedMarket` and `LocalMarket` each poked at directly and identically)
 have already landed. Everything else in this section — `Step2Model`,
-`StackedModel`, `DistanceOnlyModel`, `VolumeBaselineTracker` — is still
-pending sign-off (Phases C2/C3). The core move still ahead: Step 2's fitted
-variants become real classes with a `predict()` method too, finishing what
-Phase C1 started for the base model — resolving the rest of #3 and #4. #1
-and #8 are already fixed at the function level (Phase B); wrapping them
-into `Step2Model` here is about giving them a home as an object, not about
-removing any remaining duplication.
+`StackedModel`, `DistanceOnlyModel` — is still pending sign-off (Phase
+C3). The core move still ahead: Step 2's fitted variants become real
+classes with a `predict()` method too, finishing what Phase C1 started for
+the base model — resolving the rest of #3 and #4. #1 and #8 are already
+fixed at the function level (Phase B); wrapping them into `Step2Model`
+here is about giving them a home as an object, not about removing any
+remaining duplication.
 
 ```mermaid
 classDiagram
@@ -371,9 +374,11 @@ classDiagram
         +predict(date, anchor_value, neighbor_value) float
     }
     class VolumeBaselineTracker {
+        %% already implemented, Phase C2
         +seed(monthly, train_start, train_end)
         +update(date, volume)
         +ratio(date, volume) float
+        +snapshot() dict
     }
     class CatchAccumulator {
         %% already implemented, Phase A
@@ -417,9 +422,10 @@ What this changes, concretely:
   place instead of two.
 - *(already done, Phase B)* Step 2's fit-time handoff (previously 4
   positional args) is now one `Step2FitInputs` object, fixing #2.
-- `VolumeBaselineTracker`/a `RealPriceLookup` object replace the shared
-  free functions in `level_volume_model.py` that `CombinedMarket` and
-  `LocalMarket` currently call against their own raw dicts.
+- *(already done, Phase C2)* `VolumeBaselineTracker`/a `RealPriceLookup`
+  object replace the shared free functions in `level_volume_model.py` that
+  `CombinedMarket` and `LocalMarket` previously called against their own
+  raw dicts.
 - *(already done, Phase A)* A shared `CatchAccumulator` replaces
   `CombinedMarket._direct_catch` and `LocalMarket._monthly_catch`, fixing
   #9 — same object, instantiated once per market, instead of the same
