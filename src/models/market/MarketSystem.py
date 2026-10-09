@@ -18,7 +18,7 @@ from . import consts
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .CombinedMarket import CombinedMarket
-from .Utility import build_distance_lookup
+from .utility import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
 from .market_topology import build_prefix_to_locals
 from .stacked_model import compute_high_tier_ports, distance_weighted_neighbor_signal, build_static_anchor_series

@@ -132,7 +132,7 @@ lives as standalone functions in sibling modules, called by `CombinedMarket`/
 | `stacked_model.py` | High-tier port classification, distance-weighted neighbor signal, Stacked/DistanceOnly fit/predict (`LocalMarket` Step 2) |
 | `window_selection.py` | Generic rolling-origin training-window search, reused identically by all three fit paths above |
 | `market_topology.py` | 5-letter port code → 2-letter prefix grouping |
-| `Utility.py` | Haversine distance, pairwise port distance lookup |
+| `utility.py` | Haversine distance, pairwise port distance lookup |
 
 ### 2.2 Simulation Lifecycle
 
@@ -245,7 +245,7 @@ inputs and hands them to `LocalMarket.fit_step2`:
   live tick-by-tick prediction (`ANCHOR_SCHEME_LIVE`, analysis-only, used
   by the fidelity backtest to compare both).
 - **Neighbor signal**: a distance-weighted blend of *other* ports' own
-  Step-1 predicted series, using `Utility.build_distance_lookup`.
+  Step-1 predicted series, using `utility.build_distance_lookup`.
 
 Two sub-models are fit, and a **dynamic switch** picks between them per
 tick based on how far that tick's volume is from the port's own normal
@@ -301,7 +301,7 @@ broken, but each is a concrete readability/maintainability cost.
 | 2 | `LocalMarket.fit_step2` call site (`MarketSystem._fit_step2_for_all_ports`) | Four loose positional arguments (`port_monthly`, `anchor_series`, `neighbor_signal`, `latest_date`) carry Step 2's whole handoff with no named structure. |
 | 3 | Every fit/predict function | A fitted model's coefficients are an untyped `dict` (`params["baseline_volume"]`, `params.get("gamma")`-style checks), so "which kind of model is this" is answered by key presence, not a type. |
 | 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | Each independently builds a throwaway one-row DataFrame to call a predict function designed for a whole monthly series — an API-shape mismatch repeated three times. |
-| 5 | `Utility.py` | Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this should be `utility.py` — it holds no class. |
+| 5 | ~~`Utility.py`~~ | **Fixed.** Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this held no class and was renamed to `utility.py`. |
 | 6 | `consts.py` | Every project constant lives flat in one file, grouped only by comment headers — currency/units, distance math, volume tiers, switch thresholds, window candidates, rolling-origin params, anchor schemes, trend confidence/rate, all undifferentiated. |
 | 7 | Repeated boilerplate | `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` opens nearly every fit/predict function, reinvented each time rather than one named helper. |
 | 8 | `stacked_model.distance_weighted_neighbor_signal` / `MarketSystem._weighted_neighbor_value` | Same pattern as #1: inverse-distance-weighted averaging is implemented twice, independently — vectorized over a whole historical series at fit time, scalar over one tick's candidates at runtime. Not a one-off: this is a recurring shape in this codebase (fit-time vectorized vs. runtime scalar), not an isolated mistake. |
