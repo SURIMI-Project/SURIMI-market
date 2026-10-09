@@ -1,8 +1,7 @@
 """
-One instance per 5-letter LOCODE (spec section 3). Holds frozen Step 1
-coefficients (this task) and Step 2 Stacked/DistanceOnly coefficients
-(Task 9), plus the per-port catch accumulator reused unchanged from
-Elsa's LocalMarket.
+One instance per 5-letter LOCODE. Holds frozen Step 1 coefficients and Step 2
+Stacked/DistanceOnly coefficients, plus the per-port catch accumulator reused
+unchanged from Elsa's LocalMarket.
 """
 from collections import defaultdict
 from dateutil.relativedelta import relativedelta
@@ -41,12 +40,12 @@ class LocalMarket:
 
         self.logger = logging.getLogger(consts.LOCAL_MARKET_LOGGER_NAME)
 
-        # Step 1 state (this task)
+        # Step 1 state
         self.step1_models: dict[tuple[str, str], dict] = {}
         self.step1_window_labels: dict[tuple[str, str], str] = {}
         self._step1_historical_series: dict[tuple[str, str], pd.Series] = {}
 
-        # Step 2 state (added in Task 9)
+        # Step 2 state
         self.step2_stacked_models: dict[tuple[str, str], dict] = {}
         self.step2_distance_only_models: dict[tuple[str, str], dict] = {}
         self.step2_window_labels: dict[tuple[str, str], str] = {}
@@ -106,12 +105,9 @@ class LocalMarket:
                     selected[key] = label
                     continue
                 except (ValueError, np.linalg.LinAlgError):
-                    # See CombinedMarket.fit's identical guard: a window length that scored
-                    # acceptably across historical rolling-origin splits can still fail to
-                    # re-fit on the literal final window, since real per-port volume data is
-                    # sparse enough to occasionally produce a degenerate (zero-variance)
-                    # anomaly series only in that exact window. Fall through to the same
-                    # lower-tier fallback used when no window was selected at all.
+                    # Mirrors CombinedMarket.fit's guard: a scored-good window can still
+                    # fail its final re-fit if sparse volume data yields a zero-variance
+                    # series there. Fall through to the same fallback as "no window selected".
                     self.logger.warning(
                         f"LocalMarket {self.market_code}: selected window {label} for {key} "
                         f"scored acceptably in rolling-origin validation but failed to re-fit on "
@@ -145,13 +141,10 @@ class LocalMarket:
 
     @staticmethod
     def _date_indexed(series: pd.Series, monthly: pd.DataFrame) -> pd.Series:
-        """Re-index a freshly-predicted series (which inherits `monthly`'s plain
-        positional RangeIndex -- `monthly` comes from build_complete_monthly_series,
-        whose last step is a reset_index()) onto `monthly["date"]` instead. Only
-        the copy stored in _step1_historical_series needs this: that series is the
-        one OTHER ports' neighbor signals (Task 10-12) align onto real calendar
-        dates via distance_weighted_neighbor_signal/build_static_anchor_series's
-        `.map(date)` lookups, which silently produce all-NaN against a RangeIndex."""
+        """Re-index a freshly-predicted series (which inherits monthly's positional
+        RangeIndex) onto monthly["date"]. Needed because other ports' neighbor-signal
+        code does `.map(date)` lookups that silently produce all-NaN against a
+        RangeIndex."""
         series = series.copy()
         series.index = monthly["date"]
         return series
@@ -168,8 +161,8 @@ class LocalMarket:
     def predict_step1(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
     ) -> float | None:
-        """Evaluate the frozen Step-1 model for a given tick (plan header decision 6: always
-        computed, regardless of whether this port itself has real data that tick)."""
+        """Evaluate the frozen Step-1 model for a given tick; always computed,
+        regardless of whether this port has real price data that tick."""
         key = (species_code, category_code)
         if key not in self.step1_models:
             return None
@@ -184,10 +177,10 @@ class LocalMarket:
         return float(value) if pd.notna(value) else None
 
     def get_step1_historical_series(self, species_code: str, category_code: str) -> pd.Series | None:
-        """Full historical predicted series -- used by OTHER ports' neighbor signals (Task 10-12)."""
+        """Full historical predicted series, used by other ports' neighbor signals."""
         return self._step1_historical_series.get((species_code, category_code))
 
-    # --- Real-price-first (spec section 8) ---
+    # --- Real-price-first ---
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
         populate_price_time_series(self.price_time_series, prices_df, self.market_code)
@@ -198,7 +191,7 @@ class LocalMarket:
     def record_history(self, tick: int, prices: dict, catches: dict):
         self.price_history.append((tick, {"prices": dict(prices), "catches": dict(catches)}))
 
-    # --- Step 2 fitting (spec section 3/5; plan header decisions 3, 8, 9) ---
+    # --- Step 2 fitting ---
 
     def fit_step2(
         self,
@@ -226,14 +219,10 @@ class LocalMarket:
             return score_mape(blended[mask], port_monthly["price"][mask])
 
         def sanity_check_fn(params):
-            """Reject a candidate whose actual, dynamic-switch-blended prediction (spec
-            section 9 follow-up) goes non-positive anywhere in the real history available --
-            not each sub-model independently, since only one of Stacked/DistanceOnly is ever
-            selected per tick; an isolated bad value in whichever one ISN'T selected for any
-            real month would never actually be reached. A model that cannot sanely reproduce
-            a positive price anywhere in the real data available is unstable regardless of
-            its CV score -- this is the generic, already-tested sanity-bound safeguard from
-            spec section 7, applied here for the first time."""
+            """Reject a candidate whose blended prediction goes non-positive anywhere in
+            the real history. Checks the blended value, not each sub-model independently,
+            since only one of Stacked/DistanceOnly is ever selected per tick -- a bad value
+            in the unselected one would never be reached."""
             blended = self._blend_step2_predictions(port_monthly, anchor_series, neighbor_signal, params)
             valid = blended.notna()
             blended_min = float(blended[valid].min()) if valid.any() else None
@@ -250,14 +239,10 @@ class LocalMarket:
             )
             return None
 
-        # Rolling-origin success does not guarantee the final re-fit (on the
-        # literal final window ending at latest_date, never attempted during
-        # scoring) succeeds -- the final window can differ in exactly which
-        # months it includes (e.g. a real landings gap that a shorter window
-        # falls mostly inside of). Try each ranked candidate's final re-fit
-        # in order, falling back to Step-1-only only if ALL of them fail the
-        # re-fit or the same sanity check -- a less-preferred-by-score but
-        # FITTABLE AND SANE window beats no Step 2 model at all.
+        # Rolling-origin success doesn't guarantee the final re-fit succeeds -- the
+        # final window (never scored directly) can land differently, e.g. inside a
+        # real landings gap. Try each ranked candidate in order; a fittable, sane,
+        # lower-scored window beats falling back to Step-1-only.
         for label, years in ranked:
             train_start = latest_date - relativedelta(years=years) if years is not None else None
             try:
@@ -298,9 +283,8 @@ class LocalMarket:
         return train.groupby("month")["landings_kg"].mean()
 
     def _blend_step2_predictions(self, port_monthly, anchor_series, neighbor_signal, params) -> pd.Series:
-        """Dynamic-switch-blended prediction used ONLY during fit_step2's rolling-origin
-        scoring (spec section 7's "score each with the same rolling-origin validation
-        methodology" applied to the compound Stacked/DistanceOnly fitting unit)."""
+        """Dynamic-switch-blended prediction used only during fit_step2's
+        rolling-origin scoring."""
         stacked_pred = predict_stacked_model(port_monthly, anchor_series, neighbor_signal, params["stacked"])
         distance_pred = predict_distance_only_model(
             port_monthly, anchor_series, neighbor_signal, params["distance_only"]
@@ -329,10 +313,9 @@ class LocalMarket:
         anchor_value: float,
         neighbor_value: float,
     ) -> float | None:
-        """Runtime dynamic switch (spec section 5 step 4). VolumeRatio reads from
-        self.volume_baseline_stats -- the same incrementally-updated structure Step 1
-        seeds and update_volume_baseline keeps current (plan header decision 9), not a
-        separate Step-2-only baseline."""
+        """Runtime dynamic switch. VolumeRatio reads from self.volume_baseline_stats,
+        the same incrementally-updated structure Step 1 seeds and
+        update_volume_baseline keeps current -- not a separate Step-2-only baseline."""
         key = (species_code, category_code)
         if key not in self.step2_stacked_models or key not in self.step2_distance_only_models:
             return None

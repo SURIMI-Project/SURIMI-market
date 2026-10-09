@@ -94,33 +94,24 @@ def test_record_history_appends_a_snapshot():
     assert len(port.price_history) == 1
 
 
-# --- Regression tests added per review guidance carried over from Task 5 (CombinedMarket) ---
+# --- Regression tests for two recurring bug classes in fit+fallback-cascade code ---
 #
-# Task 5's first review round caught two recurring bug classes in the fit+fallback-cascade
-# pattern that Task 6 (LocalMarket) shares structurally with Task 5 (CombinedMarket):
-#   1. A frozen per-month seasonal-baseline table must be reliably indexed by all 12 months,
-#      even on the level-only fallback path.
-#   2. Any "is there a real/valid value" check must guard with pd.notna(), not just `is not None`
-#      (a stored NaN is not None, but it is not usable).
+# 1. A frozen per-month seasonal-baseline table must be indexed by all 12 months,
+#    even on the level-only fallback path.
+# 2. Any "is there a valid value" check must guard with pd.notna(), not `is not None`
+#    (a stored NaN is not None, but it is not usable).
 #
-# For LocalMarket (this task), neither bug class has a live code path to exploit *within this
-# file* -- see task-6-report.md for the full analysis -- but the tests below lock in the
-# NaN-safe behavior that makes that true, so a future refactor cannot silently reintroduce
-# either bug class.
+# Neither bug currently has a live path to exploit in this file, but these tests
+# lock in the NaN-safe behavior so a refactor can't silently reintroduce either.
 
 
 def test_predict_step1_returns_none_for_month_absent_from_thin_fallback_training():
-    """Bug class 1 (per-month table coverage), adapted to what LocalMarket actually does with
-    its per-month table: LocalMarket never exposes the raw baseline_price/baseline_volume
-    Series to a caller (unlike CombinedMarket.get_baseline_price_table, which the Task 5 review
-    found needed an explicit .reindex(range(1, 13)) fix) -- it only ever consumes them via
-    pandas' NaN-safe `.map()` inside predict_level_only/predict_level_volume. This test proves
-    that NaN-safety holds on the thin (2-month) fallback path: February was never present in the
-    fallback's Jan-only... (here: a 2-month Jan/Feb window, so we probe March, which is genuinely
-    absent) training window, so the frozen level-only baseline_price table only has entries for
-    months 1 and 2. Predicting for a March date must come back as None (via pd.notna), not raise
-    KeyError and not fabricate a value.
-    """
+    """Bug class 1 (per-month table coverage): LocalMarket never exposes the raw
+    baseline_price/baseline_volume Series to a caller, only consumes them via
+    pandas' NaN-safe `.map()` inside predict_level_only/predict_level_volume.
+    Proves NaN-safety holds on the thin (2-month) fallback path: the frozen
+    baseline_price table only has entries for months 1 and 2, so predicting for
+    the absent March must return None (via pd.notna), not raise KeyError."""
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     monthly = pd.DataFrame({
         "date": pd.date_range("2023-01-01", periods=2, freq="MS"),  # Jan, Feb only
@@ -142,15 +133,11 @@ def test_predict_step1_returns_none_for_month_absent_from_thin_fallback_training
 
 
 def test_real_price_first_pattern_falls_through_on_nan_when_caller_guards_with_notna():
-    """Bug class 2 (NaN guard), adapted to LocalMarket's actual split design: unlike
-    CombinedMarket.get_price (one method doing real-price-first internally), LocalMarket splits
-    this into get_real_price (raw lookup) and predict_step1 (frozen-model prediction) -- per the
-    plan's own section 8 note, the combining is deferred to MarketSystem.step() (Task 13), not
-    done inside LocalMarket. This test documents and locks in the contract that makes that safe:
-    get_real_price returns a stored NaN as-is (not swallowed to None), and the correct
-    real-price-first caller pattern (pd.notna(), not `is not None`) is what must be used on top
-    of it -- mirroring CombinedMarket.get_price's fix at the call site this method feeds.
-    """
+    """Bug class 2 (NaN guard): LocalMarket splits real-price-first into
+    get_real_price (raw lookup) and predict_step1 (frozen-model prediction),
+    deferring the combining to MarketSystem.step(). Locks in the contract that
+    makes that safe: get_real_price returns a stored NaN as-is (not swallowed to
+    None), so the caller must guard with pd.notna(), not `is not None`."""
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
     port.fit_step1(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
@@ -265,12 +252,10 @@ def test_predict_step2_returns_none_when_no_step2_coefficients():
 
 
 def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit_fails(monkeypatch):
-    """Rolling-origin success doesn't guarantee the literal final window
-    (ending at latest_date, never exercised during scoring) is fittable --
-    a real example (MUT@ESLLC) had its best-scoring window's final window
-    fall mostly inside a real landings gap. fit_step2 must try the
-    next-best-scoring candidate instead of giving up straight to
-    Step-1-only."""
+    """Rolling-origin success doesn't guarantee the literal final window is
+    fittable -- a real example (MUT@ESLLC) had its best-scoring window's final
+    window fall mostly inside a real landings gap. fit_step2 must try the
+    next-best-scoring candidate instead of giving up straight to Step-1-only."""
     import src.models.market.LocalMarket as local_market_module
 
     latest_date = pd.Timestamp("2024-01-01")
@@ -288,11 +273,9 @@ def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit
     real_fit_stacked_model = local_market_module.fit_stacked_model
 
     def flaky_fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end):
-        # Fail ONLY the natural best candidate's FINAL re-fit (train_end ==
-        # latest_date identifies "this is the final re-fit, not a
-        # rolling-origin scoring call") -- every rolling-origin call for
-        # every candidate, and every OTHER candidate's final re-fit, must
-        # keep succeeding normally.
+        # Fail only the natural best candidate's final re-fit (train_end ==
+        # latest_date marks the final re-fit, not a rolling-origin scoring call);
+        # every other call must keep succeeding normally.
         from src.models.market import consts
         years = consts.WINDOW_CANDIDATE_YEARS[natural_label]
         natural_train_start = latest_date - relativedelta(years=years) if years is not None else None

@@ -1,6 +1,6 @@
 """
-Handler plugin entrypoint (spec section 1), mirroring ElsaHandler's shape:
-config loading, grpc contract validation, wiring into MarketSystem.
+Handler plugin entrypoint, mirroring ElsaHandler's shape: config loading,
+grpc contract validation, wiring into MarketSystem.
 """
 import datetime
 import logging
@@ -26,7 +26,7 @@ class MarketHandler(Handler.Handler):
 
         self.logger = logging.getLogger(f"{consts.SIMULATION_HANDLER_LOGGER_NAME}.{simulation_id}")
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
-        self.size_ratios = None  # optional (spec section 13); not yet consumed by this plan
+        self.size_ratios = None  # optional; not yet consumed
 
     def init_simulation(self, simulation, root_config_dir: str):
         species_path = Path(root_config_dir, self.scenario_id, consts.SPECIES_CSV)
@@ -74,7 +74,7 @@ class MarketHandler(Handler.Handler):
 
         # Trim to exactly the contracted local ports, but always keep every
         # 2-letter combined-market code -- those aren't part of the per-port
-        # contract and section 4's topology needs them regardless.
+        # contract but the topology needs them regardless.
         two_letter_codes = {c for c in known_market_codes if len(c) == 2}
         local_codes_5 = {c for c in known_market_codes if len(c) == 5}
         valid_local_codes = local_codes_5 & contract_ports

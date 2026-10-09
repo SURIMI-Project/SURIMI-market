@@ -1,59 +1,26 @@
 """
-Seasonal baseline + volume-response model (spec section 3's "Model 2"), fit
-in log-price space against a RELATIVE volume anomaly (spec section 9's
-negative-price-extrapolation fix, extended):
-log(price) = baseline_log_price[month] + alpha + beta * vol_anom, where
-vol_anom = (volume - baseline_volume[month]) / baseline_volume[month] (a
-dimensionless "% above/below normal for this month" anomaly, not a raw
-kilogram difference) -- predicted price = exp(that).
+Seasonal baseline + volume-response model, fit in log-price space against a
+relative volume anomaly: log(price) = baseline_log_price[month] + alpha +
+beta * vol_anom, where vol_anom = (volume - baseline_volume[month]) /
+baseline_volume[month] (a dimensionless "% above/below normal for this
+month" anomaly, not a raw kilogram difference). Predicted price = exp(that).
 
-Three distinct fixes are stacked here, found and validated separately:
-  - Log-price (not raw price) as the fit target means a sustained,
-    far-outside-training volume swing bends the predicted price towards
-    zero instead of extrapolating straight through it -- confirmed
-    empirically (never goes negative, even under a 20-year sustained-growth
-    stress scenario where the original linear fit went negative).
-  - RELATIVE (not absolute) volume anomaly means beta means "% price change
-    per % volume change", uniformly across every calendar month, instead of
-    "% price change per extra KG" -- which, with a single frozen beta,
-    made the model's sensitivity to the SAME relative catch scenario wildly
-    uneven across months purely because each month's own typical volume
-    differs (confirmed both mathematically and visibly in a 20-year
-    scenario forecast: MUT's Sep/Oct/Nov, its lowest-price/highest-volume
-    months, swung 2-6x harder than its other months for the same scenario).
-  - CLAMPING vol_anom to the min/max relative anomaly actually observed
-    during training, before applying beta: beta is only validated within
-    the range of data it was fit on, so a real or synthetic volume anomaly
-    beyond that range holds steady at the most extreme validated response
-    instead of extrapolating beta further outward. This is the direct fix
-    for the root cause behind every extrapolation-driven finding in this
-    investigation, on BOTH sides: the original MUT near-zero-price stress
-    scenario (bounded far more comfortably with clamping than without) and
-    a newly-found real-data case (HKE@ESQAJ/ESROS/ESSAG, where an actual
-    2022-2023 catch collapse far outside training experience caused a
-    large price overshoot -- substantially reduced, though not fully
-    resolved, by clamping, e.g. ESSAG's held-out MAPE 97.1% -> 68.6%).
-All three are a net improvement in real-data accuracy for most, though not
-all, validated species (see
-docs/superpowers/specs/2026-10-02-market-model-handler-design.md section 15).
+Log-price as the fit target keeps predicted price from bending toward zero
+instead of extrapolating through it under a sustained, far-outside-training
+volume swing, rather than going negative. Using a relative (not absolute)
+volume anomaly makes beta a uniform "% price change per % volume change"
+across every calendar month, rather than skewed by each month's own typical
+volume level. vol_anom is clipped to the min/max relative anomaly actually
+observed during training before applying beta, since beta is only validated
+within the range of data it was fit on.
 
 Used identically for CombinedMarket's Model 2 and LocalMarket's Step 1 --
-the same fitting/prediction logic, just applied to combined-market-level
-or per-port-level monthly data (spec section 3). Deliberately applied to
-BOTH: this is a shared, single implementation, not forked per caller.
-baseline_price (the plain arithmetic mean) is still computed and returned
-alongside baseline_log_price, unused by fitting/prediction here, purely so
-LocalMarket Step 2's static anchor (get_baseline_price_table/
-build_static_anchor_series) keeps reading the same key with the same
-(linear-space) meaning it always has -- Step 2 itself (its own separate
-delta/gamma regression, with its own separate, still-absolute volume
-anomaly term) is explicitly out of scope for this change; it still has no
-price-floor protection and no relative-volume fix of its own.
-
-Adapted from the validated fit_level_volume_model/predict_level_volume
-functions from the research (which also explored a log-price fit for the
-per-port Stacked model), with column names adapted to the production
-schema (date/price/landings_kg instead of Date/Price_EUR_kg/Volume_Kg).
+the same fitting/prediction logic, just applied to combined-market-level or
+per-port-level monthly data; a shared, single implementation, not forked
+per caller. baseline_price (the plain arithmetic mean) is still computed
+and returned alongside baseline_log_price, unused by fitting/prediction
+here, purely so LocalMarket Step 2's static anchor keeps reading the same
+key with the same (linear-space) meaning it always has.
 """
 import numpy as np
 import pandas as pd
@@ -65,8 +32,7 @@ def fit_level_only_model(
     monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp
 ) -> dict:
     """
-    Fallback fit with no volume term at all (spec section 9 point 2's
-    "level-offset-only" fallback step) -- used when there isn't enough
+    Fallback fit with no volume term at all, used when there isn't enough
     data/variance to fit the full level-volume model.
     """
     monthly = monthly.copy()
@@ -144,13 +110,10 @@ def predict_level_volume(monthly: pd.DataFrame, params: dict) -> pd.Series:
 
 def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict:
     """
-    Trend rate (spec 2026-10-08-combined-market-trend-term-v2-design.md
-    section 3, Step 3). Builds sequential TREND_RATE_BLOCK_YEARS-year
-    blocks backward from train_end, stopping once the next block would
-    extend past the oldest available real price observation (any partial
-    remainder nearest the oldest observation is simply unused -- this
-    matches the spec's own worked example: ES's ~10yr history yields
-    exactly 3 blocks, not 3.33). Each block's mean log-price is one data
+    Historical rate from sequential TREND_RATE_BLOCK_YEARS-year blocks,
+    anchored backward from train_end so the most recent data is always
+    fully represented; any leftover partial year nearest the oldest
+    observation is discarded. Each block's mean log-price is one data
     point; rate is the slope of a straight line through those points
     (numpy.polyfit), with the x-axis in years relative to train_end
     (negative for historical blocks, matching predict_trend_correction's
@@ -204,23 +167,18 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
 
 def predict_trend_correction(monthly: pd.DataFrame, params: dict) -> pd.Series:
     """
-    Multiplicative trend correction (spec v2 section 3, Step 4):
+    Multiplicative trend correction:
     exp(confidence * rate * clip(trend_years, 0, years_trained)). Returns
     a correction FACTOR, not a price -- callers multiply this onto
     predict_level_volume's (or predict_level_only's) own output.
-    trend_years is computed from params["trend_train_end"], mirroring
-    v1's predict_level_volume_trend, but clamped to [0, years_trained],
-    NOT symmetric -- the v2 spec's section 3 Step 4 explains why this
-    differs from v1's symmetric clamp fix: v1's gamma was fit via
-    regression directly against unclamped, negative trend_years values
-    for training rows, so an asymmetric predict-time clamp would have
-    been inconsistent with what that fit assumed. Here, the rate is
-    measured purely from block averages with no per-row regression
-    against trend_years at all, so there is no equivalent fitting-time
-    assumption to be inconsistent with -- any date at or before
-    train_end gets a correction of exactly 1.0 (no-op), matching that
-    every historical date is covered by get_price's real-price-first path
-    before this model is ever reached anyway.
+    trend_years is computed from params["trend_train_end"], clamped to
+    [0, years_trained] (not symmetric): the rate here is measured purely
+    from block averages with no per-row regression against trend_years,
+    so there's no fitting-time assumption an asymmetric clamp would
+    contradict. Any date at or before train_end gets a correction of
+    exactly 1.0 (no-op), matching that every historical date is covered
+    by get_price's real-price-first path before this model is ever
+    reached anyway.
     """
     trend_years = (monthly["date"] - params["trend_train_end"]).dt.days / 365.25
     trend_years = trend_years.clip(lower=0.0, upper=params["trend_years_trained"])
@@ -243,8 +201,8 @@ def build_complete_monthly_series(rows: pd.DataFrame) -> pd.DataFrame:
     Reindex a sparse set of (date, price, landings_kg) rows -- e.g. a
     single market_code/species_code/category_code's blended rows from
     prices.csv -- to a complete, gap-filled monthly date range. Missing
-    months get NaN price/landings_kg, matching the research's build_monthly
-    helper, so fit/predict functions never need to handle irregular gaps.
+    months get NaN price/landings_kg, so fit/predict functions never need
+    to handle irregular gaps.
     """
     if rows.empty:
         raise ValueError("cannot build a monthly series from zero rows")
@@ -260,9 +218,9 @@ def compute_volume_baseline_stats(
     monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp
 ) -> dict[int, tuple[float, int]]:
     """
-    Shared by CombinedMarket and LocalMarket's own _seed_volume_baseline_stats
-    (byte-identical logic in both before this extraction): per-calendar-month
-    (sum, count) of non-null landings_kg within [train_start, train_end).
+    Shared by CombinedMarket and LocalMarket (identical logic in both):
+    per-calendar-month (sum, count) of non-null landings_kg within
+    [train_start, train_end).
     """
     monthly = monthly.copy()
     monthly["month"] = monthly["date"].dt.month
@@ -285,11 +243,11 @@ def apply_volume_baseline_update(
     volume: float,
 ) -> tuple[int, float] | None:
     """
-    Shared running-mean update (spec section 6, plan header decision 9):
-    incremental, never-decaying running mean. Mutates volume_baseline_stats
-    in place and returns (month, new_mean) for the caller to patch into its
-    own frozen model dict's baseline_volume[month] -- or None if the update
-    was skipped (key has no seeded stats yet, or volume is NaN).
+    Incremental, never-decaying running-mean update. Mutates
+    volume_baseline_stats in place and returns (month, new_mean) for the
+    caller to patch into its own frozen model dict's baseline_volume[month]
+    -- or None if the update was skipped (key has no seeded stats yet, or
+    volume is NaN).
     """
     if key not in volume_baseline_stats or pd.isna(volume):
         return None
@@ -307,12 +265,10 @@ def populate_price_time_series(
     market_code: str,
 ) -> None:
     """
-    Shared by CombinedMarket and LocalMarket's own load_price_time_series
-    (byte-identical logic in both before this extraction). Filters to
-    blended rows only (size is NaN) -- spec section 13: "The core model
-    filters specifically to Size = NaN rows for its own fitting." Done
-    here, not assumed pre-filtered by the caller, so this holds regardless
-    of what the caller passes in.
+    Shared by CombinedMarket and LocalMarket (identical logic in both).
+    Filters to blended rows only (size is NaN) itself, rather than
+    assuming the caller pre-filtered, so this holds regardless of what's
+    passed in.
     """
     rows = prices_df[(prices_df["market_code"] == market_code) & (prices_df["size"].isna())]
     for row in rows.itertuples(index=False):

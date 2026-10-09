@@ -104,7 +104,7 @@ def test_build_complete_monthly_series_raises_on_empty_input():
 
 def test_fit_level_only_model_ignores_volume_entirely():
     # Zero volume variance would make fit_level_volume_model raise, but
-    # the level-only fallback (spec section 9 point 2) only needs price.
+    # the level-only fallback only needs price.
     dates = pd.date_range("2018-01-01", periods=24, freq="MS")
     monthly = pd.DataFrame({
         "date": dates,
@@ -148,20 +148,19 @@ def test_fit_trend_rate_model_measures_a_positive_rate_from_rising_blocks():
 
 
 def test_fit_trend_rate_model_returns_zero_rate_with_fewer_than_two_blocks():
-    # 5 years of history and 3-year blocks gives exactly one full block
-    # (years 0-3) plus a 2-year remainder too short for a second block --
-    # a least-squares line needs at least 2 points, so this measures a
-    # harmless rate of 0.0 rather than raising or crashing.
+    # 5 years of history with 3-year blocks gives one full block (years
+    # 0-3) plus a 2-year remainder, too short for a second block -- a
+    # line needs >=2 points, so this yields rate 0.0 rather than raising.
     monthly = _make_trending_monthly(n_years=5, slope=0.1, seed=0)
     train_end = pd.Timestamp("2020-01-01")
 
     params = fit_trend_rate_model(monthly, train_end)
 
     assert params["rate"] == 0.0
-    # years_trained reflects the span the rate was actually measured
-    # from (spec section 3, Step 4): with fewer than 2 usable blocks,
-    # no rate was measured at all, so years_trained is 0.0, not the
-    # 5-year span of available-but-unused history.
+    # years_trained reflects the span actually used to measure the rate,
+    # not the full available history -- with fewer than 2 usable blocks,
+    # no rate was measured, so it's 0.0 here, not the 5-year span of
+    # available-but-unused history.
     assert params["years_trained"] == 0.0
 
 
@@ -211,13 +210,11 @@ def test_predict_trend_correction_grows_forward_and_clamps_at_years_trained():
     )
     at_years_trained_bound = pd.DataFrame(
         {
-            # Round the day offset up to a whole day: predict_trend_correction
-            # computes trend_years via Timedelta.dt.days, which truncates to
-            # whole days, so a fractional-day offset here (e.g. years_trained
-            # now being an exact integer post-Fix-3, times 365.25) would land
-            # just short of the clamp bound in whole-day terms and no longer
-            # compare bit-for-bit equal to the far-future (already-clamped)
-            # case below.
+            # Round the day offset up to a whole day: trend_years is computed
+            # via Timedelta.dt.days, which truncates to whole days, so a
+            # fractional-day offset here would land just short of the clamp
+            # bound and no longer compare bit-for-bit equal to the
+            # far-future (already-clamped) case below.
             "date": [
                 train_end
                 + pd.Timedelta(days=int(np.ceil(rate_params["years_trained"] * 365.25)))

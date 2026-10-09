@@ -1,9 +1,8 @@
 """
-Regression test for the fidelity backtest harness itself (Task 19 fix):
-real config/northwestern_med/prices.csv has no `size` column at all (unlike
-MarketHandler.init_simulation's own internal read, which already defends
-against this), so run_backtest_split must tolerate that shape rather than
-raising KeyError when it builds `blended`.
+Regression test for the fidelity backtest harness itself: real
+config/northwestern_med/prices.csv has no `size` column at all, so
+run_backtest_split must tolerate that shape rather than raising KeyError
+when it builds `blended`.
 """
 import pandas as pd
 
@@ -78,27 +77,12 @@ def test_run_backtest_split_can_also_return_the_stepped_handler(tmp_path):
 
 
 def _write_scenario_with_anomalous_held_out_price(tmp_path, as_of_date, scenario_id="scn"):
-    """Pre-as_of_date training data is a stable, learnable flat price
-    (2.0 EUR/kg, constant volume) -- a model fit on it has every reason to
-    predict ~2.0 for any future month. The held-out window from as_of_date
-    onward has a deliberately large, unpredictable real price (50.0 EUR/kg)
-    injected instead, for the same single port/species pair, with nothing in
-    the training data that could have hinted at it.
-
-    This is the proof-of-fix regression test for the real-price-first data
-    leakage bug: run_backtest_split used to hand MarketHandler the FULL
-    prices_df (train and held-out window alike), so init_simulation's
-    latest_date = prices_df["date"].max() resolved to the file's true end
-    date regardless of as_of_date, and load_price_time_series loaded real
-    recorded prices for every date in the file -- including the "held out"
-    window. Real-price-first (spec section 8) then found and returned the
-    real recorded price for every held-out tick directly, bypassing Step 1/2
-    prediction entirely and producing a perfect, meaningless 0.0 MAPE
-    (comparing the real price against itself). With the fix,
-    MarketHandler only ever sees the pre-as_of_date truncated view, so it
-    has no way to know about the 50.0 anomaly and must genuinely predict
-    from the flat 2.0 baseline -- which should score a large MAPE here.
-    """
+    """Builds a scenario with a stable flat 2.0 EUR/kg price before
+    as_of_date and a deliberately anomalous 50.0 EUR/kg price in the
+    held-out window, with nothing in training data to hint at it. Proves
+    run_backtest_split scores genuine out-of-sample error rather than
+    leaking the held-out window's real prices back into MarketHandler
+    (which would score a false near-zero MAPE)."""
     scenario_dir = tmp_path / scenario_id
     scenario_dir.mkdir()
 
@@ -113,8 +97,7 @@ def _write_scenario_with_anomalous_held_out_price(tmp_path, as_of_date, scenario
         scenario_dir / "species.csv", index=False
     )
 
-    # 7 years of flat, stable pre-as_of_date training data, followed by a
-    # year of deliberately anomalous held-out data (test_horizon_years=1).
+    # 7 years of flat training data, then a year of anomalous held-out data.
     dates = pd.date_range(as_of_date - pd.DateOffset(years=7), as_of_date + pd.DateOffset(months=11), freq="MS")
     price = [2.0 if d < as_of_date else 50.0 for d in dates]
     prices_df = pd.DataFrame({
@@ -133,10 +116,9 @@ def _write_scenario_with_anomalous_held_out_price(tmp_path, as_of_date, scenario
 
 
 def test_run_backtest_split_scores_genuine_out_of_sample_error_not_an_echo(tmp_path):
-    """Proof-of-fix for the real-price-first leakage bug -- see
-    _write_scenario_with_anomalous_held_out_price's docstring for the full
-    mechanism. A near-zero MAPE here would mean the harness is comparing the
-    real held-out price against itself again."""
+    """Guards against the real-price-first data leakage bug: a near-zero
+    MAPE here would mean the harness is comparing the real held-out price
+    against itself instead of a genuine model prediction."""
     as_of_date = pd.Timestamp("2022-01-01")
     root_config_dir = _write_scenario_with_anomalous_held_out_price(tmp_path, as_of_date)
 

@@ -1,7 +1,6 @@
 """
-High-tier neighbor determination and distance-weighted neighbor signal
-construction (spec section 4's species-keying split, section 9.3). Step 2
-Stacked/DistanceOnly fit/predict functions are added in Task 8.
+High-tier neighbor determination, distance-weighted neighbor signal
+construction, and the Stacked/DistanceOnly fit/predict functions.
 """
 import numpy as np
 import pandas as pd
@@ -38,9 +37,9 @@ def distance_weighted_neighbor_signal(
 ) -> pd.Series | None:
     """
     Inverse-distance-weighted average of sibling ports' Step-1 PREDICTED
-    series (never their real recorded prices -- plan header decision 7).
-    Returns None if there are no valid source ports (no distance known,
-    or the only candidate is the target itself).
+    series, never their real recorded prices. Returns None if there are
+    no valid source ports (no distance known, or the only candidate is
+    the target itself).
     """
     candidates = [
         port for port in source_ports
@@ -64,8 +63,8 @@ def distance_weighted_neighbor_signal(
 
 
 def build_static_anchor_series(dates, baseline_price_table: pd.Series) -> pd.Series:
-    """Broadcast CombinedMarket's frozen per-month baseline across every date -- the
-    production default anchor scheme (plan header decision 1)."""
+    """Broadcast CombinedMarket's frozen per-month baseline across every
+    date; the production default anchor scheme."""
     dates = pd.DatetimeIndex(dates)
     months = pd.Series(dates.month, index=dates)
     return months.map(baseline_price_table)

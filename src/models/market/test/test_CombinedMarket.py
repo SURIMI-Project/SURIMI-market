@@ -44,10 +44,8 @@ def test_get_price_uses_real_data_before_frozen_model(caplog):
 
 
 def test_get_price_falls_through_to_frozen_model_when_real_price_is_nan():
-    # A blended row (size is NaN) can still have a missing/NaN price -- the
-    # size filter in load_price_time_series does not also filter out NaN
-    # prices, so get_price must not treat a stored NaN as "real data found"
-    # and return it directly; it must fall through to the frozen model.
+    # size is NaN here but price can still be NaN too; get_price must not
+    # treat a stored NaN as real data and must fall through to the frozen model.
     market = CombinedMarket("ES")
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
@@ -102,10 +100,8 @@ def test_get_baseline_price_table_returns_frozen_static_table():
 
 def test_fit_falls_back_to_level_only_then_excludes_on_total_failure(caplog):
     market = CombinedMarket("ES")
-    # Only 2 months of data: not enough for level-volume (needs variance +
-    # >=2 points) but also not even enough to try fitting meaningfully --
-    # construct a case where level-volume fails every window but
-    # level-only (price-only) still succeeds.
+    # Only 2 months of data -- not enough for level-volume, but enough for
+    # level-only (price-only) to still succeed.
     dates = pd.date_range("2023-01-01", periods=2, freq="MS")
     monthly = pd.DataFrame({"date": dates, "price": [2.0, 2.1], "landings_kg": [1000.0, 1000.0]})
 
@@ -117,13 +113,9 @@ def test_fit_falls_back_to_level_only_then_excludes_on_total_failure(caplog):
 
 
 def test_get_baseline_price_table_reindexes_to_all_12_months_on_fallback():
-    # The level-only fallback's baseline_price is built from whatever
-    # calendar months happen to appear in the (possibly short) training
-    # window -- here, only January and February. get_baseline_price_table
-    # must still return a Series covering all 12 months, with the missing
-    # ones as NaN, since Task 9's LocalMarket Step 2 anchor relies on
-    # dates.month.map(table) never silently producing NaN for a month that
-    # was simply absent from the table's index.
+    # The level-only fallback's baseline_price only covers months present
+    # in the training window (here, Jan/Feb) -- get_baseline_price_table
+    # must still return all 12 months, with missing ones as NaN.
     market = CombinedMarket("ES")
     dates = pd.date_range("2023-01-01", periods=2, freq="MS")
     monthly = pd.DataFrame({"date": dates, "price": [2.0, 2.1], "landings_kg": [1000.0, 1000.0]})
@@ -259,17 +251,11 @@ def test_fit_attaches_trend_params_to_every_key():
 
 
 def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatch):
-    # The regression test spec section 6 calls out directly: this is what
-    # would have caught v1's bug (trend-eligibility changing which window
-    # gets selected, and so changing baseline_price). Patches
-    # compute_trend_confidence's return value directly rather than
-    # constructing a low/high-confidence dataset pair -- confidence is a
-    # pure side-computation attached AFTER fit() has already chosen a
-    # window and baseline (Task 3's own design), so this isolates the
-    # invariant ("confidence can never affect window selection or the
-    # baseline fit") from any incidental correlation between "this series
-    # has a trend" and "window scoring happens to prefer a different
-    # window length for unrelated data reasons."
+    # Confirms the invariant that trend confidence can never affect window
+    # selection or the baseline fit. Patches compute_trend_confidence
+    # directly (rather than using a low/high-confidence dataset pair) since
+    # confidence is a pure side-computation attached after fit() has
+    # already chosen the window and baseline.
     monthly = _trending_synthetic_monthly()
     key = ("ANE", "Fresh - Whole")
     latest_date = pd.Timestamp("2025-01-01")
@@ -318,14 +304,11 @@ def test_get_price_is_unaffected_by_trend_for_a_flat_series():
     params = market.models[("ANE", "Fresh - Whole")]
     assert params["trend_confidence"] == pytest.approx(1 / 12)  # precondition: low confidence
 
-    # Same calendar month both times, so baseline/volume-anomaly terms are
-    # identical by construction -- any remaining difference comes only
-    # from the trend correction. This fixture's measured rate happens to
-    # be ~0.0 (not just its confidence), so this test mainly confirms a
-    # near-zero-rate series doesn't acquire a fabricated trend; it does
-    # not specifically exercise the low-confidence-damping behavior
-    # (that's covered by predict_trend_correction's own unit tests in
-    # test_level_volume_model.py).
+    # Same calendar month both times, so baseline/volume-anomaly terms
+    # match and any difference comes only from the trend correction. This
+    # fixture's rate is ~0.0, so this mainly confirms a near-zero-rate
+    # series doesn't acquire a fabricated trend (low-confidence damping
+    # itself is covered by predict_trend_correction's own tests).
     price_near_fit_end = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=1000.0)
     price_far_future = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2039-02-01"), volume=1000.0)
 
@@ -335,11 +318,10 @@ def test_get_price_is_unaffected_by_trend_for_a_flat_series():
 
 
 def test_get_baseline_price_table_unaffected_by_trend_term():
-    # Step 2's static anchor must only ever read baseline_price, never the
-    # trend coefficient -- confirm directly, not just by prose, that a
-    # trend-augmented model's baseline table is identical in shape/values
-    # to what a plain model would have produced from the same seasonal
-    # means (i.e. the trend term never leaks into this table).
+    # The static anchor must only ever read baseline_price, never the
+    # trend coefficient -- confirm a trend-augmented model's baseline
+    # table is identical to what a plain model would produce from the
+    # same seasonal means.
     market = CombinedMarket("ES")
     monthly = _trending_synthetic_monthly()
     market.fit({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2025-01-01"))
@@ -357,13 +339,11 @@ def test_get_baseline_price_table_unaffected_by_trend_term():
 
 
 def test_get_live_anchor_series_unaffected_by_trend_term():
-    # Analysis-only path (spec: "never used by the live production path").
-    # Confirm it still returns a result shaped the same way for a
-    # trend-bearing key -- it dispatches only on baseline_volume is None,
-    # never reads trend_confidence/trend_rate at all, so it always takes
-    # the plain predict_level_volume branch with no trend correction
-    # applied -- this function was not touched by this plan, confirm that
-    # directly.
+    # Analysis-only path -- confirm it still returns a result shaped the
+    # same way for a trend-bearing key. It dispatches only on
+    # baseline_volume is None and never reads trend_confidence/trend_rate,
+    # so it always takes the plain predict_level_volume branch with no
+    # trend correction.
     market = CombinedMarket("ES")
     monthly = _trending_synthetic_monthly()
     market.fit({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2025-01-01"))
@@ -396,16 +376,10 @@ def _build_monthly_from_real_prices(market_code, species_code):
     return build_complete_monthly_series(rows)
 
 
-# Measured against the real, unmodified production code (spec
-# 2026-10-08-combined-market-trend-term-v2-design.md section 4). Window
-# label is expected to match exactly -- it's produced by code this plan
-# never modifies (fit_level_volume_model/select_best_window). confidence
-# and rate use generous tolerances: they come from a fresh implementation
-# of the spec's described algorithm, not a byte-for-byte copy of the
-# throwaway spike script that originally measured these numbers, and
-# small fencepost differences (e.g. exactly which calendar months a given
-# window boundary includes) are expected, not a bug, as long as they're
-# close.
+# Measured against real production data. Window label must match exactly
+# (deterministic, from fit_level_volume_model/select_best_window).
+# confidence and rate use generous tolerances since small fencepost
+# differences in window boundaries are expected, not a bug.
 EXPECTED_TREND_PARAMS = {
     ("ES", "ANE"): {"window": "3yr", "confidence": 0.92, "rate": 0.0625},
     ("ES", "PIL"): {"window": "2yr", "confidence": 0.00, "rate": 0.0060},

@@ -1,9 +1,9 @@
 """
-CombinedMarket-scoped accuracy check (this plan's Task 6) -- confirms the
-trend term is a real net improvement for ANE@ES specifically and a
-non-regression for every other validated species/market, against the real
-MarketHandler/CombinedMarket price history (not a reimplementation).
-Complements test_fidelity_backtest.py, which only covers LocalMarket.
+CombinedMarket-scoped accuracy check: confirms the trend term is a real
+net improvement for ANE@ES specifically and a non-regression for every
+other validated species/market, against the real MarketHandler/
+CombinedMarket price history. Complements test_fidelity_backtest.py,
+which only covers LocalMarket.
 """
 import os
 
@@ -18,8 +18,7 @@ CATEGORY = "Fresh - Whole"
 CONFIG_DIR = "config/northwestern_med"
 
 # Generous ceiling, matching test_fidelity_backtest.py's own convention --
-# catches a real regression without requiring exact reproduction of a
-# specific historical number.
+# catches a real regression without requiring exact reproduction of a number.
 MAX_ACCEPTABLE_MAPE = 50.0
 
 
@@ -28,18 +27,11 @@ MAX_ACCEPTABLE_MAPE = 50.0
     reason="requires config/northwestern_med/prices.csv",
 )
 def test_combined_market_accuracy_within_acceptable_mape():
-    # as_of_date/test_horizon_years deliberately differ from
-    # test_fidelity_backtest.py's own 2022-01-01/2yr split: ANE@ES's trend
-    # confidence (compute_trend_confidence) needs ~9+ years of real history
-    # before individual calendar months start reaching statistical
-    # significance -- confirmed directly that a 2022-01-01 cutoff (7yr
-    # training history) leaves confidence too low to exercise the trend
-    # correction meaningfully anywhere in the backtest. Cutting over at
-    # 2024-01-01 instead (9yr training history) leaves a full 12 months of
-    # real, still-genuinely-held-out data (2024-01 through 2024-12, the
-    # real dataset's final year) for comparison, while actually letting
-    # ANE@ES's trend correction activate -- see the assertion below, which
-    # confirms this directly rather than assuming it.
+    # as_of_date=2024-01-01 (vs. test_fidelity_backtest.py's 2022-01-01) is
+    # deliberate: ANE@ES's trend confidence needs ~9+ years of training
+    # history before it activates meaningfully, and this cutoff still
+    # leaves a full held-out year (2024) for comparison. Confirmed by the
+    # assertion below rather than assumed.
     _, handler = run_backtest_split(
         root_config_dir=CONFIG_DIR.rsplit("/", 1)[0],
         scenario_id=CONFIG_DIR.split("/")[-1],
@@ -49,15 +41,13 @@ def test_combined_market_accuracy_within_acceptable_mape():
         return_handler=True,
     )
 
-    # Confirm ES/ANE's trend confidence is active and clearly the
-    # standout case in this backtest (not merely assumed) -- matching Task
-    # 5's real-data pin (test_CombinedMarket.py::test_real_data_trend_params_match_measured_values).
-    # Confidence is now continuous (never a hard "has/doesn't have"
-    # boolean), so this checks the shape that matters: ES/ANE measures
-    # meaningfully higher confidence than every other validated pair.
-    # Without this, a future change to the confidence math or the data
-    # could silently stop exercising the trend correction at all in this
-    # backtest without anyone noticing, defeating this test's whole purpose.
+    # Confirms ES/ANE's trend confidence is active and clearly the
+    # standout case in this backtest, matching
+    # test_CombinedMarket.py::test_real_data_trend_params_match_measured_values.
+    # Confidence is continuous, not a hard boolean, so this checks the shape
+    # that matters: ES/ANE measurably higher than every other validated
+    # pair. Without this, a future change could silently stop exercising
+    # the trend correction without anyone noticing.
     confidences = {
         (market_code, species): combined_market.models[(species, category)]["trend_confidence"]
         for market_code, combined_market in handler.market_system.combined_markets.items()

@@ -1,14 +1,11 @@
 """
-Continuous trend confidence (spec
-2026-10-08-combined-market-trend-term-v2-design.md, section 3, Step 2) for
-a (species_code, category_code) key's CombinedMarket fit. Uses ONLY the
-complete real historical record -- no train/test split, no dependency on
-level_volume_model.py's own fit. Per-calendar-month OLS (year -> price),
-same slope/standard-error/t-statistic math as v1's trend_gate.py, but
-returned as a continuous fraction in [0, 1] instead of a boolean -- there
-is no sign-agreement requirement and no significant-months threshold. A
-species with no real trend naturally measures near 0; a species with a
-clear, sustained trend measures near 1. Never a hard exclusion.
+Continuous trend confidence for a (species_code, category_code) key's
+CombinedMarket fit. Uses only the full real historical record -- no
+train/test split, no dependency on level_volume_model's own fit.
+Per-calendar-month OLS (year -> price) yields a fraction in [0, 1]
+instead of a boolean gate: no sign-agreement requirement, no
+significant-months threshold, never a hard exclusion. A species with no
+real trend measures near 0; a clear, sustained trend measures near 1.
 """
 import numpy as np
 import pandas as pd
@@ -18,14 +15,11 @@ from . import consts
 
 def compute_trend_confidence(monthly: pd.DataFrame) -> float:
     """
-    Fraction (0.0-1.0) of the 12 calendar months whose own year-over-year
-    OLS slope is individually significant (|t| > TREND_CONFIDENCE_T_THRESHOLD)
-    in the majority sign direction across all 12 months. A month with
-    fewer than 3 years of observations, or whose observations all fall in
-    a single year (zero year-variance, so no slope is estimable), simply
-    does not count toward the numerator -- it is treated as "not
-    significant" for that month rather than raising or forcing the whole
-    key to a fixed value, since this is a continuous measure, not a gate.
+    Fraction (0.0-1.0) of the 12 calendar months whose year-over-year OLS
+    slope is individually significant (|t| > TREND_CONFIDENCE_T_THRESHOLD)
+    in the majority sign direction. A month with fewer than 3 years of
+    data, or zero year-variance (no slope estimable), simply doesn't
+    count toward the numerator rather than raising or forcing a result.
     """
     monthly = monthly.dropna(subset=["price"]).copy()
     monthly["year"] = monthly["date"].dt.year

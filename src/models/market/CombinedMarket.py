@@ -1,9 +1,8 @@
 """
-One instance per 2-letter market code (spec section 3). Holds the frozen
-Model 2 (seasonal baseline + volume-response), keyed by
-(species_code, category_code). Never holds or queries LocalMarket
-references -- stays passive, only ever receives plain numbers (spec
-section 4).
+One instance per 2-letter market code. Holds the frozen seasonal-baseline
++ volume-response model, keyed by (species_code, category_code). Stays
+passive -- never holds or queries LocalMarket references, only receives
+plain numbers.
 """
 from collections import defaultdict
 import logging
@@ -35,9 +34,8 @@ class CombinedMarket:
         self.market_code = market_code
         self.logger = logging.getLogger(consts.COMBINED_MARKET_LOGGER_NAME)
 
-        # Direct catch accumulator for sales routed straight to this 2-letter
-        # prefix (spec section 4's lenient catch-all) -- same shape as
-        # LocalMarket's own accumulator.
+        # Catch accumulator for sales routed straight to this 2-letter
+        # prefix; same shape as LocalMarket's own accumulator.
         self._direct_catch: dict[tuple[str, str], float] = defaultdict(float)
         self._lock = threading.Lock()
 
@@ -58,23 +56,17 @@ class CombinedMarket:
         self, monthly_by_key: dict[tuple[str, str], pd.DataFrame], latest_date: pd.Timestamp
     ) -> dict[tuple[str, str], str | None]:
         """
-        Fit and freeze Model 2 for every (species_code, category_code),
-        selecting the best training-window length independently per key
-        (spec section 7). Falls back to a level-only fit (spec section 9
-        point 2) if no window produces a stable level-volume model; excludes
-        the key entirely (spec section 9 point 4) if even that fails.
+        Fit and freeze the model for every (species_code, category_code),
+        selecting the best training-window length independently per key.
+        Falls back to a level-only fit if no window produces a stable
+        level-volume model; excludes the key entirely if even that fails.
 
-        Window selection and the frozen baseline (baseline_price/alpha/beta)
-        are completely unconditional -- identical for every key, with no
-        trend-related branching anywhere in this path (spec
-        2026-10-08-combined-market-trend-term-v2-design.md section 3, Step
-        1 / Global Constraints). Trend confidence and rate (Steps 2-3) are
-        computed separately from the complete monthly series and attached
-        to the frozen params afterward via _attach_trend_params -- for
-        every key that gets a model at all, main path or fallback alike --
-        so get_price() never needs to branch on whether a key "has" a
-        trend; the correction it applies is just ~1.0 (a no-op) for a
-        non-trending key.
+        Window selection and the frozen baseline are unconditional --
+        identical regardless of trend. Trend confidence/rate are computed
+        separately and attached afterward via _attach_trend_params for
+        every key that gets a model, so get_price() can apply the trend
+        correction unconditionally (a no-op ~1.0 multiplier for a
+        non-trending key).
         """
         selected: dict[tuple[str, str], str | None] = {}
 
@@ -97,15 +89,11 @@ class CombinedMarket:
                 try:
                     params = fit_level_volume_model(monthly, train_start, latest_date)
                 except (ValueError, np.linalg.LinAlgError):
-                    # The window length scored acceptably across historical rolling-origin
-                    # splits (each with its own, earlier train_end), but real volume data is
-                    # sparse enough that the literal final window (train_start..latest_date)
-                    # can still fail to fit -- e.g. every non-null landings_kg reading in this
-                    # exact window happens to be the sole representative of its calendar
-                    # month, making the volume-anomaly series degenerate (zero variance).
-                    # Cross-validation generalizing to historical splits doesn't guarantee the
-                    # production window itself is fittable, so fall through to the same
-                    # lower-tier fallback used when no window was selected at all.
+                    # Rolling-origin validation scored this window acceptably, but the
+                    # final window (train_start..latest_date) can still fail to fit if
+                    # sparse real data makes the volume-anomaly series degenerate (zero
+                    # variance) -- fall through to the same fallback used when no window
+                    # was selected at all.
                     self.logger.warning(
                         f"CombinedMarket {self.market_code}: selected window {label} for {key} "
                         f"scored acceptably in rolling-origin validation but failed to re-fit on "
@@ -121,7 +109,7 @@ class CombinedMarket:
                     selected[key] = label
                     continue
 
-            # Fallback cascade (spec section 9 point 2): try level-only.
+            # Fallback: try a level-only fit.
             else:
                 self.logger.warning(
                     f"CombinedMarket {self.market_code}: no stable level-volume window found "
@@ -144,12 +132,10 @@ class CombinedMarket:
 
     def _attach_trend_params(self, params: dict, monthly: pd.DataFrame, train_end: pd.Timestamp) -> None:
         """
-        spec 2026-10-08-combined-market-trend-term-v2-design.md section 3,
-        Steps 2-4: continuous confidence + block-based rate, computed from
-        the complete real historical record and attached unconditionally
-        -- same procedure for every key, main level-volume path and the
-        level-only fallback alike, so get_price() can apply the correction
-        without ever checking which path produced a given key's params.
+        Computes trend confidence and rate from the complete historical
+        record and attaches them unconditionally, for both the main
+        level-volume path and the level-only fallback, so get_price()
+        never needs to check which path produced a given key's params.
         """
         trend_rate_params = fit_trend_rate_model(monthly, train_end)
         params["trend_confidence"] = compute_trend_confidence(monthly)
@@ -161,7 +147,7 @@ class CombinedMarket:
         self.volume_baseline_stats[key] = compute_volume_baseline_stats(monthly, train_start, train_end)
 
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
-        """Incremental, never-decaying running mean (spec section 6, plan header decision 9)."""
+        """Incremental, never-decaying running mean."""
         key = (species_code, category_code)
         result = apply_volume_baseline_update(self.volume_baseline_stats, key, date, volume)
         if result is None:
@@ -171,18 +157,17 @@ class CombinedMarket:
             self.models[key]["baseline_volume"][month] = new_mean
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
-        """Load real recorded prices for this market_code (spec section 8)."""
+        """Load real recorded prices for this market_code."""
         populate_price_time_series(self.price_time_series, prices_df, self.market_code)
 
     def get_price(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
     ) -> float | None:
         """
-        Real-price-first (spec section 8): check price_time_series, else
-        predict. The trend correction (spec v2 section 3, Step 4) is
-        applied unconditionally -- it is a pure multiplier of ~1.0 for a
-        key with near-zero trend confidence, so there is no branch here on
-        whether a key "has" a trend, unlike v1's "gamma" in params check.
+        Real-price-first: check price_time_series, else predict. The
+        trend correction is applied unconditionally -- a pure ~1.0
+        multiplier for a key with near-zero trend confidence, so there's
+        no branch on whether a key "has" a trend.
         """
         key = (species_code, category_code)
         real_price = self.price_time_series.get((species_code, category_code, date))
@@ -206,21 +191,17 @@ class CombinedMarket:
         self, species_code: str, category_code: str, own_monthly: pd.DataFrame, target_dates
     ) -> pd.Series | None:
         """
-        The alternate Step-2 anchor scheme (ANCHOR_SCHEME_LIVE, spec
-        section 5's open item / plan header decision 1) -- this market's
-        own frozen coefficients applied to its OWN real historical volume
-        at each date, varying month-to-month, unlike
-        get_baseline_price_table's fixed 12-month seasonal cycle.
-        Analysis-only: never used by the live production path, which
-        always calls get_baseline_price_table instead.
+        Alternate anchor scheme: this market's own frozen coefficients
+        applied to its own real historical volume at each date, varying
+        month-to-month (unlike get_baseline_price_table's fixed 12-month
+        seasonal cycle). Analysis-only -- never used by the live
+        production path.
 
-        own_monthly is this CombinedMarket's own (date, price, landings_kg)
-        series (the same shape MarketSystem.fit_all already builds via
-        _build_monthly_by_key for this market_code/key, retained by the
-        caller since CombinedMarket itself doesn't keep it after fit()
-        returns). Returns None if this market has no frozen model for the
-        key at all; otherwise reindexed (by date) to target_dates, with
-        NaN for any date outside own_monthly's own range.
+        own_monthly is this CombinedMarket's own (date, price,
+        landings_kg) series, retained by the caller since CombinedMarket
+        doesn't keep it after fit() returns. Returns None if there's no
+        frozen model for the key; otherwise reindexed to target_dates,
+        with NaN outside own_monthly's own range.
         """
         key = (species_code, category_code)
         if key not in self.models:
@@ -237,14 +218,11 @@ class CombinedMarket:
 
     def get_baseline_price_table(self, species_code: str, category_code: str) -> pd.Series | None:
         """
-        Frozen per-month seasonal baseline -- used as LocalMarket Step 2's
-        static anchor. Always reindexed to the full 1..12 calendar-month
-        range: the underlying baseline_price (especially on the level-only
-        fallback path, which groups only over whatever months happen to
-        appear in a possibly-short training window) may not cover every
-        month. Genuinely-missing months come back as NaN rather than being
-        silently dropped or fabricated -- downstream consumers (Task 9) are
-        expected to treat a NaN anchor as "no data for this month".
+        Frozen per-month seasonal baseline, used as LocalMarket's static
+        anchor. Always reindexed to the full 1..12 month range --
+        baseline_price (e.g. on the level-only fallback path) may not
+        cover every month, so missing months come back as NaN rather than
+        being dropped or fabricated.
         """
         key = (species_code, category_code)
         if key not in self.models:

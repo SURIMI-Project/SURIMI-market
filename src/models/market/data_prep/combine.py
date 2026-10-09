@@ -1,5 +1,5 @@
 """Aggregates local rows into combined (national) rows, matching the live
-model's own runtime aggregation rule (spec section 4)."""
+model's own runtime aggregation rule."""
 import logging
 
 import pandas as pd

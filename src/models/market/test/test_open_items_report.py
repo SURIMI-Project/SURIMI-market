@@ -12,19 +12,18 @@ CONFIG_DIR = "config/northwestern_med"
 
 @pytest.mark.skipif(
     not os.path.exists(f"{CONFIG_DIR}/prices.csv"),
-    reason="requires config/northwestern_med/prices.csv (Plan 1's data-prep output)",
+    reason="requires config/northwestern_med/prices.csv (data-prep output)",
 )
 def test_open_items_report():
     prices_df = pd.read_csv(f"{CONFIG_DIR}/prices.csv", parse_dates=["date"])
-    # Same normalization run_backtest_split itself applies (fidelity_backtest_harness.py):
-    # the real prices.csv has no "size" column at all (it's an optional, not-yet-produced
-    # Plan 1 output), so without this, filtering to "size is NaN" blended rows would raise
-    # a KeyError here instead of correctly treating every row as blended.
+    # Real prices.csv has no "size" column (same normalization run_backtest_split
+    # applies internally); without this, filtering "size is NaN" would raise
+    # KeyError instead of treating every row as blended.
     if "size" not in prices_df.columns:
         prices_df["size"] = None
     blended = prices_df[prices_df["size"].isna()]
 
-    print("\n=== 1. Real data extent and transition-jump size (spec section 13) ===")
+    print("\n=== 1. Real data extent and transition-jump size ===")
     last_real_dates = {}
     for species_code in VALIDATED_SPECIES:
         species_rows = blended[(blended["species_code"] == species_code) & (blended["market_code"].str.len() == 2)]
@@ -43,13 +42,11 @@ def test_open_items_report():
                   f"the transition-jump comparison below -- some species may show a "
                   f"jump measured slightly before their own true data boundary.")
 
-        # Fit exactly at the shared real-data boundary (as_of_date excludes that
-        # date itself from fitting/real-price-lookup -- the same truncation
-        # run_backtest_split already does for its own test window), then compare
-        # the frozen model's retrospective prediction for that one held-out tick
-        # against what the real recorded value actually was. This is the actual
-        # "how large is the real-to-predicted transition jump" measurement spec
-        # section 13 requires -- not just how far real data extends.
+        # as_of_date excludes that date itself from fitting/real-price-lookup
+        # (same truncation run_backtest_split applies to its own test window).
+        # Compares the frozen model's retrospective prediction for that one
+        # held-out tick against the real recorded value -- the actual
+        # transition-jump measurement, not just how far real data extends.
         jump_results, jump_handler = run_backtest_split(
             root_config_dir=CONFIG_DIR.rsplit("/", 1)[0],
             scenario_id=CONFIG_DIR.split("/")[-1],
@@ -91,7 +88,7 @@ def test_open_items_report():
         return_handler=True,
     )
 
-    print("\n=== 2. Combined/Local consistency drift (spec section 10) ===")
+    print("\n=== 2. Combined/Local consistency drift ===")
     for species_code in VALIDATED_SPECIES:
         key = (species_code, "Fresh - Whole")
         combined_market = handler.market_system.combined_markets.get("ES")
@@ -126,16 +123,12 @@ def test_open_items_report():
         if gaps:
             print(f"{species_code}: mean |Local(volume-weighted) - Combined| gap = {sum(gaps)/len(gaps):.2f}%")
 
-    print("\n=== 3. Static vs. live Step-2 anchor comparison (spec sections 5/14) ===")
-    # A REAL head-to-head: two independent, fully-stepped backtest runs over
-    # the identical as_of_date/test_horizon/species, one with each anchor
-    # scheme (MarketSystem.fit_all(..., anchor_scheme=...), both now
-    # production-supported paths -- STATIC remains the only scheme the live
-    # gRPC path ever uses by default). This replaces the previous
-    # gamma-coefficient-only comparison, which confounded anchor-scheme
-    # choice with window-length choice (the live refit always used full
-    # history, static used its own adaptively selected window) and could
-    # only observe divergence, never say which scheme was actually better.
+    print("\n=== 3. Static vs. live Step-2 anchor comparison ===")
+    # Two independent, fully-stepped backtest runs over the same
+    # as_of_date/test_horizon/species, one per anchor scheme (both are
+    # production-supported paths; STATIC is the only one the live gRPC path
+    # ever uses by default). Running both fully isolates anchor-scheme choice
+    # from window-length choice, since each run selects its own window.
     live_results, live_handler = run_backtest_split(
         root_config_dir=CONFIG_DIR.rsplit("/", 1)[0],
         scenario_id=CONFIG_DIR.split("/")[-1],

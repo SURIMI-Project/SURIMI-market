@@ -3,7 +3,7 @@ import math
 import pandas as pd
 import pytest
 
-from src.models.market.distance import haversine_distance_m, build_distance_lookup
+from src.models.market.Utility import haversine_distance_m, build_distance_lookup
 
 
 def test_distance_to_self_is_zero():

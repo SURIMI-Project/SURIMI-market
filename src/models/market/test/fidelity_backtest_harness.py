@@ -1,9 +1,9 @@
 """
-Fidelity backtest harness (spec section 11 layer 3). Runs the real
-MarketHandler against a real prices.csv with start_time set to a
-deliberately early as_of_date, feeds it real historical landings tick by
-tick as simulated catches, and compares its reported prices against the
-real recorded prices for the held-out window that follows.
+Fidelity backtest harness. Runs the real MarketHandler against a real
+prices.csv with start_time set to a deliberately early as_of_date, feeds
+it real historical landings tick by tick as simulated catches, and
+compares its reported prices against the real recorded prices for the
+held-out window that follows.
 """
 import datetime
 import tempfile
@@ -52,17 +52,13 @@ def run_backtest_split(
 
     start_time = as_of_date.to_pydatetime().replace(tzinfo=None)
 
-    # Give MarketHandler a TRUNCATED view of prices.csv (rows strictly before
-    # as_of_date) for fitting AND for its own real-price-first lookup
-    # (load_price_time_series) -- otherwise init_simulation's
-    # latest_date = prices_df["date"].max() would resolve to the real file's
-    # true end date regardless of as_of_date, and real-price-first would find
-    # a match for every tick in the nominal "held out" test window, silently
-    # substituting the real recorded price for the model's own prediction at
-    # every single comparison point (a perfect, meaningless 0.0 MAPE). The
-    # full, untruncated prices_df is still used below for feeding real
-    # landings tick-by-tick and for the final ground-truth comparison -- only
-    # what MarketHandler itself gets to see at init time is restricted.
+    # MarketHandler only gets a TRUNCATED view of prices.csv (rows strictly
+    # before as_of_date), for both fitting and its own real-price-first
+    # lookup. Otherwise latest_date would resolve to the file's true end
+    # date and real-price-first would return the real recorded price for
+    # every "held out" tick, producing a meaningless 0.0 MAPE. The full,
+    # untruncated prices_df is still used below for feeding real landings
+    # and for the final ground-truth comparison.
     truncated_prices = prices_df[prices_df["date"] < as_of_date]
 
     with tempfile.TemporaryDirectory() as tmp_root:
@@ -80,19 +76,15 @@ def run_backtest_split(
 
         if anchor_scheme != consts.ANCHOR_SCHEME_STATIC:
             # init_simulation always fits with the production default
-            # (static). Re-fit Step 2 with the requested alternate scheme
-            # on the SAME truncated data/latest_date before any stepping
-            # begins, so the comparison isolates anchor_scheme as the only
-            # variable -- Step 1 and CombinedMarket are refit identically
-            # either way (neither depends on anchor_scheme), only Step 2's
-            # models actually change.
+            # (static). Re-fit Step 2 with the requested alternate scheme on
+            # the same truncated data/latest_date before stepping, so only
+            # Step 2's models change -- Step 1 and CombinedMarket don't
+            # depend on anchor_scheme.
             latest_date = pd.Timestamp(truncated_prices["date"].max())
             handler.market_system.fit_all(truncated_prices, latest_date, anchor_scheme=anchor_scheme)
 
-        # From here on, the test window is driven by stepping the
-        # market_system forward and feeding it that same window's REAL
-        # landings as the simulated catch input, so Step 1/2 see real volumes
-        # exactly as a live simulation would.
+        # Step the market_system forward, feeding it this window's real
+        # landings as simulated catch input so Step 1/2 see real volumes.
         test_end = as_of_date + pd.DateOffset(years=test_horizon_years)
         blended = prices_df[prices_df["size"].isna()]  # full, untruncated
 

@@ -1,11 +1,4 @@
-"""
-Hand-rolled haversine great-circle distance. Spec section 4: confirmed
-empirically to match .cache/test/port_distances.csv (R's
-geosphere::distHaversine() output) to 1e-10m precision using
-EARTH_RADIUS_M = 6,378,137 (WGS84 equatorial radius) -- no new dependency
-needed (pyproj/geopy/haversine were considered and rejected as unnecessary
-weight for a single, stable, already-precisely-specified formula).
-"""
+"""General-purpose helper functions shared across this package."""
 from itertools import combinations
 
 import numpy as np
@@ -15,6 +8,11 @@ from . import consts
 
 
 def haversine_distance_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """
+    Great-circle distance in meters. Validated against R's
+    geosphere::distHaversine() to 1e-10m precision -- avoids a dependency
+    (pyproj/geopy) for one stable, well-known formula.
+    """
     lon1_rad, lat1_rad, lon2_rad, lat2_rad = map(np.radians, [lon1, lat1, lon2, lat2])
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
@@ -25,10 +23,9 @@ def haversine_distance_m(lon1: float, lat1: float, lon2: float, lat2: float) -> 
 
 def build_distance_lookup(markets_df: pd.DataFrame) -> dict[tuple[str, str], float]:
     """
-    Compute pairwise distances for every local market with valid lon/lat.
-    Rows with missing coordinates (the 2-letter CombinedMarket codes, which
-    have NA lon/lat in markets.csv) are excluded entirely -- they never
-    participate in distance weighting (spec section 4).
+    Pairwise distances between every local market with valid lon/lat.
+    Rows with missing coordinates (the 2-letter combined-market codes)
+    are excluded entirely -- they never participate in distance weighting.
 
     Returns a dict keyed by BOTH (a, b) and (b, a) for convenient
     undirected lookup, computed once and shared across every species.

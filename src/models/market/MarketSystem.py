@@ -1,8 +1,7 @@
 """
-Orchestrator (spec section 3): owns the Tick, the CombinedMarkets, and the
-dict of LocalMarkets; derives Local<->Combined topology (section 4), drives
-cross-port init-time fitting (Task 12), the per-tick flow (Task 13), and
-history/export (Task 14).
+Orchestrator: owns the Tick, the CombinedMarkets, and the dict of
+LocalMarkets; derives Local<->Combined topology, drives cross-port
+init-time fitting, the per-tick flow, and history/export.
 """
 import datetime
 import logging
@@ -19,7 +18,7 @@ from . import consts
 from .Tick import Tick
 from .LocalMarket import LocalMarket
 from .CombinedMarket import CombinedMarket
-from .distance import build_distance_lookup
+from .Utility import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
 from .market_topology import build_prefix_to_locals
 from .stacked_model import compute_high_tier_ports, distance_weighted_neighbor_signal, build_static_anchor_series
@@ -38,15 +37,15 @@ class MarketSystem:
         self.distance_lookup: dict[tuple[str, str], float] = {}
 
         # (species_code, category_code) -> set of High-tier port codes, frozen
-        # at fit_all time (Task 12) and reused every tick (Task 13) to build
-        # each port's live neighbor signal without recomputing volume shares.
+        # at fit_all time and reused every tick to build each port's live
+        # neighbor signal without recomputing volume shares.
         self.high_tier_ports_by_key: dict[tuple[str, str], set[str]] = {}
 
         # (market_code, (species_code, category_code)) -> the exact
-        # port_monthly/neighbor_signal/anchor_series Step 2 was fit with
-        # (Task 12). Retained so Task 21's open-items report can refit with a
-        # DIFFERENT anchor scheme against the identical neighbor signal,
-        # rather than approximating it.
+        # port_monthly/neighbor_signal/anchor_series Step 2 was fit with.
+        # Retained so a later report can refit with a DIFFERENT anchor
+        # scheme against the identical neighbor signal, rather than
+        # approximating it.
         self.step2_fit_inputs: dict[tuple[str, tuple[str, str]], dict] = {}
 
         self.logger = logging.getLogger(consts.MARKET_SYSTEM_LOGGER_NAME)
@@ -61,8 +60,8 @@ class MarketSystem:
         if len(missing_coords) > 0:
             return MarketError(
                 grpc.StatusCode.FAILED_PRECONDITION,
-                "Local market(s) missing lon/lat -- this is a reference-data bug "
-                f"(spec section 9.3), not an expected gap: {missing_coords['market_code'].tolist()}",
+                "Local market(s) missing lon/lat -- this is a reference-data bug, "
+                f"not an expected gap: {missing_coords['market_code'].tolist()}",
             )
 
         for row in local_rows.itertuples(index=False):
@@ -97,14 +96,10 @@ class MarketSystem:
                     )
 
         current_time = self.tick.get_datetime()
-        # start_date_time is always a real UTC epoch (gRPC convention), so it
-        # must always be resolved in UTC first -- a bare fromtimestamp() would
-        # silently reinterpret it using the HOST machine's local timezone,
-        # not UTC. self.tick's start_time may itself be naive (this plan's
-        # own setup_topology tests, Task 10; also Tick.reset()'s utcnow(),
-        # which is naive-but-semantically-UTC) or UTC-aware (Elsa
-        # convention), so tzinfo is stripped afterwards only to match
-        # current_time's own awareness, never to change the resolved instant.
+        # start_date_time is a UTC epoch (gRPC); fromtimestamp() must resolve
+        # it in UTC explicitly, or it would use the host's local timezone.
+        # tzinfo is then stripped only to match current_time's own awareness
+        # (naive, per Tick.reset()'s utcnow(), or UTC-aware, per Elsa).
         requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
         if current_time.tzinfo is None:
             requested_time = requested_time.replace(tzinfo=None)
@@ -150,15 +145,11 @@ class MarketSystem:
         latest_date: pd.Timestamp,
         anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
     ):
-        """anchor_scheme selects Step 2's anchor source (spec section 5's
-        open item / plan header decision 1): ANCHOR_SCHEME_STATIC (the
-        default, and the ONLY scheme the live production path ever uses)
-        anchors on CombinedMarket's frozen seasonal baseline;
-        ANCHOR_SCHEME_LIVE -- analysis-only, exercised by the fidelity
-        backtest harness to measure the alternative -- anchors on
-        CombinedMarket's own live tick-by-tick prediction instead. Nothing
-        about Step 1 or CombinedMarket's own fitting depends on
-        anchor_scheme; only _fit_step2_for_all_ports branches on it."""
+        """anchor_scheme selects Step 2's anchor source. ANCHOR_SCHEME_STATIC
+        (default, used in production) anchors on CombinedMarket's frozen
+        seasonal baseline; ANCHOR_SCHEME_LIVE (analysis-only, used by the
+        fidelity backtest) anchors on CombinedMarket's own live prediction
+        instead. Only _fit_step2_for_all_ports branches on it."""
         blended = prices_df[prices_df["size"].isna()]
         if self.species_codes:
             blended = blended[blended["species_code"].isin(self.species_codes)]
@@ -203,10 +194,9 @@ class MarketSystem:
             all_keys.update(local_market.step1_models.keys())
 
         # Built once per port (O(ports*keys)), not once per (port, key)
-        # (O(ports*keys^2)) -- the previous per-key rebuild was the dominant
-        # term in init_simulation's super-linear growth with contract species
-        # count, confirmed by the final whole-branch review (measured 23.7s /
-        # 56.5s / 134.2s at 5 / 10 / 20 species).
+        # (O(ports*keys^2)) -- the per-key rebuild was the dominant term in
+        # init_simulation's super-linear growth with contract species count
+        # (measured 23.7s / 56.5s / 134.2s at 5 / 10 / 20 species).
         monthly_by_key_by_port = {
             market_code: self._build_monthly_by_key(blended[blended["market_code"] == market_code])
             for market_code in self.local_markets
@@ -268,7 +258,7 @@ class MarketSystem:
                 if neighbor_signal is None:
                     self.logger.warning(
                         f"LocalMarket {market_code}: no High-tier neighbor available for {key}, "
-                        "falling back to Step-1-only (spec section 9 point 3)"
+                        "falling back to Step-1-only"
                     )
                     continue
 
@@ -300,15 +290,12 @@ class MarketSystem:
         self._advance_tick_state(current_date, local_volumes, combined_total_volumes, local_prices, combined_prices)
 
     def _compute_tick_prices(self, current_date, local_volumes, combined_direct_volumes):
-        """Pure price computation for a single tick (spec section 5 steps
-        2-4): CombinedMarket prices, Step 1 for every LocalMarket/key, and
-        the final real-price-first/Step-2-switch reported price per
-        LocalMarket. No side effects (no history, no baseline update, no
-        tick advance) -- shared by step() and get_species_prices_message's
-        pre-first-step fallback, which calls this with zero volumes at the
-        current (not-yet-advanced) tick date instead of leaving callers an
-        empty response before the first SimulateStep."""
-        # Step 2 of spec section 5: CombinedMarket prices + total tick volumes.
+        """Pure price computation for a single tick: CombinedMarket prices,
+        Step 1 for every LocalMarket/key, and the final reported price per
+        LocalMarket (real price first, Step 2 as fallback). No side effects
+        (no history, baseline update, or tick advance) -- shared by step()
+        and get_species_prices_message's pre-first-step live fallback."""
+        # Step 2: CombinedMarket prices + total tick volumes.
         combined_prices = {}
         combined_total_volumes = {}
         for prefix, combined_market in self.combined_markets.items():
@@ -321,9 +308,9 @@ class MarketSystem:
                 )
                 combined_total_volumes[(prefix, key)] = total_volume
 
-        # Step 3: Step 1 for every LocalMarket, every key, unconditionally
-        # (plan header decision 6 -- needed as neighbor fuel regardless of
-        # whether this port itself has real data this tick).
+        # Step 3: Step 1 for every LocalMarket, every key, unconditionally --
+        # needed as neighbor fuel regardless of whether this port itself has
+        # real data this tick.
         step1_predictions = {}
         for code, local_market in self.local_markets.items():
             for key in local_market.step1_models.keys():
@@ -371,20 +358,11 @@ class MarketSystem:
     def _advance_tick_state(
         self, current_date, local_volumes, combined_total_volumes, local_prices, combined_prices
     ):
-        # Step 5: adaptive volume-baseline updates (real observed volume only).
-        # Both levels apply the same INTENT: a tick with zero recorded catch
-        # for a key contributes no information about that key's "normal
-        # month" and must not be recorded as an explicit 0.0 (which would
-        # dilute the running mean and inflate every subsequent VolumeRatio).
-        # Local gets this for free (get_monthly_catch_snapshot only contains
-        # keys that actually received a catch this tick, so absent keys are
-        # skipped); Combined must filter explicitly on volume > 0, since
-        # combined_total_volumes always has an entry per contracted key
-        # (needed for get_price above), defaulting to 0.0. In production
-        # these two conditions (key absent vs. volume == 0) are equivalent --
-        # update_sales rejects non-positive quantities, so a key only ever
-        # appears with a strictly positive volume -- the difference only
-        # matters if that invariant is ever relaxed.
+        # Step 5: adaptive volume-baseline updates (real observed volume
+        # only). A zero-catch tick must not be recorded as an explicit 0.0 --
+        # it would dilute the running mean and inflate later VolumeRatio.
+        # Local skips absent keys for free; Combined filters on volume > 0
+        # explicitly, since its volumes dict always has an entry per key.
         for code, local_market in self.local_markets.items():
             for key, volume in local_volumes[code].items():
                 local_market.update_volume_baseline(key[0], key[1], current_date, volume)
@@ -430,27 +408,14 @@ class MarketSystem:
         return sum(weights[port] * neighbor_candidates[port] for port in candidates) / total_weight
 
     def get_species_prices_message(self) -> get_species_prices_pb2.GetSpeciesPricesResponse:
-        # GetSpeciesPrices is an independent RPC with no ordering guarantee
-        # relative to SimulateStep. A LocalMarket/CombinedMarket has no
-        # price_history entry until step() has run at least once, so a
-        # query before the first step falls back to computing a live
-        # snapshot directly (same computation step() itself would do, for
-        # a zero-catch tick at the current, not-yet-advanced tick date --
-        # no history/baseline/tick side effects), instead of silently
-        # returning an empty response. This mirrors ElsaHandler's init-time
-        # price seeding (set_local_market_initial_price/
-        # update_global_price_history/set_missing_local_prices_with_global_fallback),
-        # computed lazily here rather than eagerly stored, since this
-        # plugin's price state lives in price_history rather than a
-        # separate live-price dict.
+        # No ordering guarantee vs. SimulateStep: before the first step(),
+        # price_history is empty, so this falls back to a live snapshot
+        # (same computation step() does, zero-catch, no side effects)
+        # instead of returning empty.
         #
-        # Also reports CombinedMarket prices under their own 2-letter
-        # market_code (e.g. "ES"), for parity with ElsaHandler -- which
-        # treats every markets.csv row, including 2-letter combined-market
-        # codes, as an ordinary local market and reports a price for it.
-        # Without this, a caller querying by market_code="ES" would get an
-        # answer from Elsa and nothing from this plugin, even though
-        # CombinedMarket computes and freezes its own price regardless.
+        # Also reports CombinedMarket prices under their 2-letter
+        # market_code (e.g. "ES"), for parity with ElsaHandler, which
+        # treats every markets.csv row as an ordinary local market.
         messages = []
         valid_count = 0
         missing_count = 0

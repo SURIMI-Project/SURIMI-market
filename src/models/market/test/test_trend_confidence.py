@@ -27,11 +27,10 @@ def test_confidence_is_low_for_flat_noise_with_no_real_trend():
 
 
 def test_confidence_is_partial_when_sign_agrees_but_not_all_months_significant():
-    # Shaped after the real HKE@FR near-miss found during the v1
-    # investigation: all 12 months drift the same direction, but the slope
-    # is small relative to its own noise, so only some months are
-    # individually significant -- confidence must land strictly between 0
-    # and 1, not snap to either extreme the way v1's pass/fail gate did.
+    # Mirrors a real near-miss case (HKE@FR): all 12 months drift the same
+    # direction, but the slope is small relative to noise, so only some
+    # months are individually significant -- confidence must land
+    # strictly between 0 and 1, not at an extreme.
     monthly = _make_monthly(n_years=10, slope=0.03, noise_std=0.12, seed=6)
     assert compute_trend_confidence(monthly) == pytest.approx(0.25)
 
@@ -42,11 +41,10 @@ def test_confidence_is_zero_with_insufficient_history():
 
 
 def test_confidence_handles_a_month_with_zero_variance_in_years_without_crashing():
-    # Degenerate: January has multiple observations (n >= 3) but all from
-    # the same calendar year, so sxx == 0 -- no year-over-year slope is
-    # estimable for that month at all; it must simply not count toward the
-    # numerator, not raise. Other months have 3 years of data (2015-2017)
-    # with an exactly linear embedded trend and zero noise.
+    # Degenerate case: January has n >= 3 observations but all in the
+    # same year, so sxx == 0 -- no slope is estimable; it must not count
+    # toward the numerator, not raise. Other months have 3 years
+    # (2015-2017) with an exact linear trend and zero noise.
     dates = []
     prices = []
 
@@ -68,7 +66,7 @@ def test_confidence_handles_a_month_with_zero_variance_in_years_without_crashing
         "landings_kg": [1000.0] * len(dates),
     })
     # January is skipped (sxx == 0); the other 11 months have a perfectly
-    # linear embedded trend, which in floating point still produces a
-    # tiny-but-nonzero residual, giving an enormous (not undefined) t-stat
-    # -- so all 11 evaluated months count as significant.
+    # linear trend, which in floating point still leaves a tiny nonzero
+    # residual, giving an enormous (not undefined) t-stat -- so all 11
+    # evaluated months count as significant.
     assert compute_trend_confidence(monthly) == pytest.approx(11 / 12)

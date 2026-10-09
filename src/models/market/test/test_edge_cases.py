@@ -42,13 +42,9 @@ def _write_two_port_config(tmp_path, scenario_id="scn"):
                 "date": d, "market_code": port, "species_code": "ANE", "category_code": "Fresh - Whole",
                 "landings_kg": v, "price": p, "currency": "EUR", "measurement_unit": "kg", "size": None,
             })
-    # THIN: zero price history anywhere -- no frozen model can exist for it at
-    # any port (section 9 point 4: silently excluded, not an error). Note a
-    # single stray data point is NOT enough to exercise this path: per section
-    # 9 point 2, any history at all -- however sparse -- is enough for the
-    # fallback cascade (level-offset-only fit, then CombinedMarket-only) to
-    # still produce a degraded-but-present price; only genuinely zero rows
-    # anywhere leave no model to fall back to.
+    # THIN has zero price rows anywhere, so no model can be fit at any port and
+    # it is silently excluded. Any history at all, however sparse, is enough
+    # for the fallback cascade to still produce a degraded-but-present price.
 
     pd.DataFrame(rows).to_csv(scenario_dir / "prices.csv", index=False)
     return tmp_path
@@ -64,8 +60,8 @@ def _fake_simulation():
 
 def test_full_flow_handles_zero_volume_tick_gracefully():
     """A tick with genuinely zero landings must still produce a price (via the
-    DistanceOnly fallback, VolumeRatio=0 < 10%), never a crash or a None
-    silently treated as valid (spec section 9 point 1)."""
+    DistanceOnly fallback, VolumeRatio=0 < 10%), never a crash or a silently
+    accepted None."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         root_config_dir = _write_two_port_config(Path(tmp_dir))
         handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)
@@ -86,9 +82,8 @@ def test_full_flow_handles_zero_volume_tick_gracefully():
 
 
 def test_full_flow_excludes_species_with_insufficient_history_without_crashing():
-    """THIN has zero rows anywhere -- no CombinedMarket/LocalMarket model can
-    even be attempted for it. get_species_prices must simply omit it, not
-    error (spec section 9 point 4)."""
+    """THIN has zero rows anywhere, so no CombinedMarket/LocalMarket model can
+    be attempted for it; get_species_prices must omit it, not error."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         root_config_dir = _write_two_port_config(Path(tmp_dir))
         handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)

@@ -62,8 +62,8 @@ def test_setup_topology_errors_on_missing_local_coordinates():
 
 
 def test_setup_topology_does_not_error_on_combined_markets_missing_coordinates():
-    # ES/FR having NA lon/lat is expected (spec section 4) -- only LOCAL
-    # markets (5-letter codes) are checked.
+    # ES/FR having NA lon/lat is expected -- only LOCAL markets (5-letter
+    # codes) are checked.
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     err = system.setup_topology(_markets_df())
     assert err is None
@@ -89,13 +89,11 @@ def _system_with_topology():
 
 
 def _utc_epoch(dt: datetime.datetime) -> int:
-    """Encode a (possibly naive, semantically-UTC per Tick.reset()'s utcnow())
-    datetime as a genuine UTC epoch int -- the same contract update_sales's
-    start_date_time is held to in production (always a real UTC epoch, per
-    gRPC convention). A bare dt.timestamp() on a naive datetime assumes the
-    HOST's local timezone instead, which only round-trips correctly on a
-    UTC-host and silently breaks on any other (the bug this helper exists to
-    not reintroduce in test fixtures)."""
+    """Encode a (possibly naive, semantically-UTC) datetime as a genuine UTC
+    epoch int, matching update_sales's start_date_time contract. A bare
+    dt.timestamp() on a naive datetime uses the HOST's local timezone
+    instead, which only round-trips on a UTC host -- the bug this helper
+    exists to avoid reintroducing in test fixtures."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.UTC)
     return int(dt.timestamp())
@@ -204,13 +202,11 @@ def _synthetic_prices_df(n_years=6, seed=0):
             })
 
     # ESVLC: tiny volume share (<0.2%) -> Low tier, never anyone's neighbor.
-    # NOTE: at these coordinates ESVLC is NOT geographically far from
-    # ESALC/ESBCN (haversine distance ~134km/~302km -- closer than ESALC
-    # and ESBCN are to EACH OTHER, ~415km) and distance_weighted_neighbor_signal
-    # has no distance cutoff, so ESVLC DOES get a valid (if low-weighted)
-    # neighbor signal from them here. The "genuinely no High-tier neighbor"
-    # edge case needs a port with no OTHER local High-tier port in the
-    # universe at all -- see the dedicated fixture below this function.
+    # NOTE: ESVLC is not geographically far from ESALC/ESBCN (~134km/~302km,
+    # closer than they are to each other) and the neighbor signal has no
+    # distance cutoff, so ESVLC still gets a valid, low-weighted signal here.
+    # The "genuinely no High-tier neighbor" case needs a port with no other
+    # local High-tier port at all -- see the fixture below.
     volume = 10.0 + rng.normal(0, 1, len(dates))
     price = 2.1 + rng.normal(0, 0.01, len(dates))
     for d, p, v in zip(dates, price, volume):
@@ -270,13 +266,11 @@ def test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor():
 
 
 def _prices_df_high_tier_share_straddles_threshold(n_years=6, seed=2):
-    """A (3% of real local volume) is genuinely High-tier among the real
-    local ports (A/B/C), but would be WRONGLY classified Mid-tier (1.5%)
-    if the combined-market 'ES' aggregate row -- which duplicates the
-    local total, not a fourth real port -- were counted in the
-    denominator. A direct regression test for the High-tier volume-share
-    fix (previously counted ES/FR, silently starving real ports of
-    neighbors)."""
+    """ESALC's 3% share of real local volume is genuinely High-tier, but
+    would be wrongly classified Mid-tier (1.5%) if the combined-market 'ES'
+    aggregate row (which duplicates the local total, not a fourth real
+    port) were counted in the denominator -- regression test for that
+    volume-share bug."""
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
     rows = []
@@ -386,17 +380,12 @@ def test_fit_all_only_fits_contracted_species_not_every_species_in_prices_csv():
 
 
 def _synthetic_prices_df_no_sibling_local_port(n_years=6, seed=1):
-    """ESVLC is the ONLY local market reporting this species/category -- the
-    combined 'ES' row (mirroring ESVLC alone) clears the High-tier
-    volume-share threshold too, but CombinedMarket rows are never LocalMarket
-    instances with a Step-1 historical series, so they can never pass
-    distance_weighted_neighbor_signal's `port in predicted_series_by_port`
-    check. With no OTHER local port reporting this key at all, ESVLC
-    genuinely has no High-tier *local* neighbor to build a signal from --
-    unlike the shared `_synthetic_prices_df` fixture above, where ESALC and
-    ESBCN are both present and (since distance_weighted_neighbor_signal has
-    no distance cutoff) always qualify as valid candidate sources for ANY
-    local port, however far away."""
+    """ESVLC is the ONLY local market reporting this key. The combined 'ES'
+    row clears the High-tier volume-share threshold too, but CombinedMarket
+    rows are never LocalMarket instances, so they can't pass
+    distance_weighted_neighbor_signal's local-port check -- leaving ESVLC
+    genuinely without a High-tier local neighbor, unlike the shared
+    `_synthetic_prices_df` fixture where ESALC/ESBCN both qualify."""
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
     volume = 500.0 + rng.normal(0, 20, len(dates))
@@ -428,8 +417,8 @@ def test_fit_all_skips_step2_gracefully_for_port_with_no_high_tier_neighbor(capl
         system.fit_all(_synthetic_prices_df_no_sibling_local_port(), latest_date=pd.Timestamp("2024-01-01"))
 
     # ESVLC is the only LOCAL market reporting ANE/Fresh-Whole here -- the
-    # combined "ES" row is High-tier by volume share but is not a LocalMarket,
-    # so it never qualifies as a neighbor *source* (spec section 9 point 3).
+    # combined "ES" row is High-tier by volume share but is not a
+    # LocalMarket, so it never qualifies as a neighbor source.
     assert ("ANE", "Fresh - Whole") not in system.local_markets["ESVLC"].step2_stacked_models
     assert any("No High-tier neighbor" in r.message or "no High-tier neighbor" in r.message for r in caplog.records)
 
@@ -519,8 +508,8 @@ def test_step_records_history_for_combined_markets_too():
 
 
 def test_step_falls_back_to_step1_when_step2_anchor_or_neighbor_unavailable():
-    # ESVLC never got Step 2 coefficients (no High-tier neighbor, Task 12) --
-    # its reported price must still be a valid Step-1 prediction, not None.
+    # ESVLC never got Step 2 coefficients (no High-tier neighbor) -- its
+    # reported price must still be a valid Step-1 prediction, not None.
     system = _fitted_system()
     system.step()
 
@@ -529,10 +518,8 @@ def test_step_falls_back_to_step1_when_step2_anchor_or_neighbor_unavailable():
 
 
 def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
-    # ESALC and ESBCN are each other's dominant High-tier neighbor in
-    # _fitted_system()'s synthetic data (see
-    # test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor), so ESBCN
-    # genuinely exercises the Step 2 neighbor-signal path here, not a
+    # ESALC and ESBCN are each other's dominant High-tier neighbor here, so
+    # ESBCN genuinely exercises the Step 2 neighbor-signal path, not a
     # fallback-to-Step-1-only path.
     #
     # Two runs of the same fitted system and tick, differing only in

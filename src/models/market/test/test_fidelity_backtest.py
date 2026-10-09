@@ -5,25 +5,22 @@ import pytest
 
 from src.models.market.test.fidelity_backtest_harness import run_backtest_split
 
-# PRECONDITION SATISFIED (spec section 11/15): config/northwestern_med/prices.csv
-# is now Plan 1's regenerated output (a fresh EMODnet download via
-# src/models/market/data_prep/run.py), not the pre-Plan-1 file -- 100%
-# landings_kg coverage for every validated species (up from 39.6%), a real
-# "size" column, and a 2015-2024 date range (vs. the old file's 2010-2024).
-# Every MAPE number and exemption below was re-derived against this real
-# data, not carried over from the old file.
+# config/northwestern_med/prices.csv is a regenerated EMODnet download (via
+# src/models/market/data_prep/run.py): 100% landings_kg coverage for every
+# validated species (up from 39.6%), a real "size" column, and a 2015-2024
+# date range (vs. the old file's 2010-2024). Every MAPE number and
+# exemption below was re-derived against this data.
 VALIDATED_SPECIES = ["ANE", "PIL", "HKE", "SAA", "MUT"]
 CONFIG_DIR = "config/northwestern_med"
 
-# A generous ceiling: catches a real regression (a bug that breaks the
-# model would produce errors far beyond this), without requiring exact
-# reproduction of specific historical research numbers.
+# A generous ceiling: catches a real regression (far beyond this) without
+# requiring exact reproduction of specific historical numbers.
 MAX_ACCEPTABLE_MAPE = 50.0
 
 
 @pytest.mark.skipif(
     not os.path.exists(f"{CONFIG_DIR}/prices.csv"),
-    reason="requires config/northwestern_med/prices.csv (Plan 1's data-prep output)",
+    reason="requires config/northwestern_med/prices.csv (data-prep output)",
 )
 def test_fidelity_backtest_stays_within_acceptable_mape():
     results = run_backtest_split(
@@ -47,27 +44,15 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
 
     # Individually-investigated, pair-specific exemptions -- each has its own
     # distinct root cause, NOT the same near-zero-price mechanism as above.
-    # Keep this list specific and justified per pair; do not broaden it without
-    # a concrete, investigated reason (see task-20-report.md for the
-    # investigation behind each entry).
-    # Historical note: earlier investigations against the OLD (pre-Plan-1)
-    # prices.csv found and fixed two real bugs here -- the High-tier
-    # volume-share computation wrongly counting combined-market aggregate
-    # rows (resolved HKE@ESROS's 59.8% MAPE down to 38.9%, HKE now clean
-    # across all 36 ports), and the Step-2 fallback cascade giving up to
-    # Step-1-only instead of trying the next-best-scoring window (resolved
-    # the old data's ANE@ESCAR and MUT@ESLLC failures). Both fixes are
-    # still in place; see git history for the investigations. The entries
-    # below are freshly re-derived against the real, regenerated data.
+    # Keep this list specific; do not broaden it without a concrete,
+    # investigated reason.
     KNOWN_LIMITATION_PAIRS = {
         ("ANE", "ESBRX"): (
-            "the SAME artifact persists in the regenerated data: real price is "
-            "exactly 0.5 EUR/kg in 3 of 23 held-out months (2022-04, 2023-01, "
-            "2023-12), each with a landings_kg of under 40kg vs. an otherwise "
-            "thousands-to-hundred-thousands range -- confirmed this is a "
-            "genuine artifact in the underlying EMODnet source data itself, "
-            "not a Plan 1 data-prep bug (it survived the full pipeline rebuild "
-            "unchanged)"
+            "real price is exactly 0.5 EUR/kg in 3 of 23 held-out months "
+            "(2022-04, 2023-01, 2023-12), each with landings_kg under 40kg "
+            "vs. an otherwise thousands-to-hundred-thousands range -- a "
+            "genuine artifact in the underlying EMODnet source data, not a "
+            "data-prep bug"
         ),
         ("ANE", "ESCAR"): (
             "genuinely sparse landings for this species/port (41 total real "
@@ -80,15 +65,12 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
         ),
         ("ANE", "ESCDK"): (
             "extremely sparse landings (only 15 real rows total across "
-            "2018-2024) leave just 3 held-out months. Investigated beyond the "
-            "sparse-sample pattern: one month's Step 2 prediction is actually "
-            "NEGATIVE (-18.83 vs. a real 1.40 EUR/kg), a nonsensical output "
-            "the model has no price floor to prevent -- the Stacked "
-            "regression, fit on minimal real signal, extrapolates badly. This "
-            "is a genuine, if narrow, robustness gap (worth a price-floor "
-            "follow-up), isolated so far to pairs this data-sparse; not "
-            "treated as blocking since it requires near-total absence of "
-            "training data to trigger"
+            "2018-2024) leave just 3 held-out months. One month's Step 2 "
+            "prediction is actually NEGATIVE (-18.83 vs. a real 1.40 "
+            "EUR/kg) -- the model has no price floor to prevent this, and "
+            "the Stacked regression extrapolates badly on minimal signal. A "
+            "genuine, narrow robustness gap, not treated as blocking since "
+            "it needs near-total absence of training data"
         ),
         ("MUT", "ESQAJ"): (
             "sparse landings (80 real rows across 2015-2024) leave 5 held-out "
@@ -100,17 +82,13 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
             "near-zero-price metric artifact (these are normal-magnitude "
             "prices, genuinely mispredicted)"
         ),
-        # Added alongside the relative-volume-anomaly + clamping fix (spec
-        # section 9 follow-up): investigated in detail, not a regression
-        # from that change -- clamping substantially IMPROVED all three
-        # (ESQAJ 68.7%->56.2%, ESROS 56.4%->55.3%, ESSAG 97.1%->68.6%) but
-        # didn't fully resolve them. Root cause: each port's real 2022-2023
-        # landings collapsed to a small fraction (as low as 1-10%) of that
-        # calendar month's historical baseline -- a genuine, severe supply
-        # shock in the held-out data more extreme than anything these
-        # specific ports' own training history contained. Clamping prevents
-        # extrapolating BEYOND the training-observed range, but can't help
-        # when the training range itself didn't cover an event this severe.
+        # Not a regression from the relative-volume-anomaly clamping fix --
+        # clamping substantially IMPROVED all three (ESQAJ 68.7%->56.2%,
+        # ESROS 56.4%->55.3%, ESSAG 97.1%->68.6%) but didn't fully resolve
+        # them. Root cause: each port's real 2022-2023 landings collapsed to
+        # 1-10% of that month's historical baseline, a supply shock more
+        # severe than anything in training history -- clamping bounds
+        # extrapolation but can't cover an event training never saw.
         ("HKE", "ESQAJ"): (
             "real catches collapsed to 1-23% of normal for most held-out "
             "months (e.g. 2022-12: 6.8kg vs. a 590.5kg baseline) -- more "
@@ -130,25 +108,16 @@ def test_fidelity_backtest_stays_within_acceptable_mape():
             "baseline), a sustained collapse well beyond this port's "
             "training experience"
         ),
-        # Added alongside Step 2's sanity-check fix (spec section 9 follow-up,
-        # the ANE@ESCDK negative-price case): both pairs' Step 2 models were
-        # REJECTED by the newly-wired-up sanity check (spec section 7's
-        # already-existing, previously-unused safeguard) -- confirmed
-        # directly, not assumed: each pair's actual, dynamic-switch-blended
-        # Step 2 prediction genuinely goes negative somewhere in its full
-        # real history, under every candidate training window, not merely
-        # in an unused shadow sub-model. Both fall back to Step-1-only,
-        # which is mathematically guaranteed non-negative but, for this
-        # specific narrow 2-year held-out window, scores worse than the
-        # (unsafe) Step 2 model it replaces -- the same robustness-costs-
-        # accuracy trade-off as every other fix in this investigation, just
-        # landing unfavorably for these two pairs' particular test window.
+        # Both pairs' Step 2 models are rejected by the sanity check: each
+        # pair's Step 2 prediction genuinely goes negative somewhere in its
+        # full real history, under every candidate training window. Both
+        # fall back to Step-1-only, which is non-negative but scores worse
+        # than the (unsafe) Step 2 model for this specific held-out window.
         ("ANE", "ESDNA"): (
             "Step 2's fitted model would predict a negative price somewhere "
-            "in this port's full real history under every candidate window "
-            "(confirmed directly); correctly falls back to Step-1-only, "
-            "which is safe but less accurate for this specific 3-month "
-            "held-out window"
+            "in this port's full real history under every candidate window; "
+            "falls back to Step-1-only, which is safe but less accurate for "
+            "this specific 3-month held-out window"
         ),
         ("ANE", "ESVLC"): (
             "same mechanism as ESDNA: Step 2's blended prediction goes "
