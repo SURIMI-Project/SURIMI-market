@@ -1,0 +1,432 @@
+# `market` Plugin — Architecture
+
+> This document describes the **`market`** model plugin (`src/models/market/`,
+> registered as `"market"` in `src/server/model_router.py`). It is a separate,
+> independently-selectable plugin from **`elsa`** (`src/models/elsa/`, a
+> simpler Elser-elasticity price model) and **`arimax`**. The repo-root
+> `market_architecture.md` documents `elsa`, not this plugin, despite its
+> name — this document exists to give `market` the same kind of reference
+> `elsa` already has.
+
+---
+
+## Table of Contents
+
+1. [Overview](#1-overview)
+2. [Current Architecture](#2-current-architecture)
+   - 2.1 [Domain Model](#21-domain-model)
+   - 2.2 [Simulation Lifecycle](#22-simulation-lifecycle)
+3. [Market Price Model](#3-market-price-model)
+   - 3.1 [CombinedMarket (national level)](#31-combinedmarket-national-level)
+   - 3.2 [LocalMarket Step 1 (port level)](#32-localmarket-step-1-port-level)
+   - 3.3 [LocalMarket Step 2 (neighbor-informed)](#33-localmarket-step-2-neighbor-informed)
+   - 3.4 [Real-price-first](#34-real-price-first)
+   - 3.5 [Window selection (shared methodology)](#35-window-selection-shared-methodology)
+4. [Known Rough Edges](#4-known-rough-edges)
+5. [Proposed Target Architecture](#5-proposed-target-architecture)
+
+---
+
+## 1. Overview
+
+The `market` plugin models fish prices for the **Western Mediterranean**
+(Spain and France), using real historical landings/price data derived from
+EMODnet (`src/models/market/data_prep/`). Where `elsa` applies one elasticity
+formula uniformly to every species/port, `market` fits a **statistical
+seasonal + volume-response model per species**, independently at two levels
+of aggregation, with escalating fallback/degradation paths for when a given
+level's data is too sparse or too extreme to trust.
+
+Validated scope today: 5 species (`ANE`, `PIL`, `HKE`, `SAA`, `MUT`) across
+the `ES` and `FR` national markets and their constituent 5-letter ports,
+category `"Fresh - Whole"`, using the complete real historical record
+(2010-01 through 2024-12 in the current pinned dataset).
+
+---
+
+## 2. Current Architecture
+
+### 2.1 Domain Model
+
+```mermaid
+classDiagram
+    class MarketHandler {
+        -simulation_id: str
+        -market_system: MarketSystem
+        -size_ratios: DataFrame
+        +init_simulation(simulation, root_config_dir)
+        +update_sales(request)
+        +simulate_step(controller_simulation_time)
+        +get_species_prices()
+        +finalise_simulation(folder_path)
+    }
+
+    class MarketSystem {
+        -tick: Tick
+        -combined_markets: Dict~str, CombinedMarket~
+        -local_markets: Dict~str, LocalMarket~
+        -prefix_to_locals: Dict~str, list~
+        -distance_lookup: Dict~tuple, float~
+        -high_tier_ports_by_key: Dict~tuple, set~
+        +setup_topology(markets_df)
+        +fit_all(prices_df, latest_date, anchor_scheme)
+        +step()
+        +get_species_prices_message()
+        +export_results(simulation_id, folder_path)
+    }
+
+    class CombinedMarket {
+        -market_code: str
+        -models: Dict~tuple, dict~
+        -window_labels: Dict~tuple, str~
+        -volume_baseline_stats: Dict~tuple, dict~
+        -price_time_series: Dict~tuple, float~
+        +fit(monthly_by_key, latest_date)
+        +get_price(species_code, category_code, date, volume) float
+        +get_baseline_price_table(species_code, category_code) Series
+        +get_live_anchor_series(...) Series
+        +add_direct_catch(species_code, category_code, quantity)
+    }
+
+    class LocalMarket {
+        -market_code: str
+        -step1_models: Dict~tuple, dict~
+        -step2_stacked_models: Dict~tuple, dict~
+        -step2_distance_only_models: Dict~tuple, dict~
+        -volume_baseline_stats: Dict~tuple, dict~
+        -price_time_series: Dict~tuple, float~
+        +fit_step1(monthly_by_key, latest_date)
+        +fit_step2(species_code, category_code, port_monthly, anchor_series, neighbor_signal, latest_date)
+        +predict_step1(species_code, category_code, date, volume) float
+        +predict_step2(species_code, category_code, date, volume, anchor_value, neighbor_value) float
+        +get_real_price(species_code, category_code, date) float
+        +add_monthly_catch(species_code, category_code, quantity)
+    }
+
+    class Tick {
+        -tick: int
+        -start_time: datetime
+        -step_months: int
+        +increase_tick()
+        +get_tick() int
+        +get_datetime() datetime
+    }
+
+    MarketHandler "1" o-- "1" MarketSystem
+    MarketSystem "1" o-- "many" CombinedMarket
+    MarketSystem "1" o-- "many" LocalMarket
+    MarketSystem "1" o-- "1" Tick
+    LocalMarket "many" --> "1" CombinedMarket : anchors on (by 2-letter prefix)
+    LocalMarket "many" --> "many" LocalMarket : neighbor signal (distance-weighted)
+```
+
+The fitting/prediction math itself is **not** methods on these classes — it
+lives as standalone functions in sibling modules, called by `CombinedMarket`/
+`LocalMarket` with their own state passed in as plain dicts and DataFrames:
+
+| Module | Responsibility |
+|---|---|
+| `level_volume_model.py` | Level-only and level-volume fit/predict (shared by `CombinedMarket` and `LocalMarket` Step 1); trend-rate fit/predict (`CombinedMarket` only); shared volume-baseline and real-price bookkeeping helpers |
+| `trend_confidence.py` | Continuous `[0,1]` trend confidence score, per key |
+| `stacked_model.py` | High-tier port classification, distance-weighted neighbor signal, Stacked/DistanceOnly fit/predict (`LocalMarket` Step 2) |
+| `window_selection.py` | Generic rolling-origin training-window search, reused identically by all three fit paths above |
+| `market_topology.py` | 5-letter port code → 2-letter prefix grouping |
+| `Utility.py` | Haversine distance, pairwise port distance lookup |
+
+### 2.2 Simulation Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant CTL as Controller (gRPC)
+    participant MH as MarketHandler
+    participant MS as MarketSystem
+    participant CM as CombinedMarket[*]
+    participant LM as LocalMarket[*]
+
+    Note over CTL,LM: Initialise
+    CTL->>MH: init_simulation(simulation, root_config_dir)
+    MH->>MS: setup_topology(markets_df)
+    MS->>MS: build prefix_to_locals, distance_lookup
+    MH->>MS: fit_all(prices_df, latest_date)
+    loop each 2-letter prefix
+        MS->>CM: fit(monthly_by_key, latest_date)
+        CM->>CM: window selection + level-volume fit (+ trend confidence/rate)
+    end
+    loop each 5-letter port
+        MS->>LM: fit_step1(monthly_by_key, latest_date)
+        LM->>LM: window selection + level-volume fit
+    end
+    MS->>MS: _fit_step2_for_all_ports()
+    Note over MS: computes high-tier ports, anchor series (from CM),<br/>neighbor signal (from sibling LMs' Step-1 series)
+    loop each port with a High-tier neighbor available
+        MS->>LM: fit_step2(port_monthly, anchor_series, neighbor_signal, latest_date)
+        LM->>LM: window selection + Stacked/DistanceOnly fit
+    end
+
+    Note over CTL,LM: Per tick
+    CTL->>MH: update_sales(request)
+    MH->>LM: add_monthly_catch(species_code, category_code, quantity)
+    MH->>CM: add_direct_catch(species_code, category_code, quantity)
+
+    CTL->>MH: simulate_step(current_date_time)
+    MH->>MS: step()
+    MS->>MS: _compute_tick_prices()
+    MS->>CM: get_price(...)  %% real-price-first, else level-volume (+ trend)
+    MS->>LM: real-price-first, else predict_step1(...), else predict_step2(...)
+    MS->>LM: update_volume_baseline(...)
+    MS->>CM: update_volume_baseline(...)
+    MS->>MS: record_history(), tick.increase_tick()
+
+    CTL->>MH: get_species_prices()
+    MH->>MS: get_species_prices_message()
+
+    Note over CTL,LM: Finalise
+    CTL->>MH: finalise_simulation(folder_path)
+    MH->>MS: export_results(simulation_id, folder_path)
+```
+
+---
+
+## 3. Market Price Model
+
+### 3.1 CombinedMarket (national level)
+
+Seasonal baseline + volume response, fit in log-price space:
+
+```
+log(price) = baseline_log_price[month] + alpha + beta * vol_anom
+vol_anom   = (volume - baseline_volume[month]) / baseline_volume[month]
+```
+
+`vol_anom` is clipped to the min/max relative anomaly seen during training,
+so a volume swing outside validated experience holds steady at the most
+extreme observed response instead of extrapolating further.
+
+A continuous **trend correction** is layered on top, multiplicatively, for
+this level only:
+
+```
+trend_years = clip((date - train_end) / 365.25, 0, years_trained)
+price_hat   = exp(log_price_above) * exp(confidence * rate * trend_years)
+```
+
+`confidence` (`[0,1]`) comes from per-calendar-month OLS significance;
+`rate` comes from sequential 3-year block-average log-prices anchored
+backward from `train_end`. Confidence is naturally ~0 for a species with no
+real multi-year trend, making the correction a no-op without any branching.
+
+Falls back to a level-only fit (no volume term) if the volume-anomaly series
+is degenerate. **In the current validated data, this fallback never
+triggers** — all 10 validated (species, market) pairs use the full
+level-volume model.
+
+### 3.2 LocalMarket Step 1 (port level)
+
+The same level-volume model as §3.1 (same shared `level_volume_model.py`
+functions), fit independently per 5-letter port. No trend correction —
+that's `CombinedMarket`-only, since the trend-term work was only validated
+at the national level.
+
+Falls back to level-only more often here than at the national level — real
+ports have sparser data than the national aggregate. **Measured on current
+validated data: 155 level-volume fits vs. 19 level-only fallbacks** (~11%
+of port/species combinations).
+
+### 3.3 LocalMarket Step 2 (neighbor-informed)
+
+Built on top of Step 1, for ports with a usable **High-tier neighbor**
+(determined by each port's share of total species volume,
+`stacked_model.compute_high_tier_ports`). `MarketSystem` computes two
+inputs and hands them to `LocalMarket.fit_step2`:
+
+- **Anchor series**: `CombinedMarket`'s frozen seasonal baseline for this
+  species (the default, `ANCHOR_SCHEME_STATIC`), or `CombinedMarket`'s own
+  live tick-by-tick prediction (`ANCHOR_SCHEME_LIVE`, analysis-only, used
+  by the fidelity backtest to compare both).
+- **Neighbor signal**: a distance-weighted blend of *other* ports' own
+  Step-1 predicted series, using `Utility.build_distance_lookup`.
+
+Two sub-models are fit, and a **dynamic switch** picks between them per
+tick based on how far that tick's volume is from the port's own normal
+range (`LOW_VOLUME_RATIO_THRESHOLD = 0.10`, `HIGH_VOLUME_RATIO_THRESHOLD =
+2.0`):
+
+- **Stacked** — anchor + neighbor signal + the port's own volume response.
+  Used for normal-volume months.
+- **DistanceOnly** — anchor + neighbor signal, *no* volume term. Used for
+  extreme-volume months, where a volume-response term (same instability
+  `vol_anom` clamping exists for at Step 1/CombinedMarket) can't be trusted.
+
+**Measured on current validated data:** Step 2 is fit for 160 of 174
+port/species combinations (~92%) that have a Step-1 model; the real-data
+volume-ratio distribution across 15,201 (port, species, month)
+observations is **~80% Stacked / ~20% DistanceOnly** — both sub-models are
+substantially exercised, not a rare edge case.
+
+> **Known duplication** (see §4): this switch is currently implemented
+> twice — once in `LocalMarket._blend_step2_predictions` (vectorized, used
+> only during fit-time scoring) and again in `LocalMarket.predict_step2`
+> (scalar, used at runtime).
+
+### 3.4 Real-price-first
+
+Both `CombinedMarket.get_price()` and `LocalMarket.get_real_price()` check
+their own `price_time_series` (loaded from `prices.csv`'s blended rows)
+first, and return the real recorded price directly whenever one exists —
+prediction is only ever reached for a date with no real price.
+
+### 3.5 Window selection (shared methodology)
+
+All three fit paths above (`CombinedMarket.fit`, `LocalMarket.fit_step1`,
+`LocalMarket.fit_step2`) select their training-window length the same way:
+score each candidate window (`WINDOW_CANDIDATE_YEARS = {2yr, 3yr, 4yr, 6yr,
+Full}`) via rolling-origin validation (`window_selection.py`, model-agnostic
+— it only knows about `fit_fn`/`score_fn` closures the caller supplies),
+then re-fit on the single best-scoring window against the complete real
+history. `fit_step2` additionally retries the next-best-scoring candidate
+if the top one's final re-fit fails or fails a sanity check (predicting a
+non-positive price anywhere in real history).
+
+---
+
+## 4. Known Rough Edges
+
+Captured from an architecture discussion on 2026-10-09; nothing here is
+broken, but each is a concrete readability/maintainability cost.
+
+| # | Where | Issue |
+|---|---|---|
+| 1 | `LocalMarket._blend_step2_predictions` / `predict_step2` | The Stacked-vs-DistanceOnly volume-ratio switch is written out twice, independently, with no shared source of truth. |
+| 2 | `LocalMarket.fit_step2` call site (`MarketSystem._fit_step2_for_all_ports`) | Four loose positional arguments (`port_monthly`, `anchor_series`, `neighbor_signal`, `latest_date`) carry Step 2's whole handoff with no named structure. |
+| 3 | Every fit/predict function | A fitted model's coefficients are an untyped `dict` (`params["baseline_volume"]`, `params.get("gamma")`-style checks), so "which kind of model is this" is answered by key presence, not a type. |
+| 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | Each independently builds a throwaway one-row DataFrame to call a predict function designed for a whole monthly series — an API-shape mismatch repeated three times. |
+| 5 | `Utility.py` | Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this should be `utility.py` — it holds no class. |
+| 6 | `consts.py` | Every project constant lives flat in one file, grouped only by comment headers — currency/units, distance math, volume tiers, switch thresholds, window candidates, rolling-origin params, anchor schemes, trend confidence/rate, all undifferentiated. |
+| 7 | Repeated boilerplate | `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` opens nearly every fit/predict function, reinvented each time rather than one named helper. |
+| 8 | `stacked_model.distance_weighted_neighbor_signal` / `MarketSystem._weighted_neighbor_value` | Same pattern as #1: inverse-distance-weighted averaging is implemented twice, independently — vectorized over a whole historical series at fit time, scalar over one tick's candidates at runtime. Not a one-off: this is a recurring shape in this codebase (fit-time vectorized vs. runtime scalar), not an isolated mistake. |
+| 9 | `CombinedMarket._direct_catch`/`add_direct_catch` vs. `LocalMarket._monthly_catch`/`add_monthly_catch` | The exact same pattern (a `defaultdict(float)` keyed by `(species_code, category_code)`, add/clear/snapshot, guarded by a lock) exists independently in both classes under different names. |
+
+---
+
+## 5. Proposed Target Architecture
+
+**Not yet implemented — pending sign-off.** The core move: each fitted
+model variant becomes a real class with a `predict()` method, replacing
+dict-key-presence dispatch with polymorphism. This directly resolves #1
+and #3 above, and makes #4 trivial to fix alongside it.
+
+```mermaid
+classDiagram
+    class PriceModel {
+        <<interface>>
+        +predict(date, volume) float
+    }
+    class LevelOnlyModel {
+        -baseline_price: Series
+        -alpha: float
+        +predict(date, volume) float
+    }
+    class LevelVolumeModel {
+        -baseline_price: Series
+        -baseline_volume: Series
+        -alpha: float
+        -beta: float
+        -vol_anom_min: float
+        -vol_anom_max: float
+        -trend: TrendCorrection
+        +predict(date, volume) float
+    }
+    class TrendCorrection {
+        -confidence: float
+        -rate: float
+        -years_trained: float
+        -train_end: Timestamp
+        +factor(date) float
+    }
+    class Step2Model {
+        -stacked: StackedModel
+        -distance_only: DistanceOnlyModel
+        -volume_baseline: VolumeBaselineTracker
+        +predict(date, volume, anchor_value, neighbor_value) float
+    }
+    class StackedModel {
+        +predict(date, volume, anchor_value, neighbor_value) float
+    }
+    class DistanceOnlyModel {
+        +predict(date, anchor_value, neighbor_value) float
+    }
+    class VolumeBaselineTracker {
+        +seed(monthly, train_start, train_end)
+        +update(date, volume)
+        +ratio(date, volume) float
+    }
+    class CatchAccumulator {
+        +add(species_code, category_code, quantity)
+        +clear()
+        +snapshot() dict
+    }
+
+    PriceModel <|.. LevelOnlyModel
+    PriceModel <|.. LevelVolumeModel
+    LevelVolumeModel o-- TrendCorrection
+    Step2Model o-- StackedModel
+    Step2Model o-- DistanceOnlyModel
+    Step2Model o-- VolumeBaselineTracker
+    CombinedMarket o-- CatchAccumulator
+    LocalMarket o-- CatchAccumulator
+```
+
+**`CombinedMarket` and `LocalMarket` stay separate, unrelated classes — no
+shared superclass.** They aren't substitutable for each other anywhere
+(`MarketSystem` never treats them polymorphically: different collections,
+different method surfaces, `LocalMarket` has a whole Step 2 layer
+`CombinedMarket` has no equivalent of, `CombinedMarket` has the trend
+correction `LocalMarket` never got), so there's no real "is-a" relationship
+to express. The shared parts — `VolumeBaselineTracker`, `RealPriceLookup`,
+and `CatchAccumulator` (fixing #9) — are things both classes *hold*, not
+things both classes *are*. A superclass here would either stay nearly
+empty, or end up unifying things that are genuinely different (`fit()` vs.
+`fit_step1()`+`fit_step2()`), which tends toward a fragile base class rather
+than a cleaner one.
+
+What this changes, concretely:
+
+- `CombinedMarket.models[key]` / `LocalMarket.step1_models[key]` hold a
+  `PriceModel` object, not a dict. `get_price()`/`predict_step1()` become
+  `self.models[key].predict(date, volume)` — no branching.
+- `LocalMarket.step2_stacked_models` + `step2_distance_only_models`
+  collapse into one `step2_models[key]: Step2Model`, which owns the
+  volume-ratio switch internally — fixing #1 by construction, since there's
+  only one place left to write it.
+- Step 2's fit-time handoff (currently 4 positional args) becomes one
+  `Step2FitInputs` object, fixing #2.
+- `VolumeBaselineTracker`/a `RealPriceLookup` object replace the shared
+  free functions in `level_volume_model.py` that `CombinedMarket` and
+  `LocalMarket` currently call against their own raw dicts.
+- A shared `CatchAccumulator` replaces `CombinedMarket._direct_catch` and
+  `LocalMarket._monthly_catch`, fixing #9 — same object, instantiated once
+  per market, instead of the same pattern hand-written twice under
+  different names.
+- #8 needs its own, separate fix — it lives in `MarketSystem`, not in
+  either market class, so wrapping Stacked/DistanceOnly in `Step2Model`
+  doesn't touch it. The fix is the same shape as #1: one shared
+  inverse-distance-weighting function, called from both the fit-time
+  series construction and the runtime scalar computation.
+
+What does **not** change:
+
+- `window_selection.py` stays exactly as-is — it's already generic,
+  reused identically in three places, and not a source of any identified
+  problem.
+- `MarketSystem`'s orchestration role is unchanged: it still computes the
+  anchor series and neighbor signal and hands them to `LocalMarket`: that
+  split (cross-market orchestration in `MarketSystem`, single-market
+  fitting in the class) is already correct and is not being revisited.
+- Per `CONTRIBUTING.md`'s file-naming convention, each new class gets its
+  own `CamelCase.py` file rather than being added inside the existing
+  snake_case function modules.
+
+This is a real refactor, not a quick pass — it touches every fit/predict
+call site and every test that currently builds a raw params dict by hand.
+It should happen as its own scoped, reviewed piece of work once this
+target shape is agreed, not alongside anything else.
