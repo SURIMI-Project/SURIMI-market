@@ -6,6 +6,7 @@ from src.models.market.stacked_model import (
     compute_volume_shares,
     compute_tier,
     compute_high_tier_ports,
+    should_use_distance_only,
     distance_weighted_neighbor_signal,
 )
 
@@ -36,6 +37,20 @@ def test_compute_high_tier_ports_selects_only_high_tier():
     assert "A" in high_tier
     assert "B" not in high_tier
     assert "C" not in high_tier
+
+
+def test_should_use_distance_only_true_when_ratio_missing_or_extreme():
+    assert should_use_distance_only(float("nan")) == True
+    assert should_use_distance_only(0.05) == True  # below LOW_VOLUME_RATIO_THRESHOLD (0.10)
+    assert should_use_distance_only(3.0) == True  # above HIGH_VOLUME_RATIO_THRESHOLD (2.0)
+    assert should_use_distance_only(1.0) == False  # normal range
+
+
+def test_should_use_distance_only_works_on_a_vectorized_series():
+    import pandas as pd
+    ratios = pd.Series([float("nan"), 0.05, 1.0, 3.0])
+    result = should_use_distance_only(ratios)
+    assert result.tolist() == [True, True, False, True]
 
 
 def test_distance_weighted_neighbor_signal_inverse_weights_closer_ports_more():

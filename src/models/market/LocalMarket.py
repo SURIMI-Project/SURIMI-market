@@ -27,6 +27,7 @@ from .stacked_model import (
     predict_stacked_model,
     fit_distance_only_model,
     predict_distance_only_model,
+    should_use_distance_only,
 )
 from .window_selection import build_rolling_splits, select_best_window, rank_windows_by_score
 
@@ -289,11 +290,7 @@ class LocalMarket:
         baseline_volume = params["trial_volume"]
         volume_ratio = port["landings_kg"].fillna(0.0) / port["month"].map(baseline_volume)
 
-        use_distance_only = (
-            volume_ratio.isna()
-            | (volume_ratio < consts.LOW_VOLUME_RATIO_THRESHOLD)
-            | (volume_ratio > consts.HIGH_VOLUME_RATIO_THRESHOLD)
-        )
+        use_distance_only = should_use_distance_only(volume_ratio)
         blended = stacked_pred.where(~use_distance_only, distance_pred)
         blended.index = port_monthly.index
         return blended
@@ -317,16 +314,12 @@ class LocalMarket:
         stats = self.volume_baseline_stats.get(key, {})
         month_stats = stats.get(date.month)
         if month_stats is None or month_stats[1] == 0 or month_stats[0] <= 0:
-            volume_ratio = None
+            volume_ratio = float("nan")
         else:
             baseline = month_stats[0] / month_stats[1]
-            volume_ratio = (volume / baseline) if baseline > 0 else None
+            volume_ratio = (volume / baseline) if baseline > 0 else float("nan")
 
-        use_distance_only = (
-            pd.isna(volume_ratio)
-            or volume_ratio < consts.LOW_VOLUME_RATIO_THRESHOLD
-            or volume_ratio > consts.HIGH_VOLUME_RATIO_THRESHOLD
-        )
+        use_distance_only = should_use_distance_only(volume_ratio)
 
         single_row = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
         anchor_series = pd.Series([anchor_value], index=[date])

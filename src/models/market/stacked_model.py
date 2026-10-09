@@ -30,6 +30,24 @@ def compute_high_tier_ports(volumes_by_port: dict[str, float]) -> set[str]:
     return {port for port, share in shares.items() if compute_tier(share) == "High"}
 
 
+def should_use_distance_only(volume_ratio):
+    """
+    True when volume_ratio is missing or outside the normal operating
+    range [LOW_VOLUME_RATIO_THRESHOLD, HIGH_VOLUME_RATIO_THRESHOLD] --
+    the dynamic switch deciding whether to use the DistanceOnly model
+    (drops the unstable volume term) instead of Stacked. Works for a
+    single scalar ratio or a vectorized pd.Series of ratios alike --
+    callers passing a scalar "missing" value must use float("nan"), not
+    None, since `|` (needed here, unlike `or`, to also work elementwise
+    on a Series) is not short-circuiting and `None < threshold` raises.
+    """
+    return (
+        pd.isna(volume_ratio)
+        | (volume_ratio < consts.LOW_VOLUME_RATIO_THRESHOLD)
+        | (volume_ratio > consts.HIGH_VOLUME_RATIO_THRESHOLD)
+    )
+
+
 def distance_weighted_neighbor_signal(
     target_port: str,
     source_ports: set[str],
