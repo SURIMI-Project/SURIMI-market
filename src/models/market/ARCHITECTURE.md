@@ -24,6 +24,7 @@
    - 3.5 [Window selection (shared methodology)](#35-window-selection-shared-methodology)
 4. [Known Rough Edges](#4-known-rough-edges)
 5. [Proposed Target Architecture](#5-proposed-target-architecture)
+6. [Deferred / Future Work](#6-deferred--future-work)
 
 ---
 
@@ -430,3 +431,43 @@ This is a real refactor, not a quick pass — it touches every fit/predict
 call site and every test that currently builds a raw params dict by hand.
 It should happen as its own scoped, reviewed piece of work once this
 target shape is agreed, not alongside anything else.
+
+---
+
+## 6. Deferred / Future Work
+
+### Validate the trend correction at LocalMarket Step 1 (port level)
+
+The trend correction (§3.1) was built and validated against CombinedMarket
+only — the 10 national-level species/market pairs. It was never extended
+to LocalMarket Step 1, for reasons worth recording rather than re-deriving
+each time this comes up:
+
+- **The motivating problem was observed at the national level** (a
+  20-year scenario-forecast chart flatlining for ANE@ES), so that's the
+  level the whole mechanism was measured and checked against.
+- **It doesn't currently leak into Step 2 either**:
+  `CombinedMarket.get_baseline_price_table()` — the anchor Step 2 reads —
+  returns the raw, untrended `baseline_price` series. A port's Step 2
+  price carries none of the national trend today, even indirectly.
+- **Individual ports have meaningfully sparser data than the national
+  aggregate** (§3.2: Step 1 already falls back to level-only for ~11% of
+  port/species pairs, vs. 0% at CombinedMarket) — fewer years per
+  calendar month to tell a genuine multi-year trend apart from noise.
+- **The SAA@FR lesson applies more severely with less data**: even the
+  richer national series produced a confidently-measured but spurious
+  trend from a cyclical (not genuinely trending) price history in one
+  case. Thinner per-port series are more exposed to that same failure
+  mode, not less.
+
+**What validating this would mean, if picked up**: re-measure confidence
+and rate at per-port granularity (not just assume the national figures
+transfer), using the same long-horizon, many-cutoff methodology the
+original trend-term work used — not the short 1-2 year horizon this
+project's existing fidelity-backtest convention defaults to, which was
+already shown to give a misleading picture for several species at the
+national level. Start with the ports/species combinations with the
+longest, cleanest history rather than all ~174 port/species pairs at
+once, and expect some ports to measure a real trend and others not to —
+the whole point of continuous confidence is that it's supposed to answer
+that per-key, not be assumed uniformly true or false.
