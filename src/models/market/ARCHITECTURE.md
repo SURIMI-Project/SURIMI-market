@@ -299,8 +299,8 @@ broken, but each is a concrete readability/maintainability cost.
 |---|---|---|
 | 1 | ~~`LocalMarket._blend_step2_predictions` / `predict_step2`~~ | **Fixed.** Both called their own independent copy of the Stacked-vs-DistanceOnly volume-ratio switch; collapsed into `stacked_model.should_use_distance_only()`. Surfaced a real latent bug along the way: `predict_step2`'s scalar "no baseline yet" case produced `None`, which crashes under the `\|`-based vectorized form the shared function needs — fixed by producing `float("nan")` instead, which compares safely under both `\|` and `or`. |
 | 2 | ~~`LocalMarket.fit_step2` call site (`MarketSystem._fit_step2_for_all_ports`)~~ | **Fixed.** Four loose positional arguments (`port_monthly`, `anchor_series`, `neighbor_signal`, `latest_date`) carried Step 2's whole handoff with no named structure; bundled into a `Step2FitInputs` dataclass (`LocalMarket.py`). |
-| 3 | Every fit/predict function | **Partially fixed (Phase C1).** `CombinedMarket`'s and `LocalMarket`'s base model (`models[key]`) is now a typed `PriceModel` (`LevelOnlyModel`/`LevelVolumeModel`), not a dict with key-presence dispatch. Step 2's `step2_stacked_models`/`step2_distance_only_models` are still untyped dicts — that's Phase C3 (`Step2Model`/`StackedModel`/`DistanceOnlyModel`), not yet done. |
-| 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | **Partially fixed (Phase C1).** `CombinedMarket.get_price`/`LocalMarket.predict_from_base_model` (renamed from `predict_step1`) now just call `PriceModel.predict(date, volume)` — the one-row-DataFrame wrapping moved inside the model classes themselves, collapsing 2 of the 3 call sites into 1 shared implementation. `predict_step2` still builds its own one-row DataFrame independently; that's Phase C3. |
+| 3 | ~~Every fit/predict function~~ | **Fixed (Phases C1 + C3).** `CombinedMarket`'s and `LocalMarket`'s base model (`models[key]`) is a typed `PriceModel` (`LevelOnlyModel`/`LevelVolumeModel`); `LocalMarket`'s neighbor-informed model (`neighbor_models[key]`) is a typed `NeighborInformedModel` composing `StackedModel`/`DistanceOnlyModel`. No more key-presence dict dispatch anywhere in the price-model layer. |
+| 4 | ~~`CombinedMarket.get_price`, `LocalMarket.predict_from_base_model`/`predict_from_neighbor_model`~~ | **Fixed (Phases C1 + C3).** All three now just call `.predict(...)` on a typed model object — the one-row-DataFrame wrapping moved inside the model classes themselves, collapsing 3 independent call sites into one shared pattern per model type. |
 | 5 | ~~`Utility.py`~~ | **Fixed.** Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this held no class and was renamed to `utility.py`. |
 | 6 | `consts.py` | Every project constant lives flat in one file, grouped only by comment headers — currency/units, distance math, donor eligibility, switch thresholds, window candidates, rolling-origin params, anchor schemes, trend confidence/rate, all undifferentiated. |
 | 7 | ~~Repeated boilerplate~~ | **Fixed.** `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` was repeated 11 times across `level_volume_model.py`, `stacked_model.py`, and `LocalMarket.py`; collapsed into `level_volume_model.with_month_column()`. |
@@ -311,23 +311,20 @@ broken, but each is a concrete readability/maintainability cost.
 
 ## 5. Proposed Target Architecture
 
-**Partially implemented.** Phase A (`CatchAccumulator`, below), Phase B
+**Fully implemented.** Phase A (`CatchAccumulator`, below), Phase B
 (`should_use_distance_only`, `compute_inverse_distance_weights`,
 `Step2FitInputs` — fixing #1, #8, #2), Phase C1 (`PriceModel`,
 `TrendCorrection`, `LevelOnlyModel`, `LevelVolumeModel` — fixing #3 and #4
 for the base model; also renamed `LocalMarket`'s `step1_*` members to
 `models`/`fit_base_models`/`predict_from_base_model`/`get_base_predicted_series`),
-and Phase C2 (`VolumeBaselineTracker`, `RealPriceLookup` — replacing the
+Phase C2 (`VolumeBaselineTracker`, `RealPriceLookup` — replacing the
 shared `level_volume_model.py` free functions and raw per-key dicts
-`CombinedMarket` and `LocalMarket` each poked at directly and identically)
-have already landed. Everything else in this section — `Step2Model`,
-`StackedModel`, `DistanceOnlyModel` — is still pending sign-off (Phase
-C3). The core move still ahead: Step 2's fitted variants become real
-classes with a `predict()` method too, finishing what Phase C1 started for
-the base model — resolving the rest of #3 and #4. #1 and #8 are already
-fixed at the function level (Phase B); wrapping them into `Step2Model`
-here is about giving them a home as an object, not about removing any
-remaining duplication.
+`CombinedMarket` and `LocalMarket` each poked at directly and identically),
+and Phase C3 (`NeighborInformedModel`, `StackedModel`, `DistanceOnlyModel`
+— finishing #3 and #4 for the neighbor-informed model, and completing the
+`Step2FitInputs`→`NeighborFitInputs`/`fit_step2`→`fit_neighbor_models`/
+`predict_step2`→`predict_from_neighbor_model` rename §6 tracked) have all
+landed. This section is now fully built — nothing in it is still pending.
 
 ```mermaid
 classDiagram
@@ -361,16 +358,19 @@ classDiagram
         -train_end: Timestamp
         +factor(date) float
     }
-    class Step2Model {
+    class NeighborInformedModel {
+        %% already implemented, Phase C3
         -stacked: StackedModel
         -distance_only: DistanceOnlyModel
         -volume_baseline: VolumeBaselineTracker
         +predict(date, volume, anchor_value, neighbor_value) float
     }
     class StackedModel {
+        %% already implemented, Phase C3
         +predict(date, volume, anchor_value, neighbor_value) float
     }
     class DistanceOnlyModel {
+        %% already implemented, Phase C3
         +predict(date, anchor_value, neighbor_value) float
     }
     class VolumeBaselineTracker {
@@ -390,9 +390,9 @@ classDiagram
     PriceModel <|.. LevelOnlyModel
     PriceModel <|.. LevelVolumeModel
     LevelVolumeModel o-- TrendCorrection
-    Step2Model o-- StackedModel
-    Step2Model o-- DistanceOnlyModel
-    Step2Model o-- VolumeBaselineTracker
+    NeighborInformedModel o-- StackedModel
+    NeighborInformedModel o-- DistanceOnlyModel
+    NeighborInformedModel o-- VolumeBaselineTracker
     CombinedMarket o-- CatchAccumulator
     LocalMarket o-- CatchAccumulator
 ```
@@ -400,28 +400,30 @@ classDiagram
 **`CombinedMarket` and `LocalMarket` stay separate, unrelated classes — no
 shared superclass.** They aren't substitutable for each other anywhere
 (`MarketSystem` never treats them polymorphically: different collections,
-different method surfaces, `LocalMarket` has a whole Step 2 layer
-`CombinedMarket` has no equivalent of, `CombinedMarket` has the trend
-correction `LocalMarket` never got), so there's no real "is-a" relationship
-to express. The shared parts — `VolumeBaselineTracker`, `RealPriceLookup`,
-and `CatchAccumulator` (fixing #9) — are things both classes *hold*, not
-things both classes *are*. A superclass here would either stay nearly
-empty, or end up unifying things that are genuinely different (`fit()` vs.
-`fit_step1()`+`fit_step2()`), which tends toward a fragile base class rather
-than a cleaner one.
+different method surfaces, `LocalMarket` has a whole neighbor-informed
+layer `CombinedMarket` has no equivalent of, `CombinedMarket` has the
+trend correction `LocalMarket` never got), so there's no real "is-a"
+relationship to express. The shared parts — `VolumeBaselineTracker`,
+`RealPriceLookup`, and `CatchAccumulator` (fixing #9) — are things both
+classes *hold*, not things both classes *are*. A superclass here would
+either stay nearly empty, or end up unifying things that are genuinely
+different (`fit()` vs. `fit_base_models()`+`fit_neighbor_models()`), which
+tends toward a fragile base class rather than a cleaner one.
 
-What this changes, concretely:
+What this changed, concretely:
 
 - *(already done, Phase C1)* `CombinedMarket.models[key]` / `LocalMarket.models[key]`
   (renamed from `step1_models`) hold a `PriceModel` object, not a dict.
   `get_price()`/`predict_from_base_model()` (renamed from `predict_step1`)
   are now just `self.models[key].predict(date, volume)` — no branching.
-- `LocalMarket.step2_stacked_models` + `step2_distance_only_models`
-  collapse into one `step2_models[key]: Step2Model`, which calls the
+- *(already done, Phase C3)* `LocalMarket.step2_stacked_models` +
+  `step2_distance_only_models` collapsed into one
+  `neighbor_models[key]: NeighborInformedModel`, which calls the
   already-shared `should_use_distance_only()` (fixed in Phase B) from one
   place instead of two.
 - *(already done, Phase B)* Step 2's fit-time handoff (previously 4
-  positional args) is now one `Step2FitInputs` object, fixing #2.
+  positional args) is now one `NeighborFitInputs` object (renamed from
+  `Step2FitInputs` in Phase C3), fixing #2.
 - *(already done, Phase C2)* `VolumeBaselineTracker`/a `RealPriceLookup`
   object replace the shared free functions in `level_volume_model.py` that
   `CombinedMarket` and `LocalMarket` previously called against their own
@@ -432,18 +434,19 @@ What this changes, concretely:
   pattern hand-written twice under
   different names.
 - *(already done, Phase B)* #8 lived in `MarketSystem`, not in either
-  market class, so it needed its own fix separate from `Step2Model`:
-  `stacked_model.compute_inverse_distance_weights()`, called from both the
-  fit-time series construction and the runtime scalar computation.
+  market class, so it needed its own fix separate from
+  `NeighborInformedModel`: `stacked_model.compute_inverse_distance_weights()`,
+  called from both the fit-time series construction and the runtime scalar
+  computation.
 
-> **Naming note:** `Step2Model` (and `PriceModel`/`LevelVolumeModel`
-> above it, to a lesser degree) inherited "Step 1"/"Step 2" terminology
-> from the existing code — which is exactly the non-descriptive naming
-> called out in §6. Don't carry that forward uncritically: whoever
-> implements this should pick names that say what the thing *is*
-> (e.g. something naming the neighbor-informed/distance-weighted
-> behavior) rather than which numbered step produced it, at the same
-> time the rename in §6 happens — not before, and not separately.
+> **Naming note — resolved in Phase C3.** `Step2Model` (and, to a lesser
+> degree, `PriceModel`/`LevelVolumeModel` above it) had inherited "Step
+> 1"/"Step 2" terminology from the existing code, which was exactly the
+> non-descriptive naming called out in §6. It was renamed to
+> `NeighborInformedModel` (naming what the thing *is* — a neighbor-informed,
+> distance-weighted blend with a volume-stability switch — rather than
+> which numbered step produced it) at the same time as the rest of the
+> §6 rename, as planned.
 
 What does **not** change:
 
@@ -458,34 +461,36 @@ What does **not** change:
   own `CamelCase.py` file rather than being added inside the existing
   snake_case function modules.
 
-This is a real refactor, not a quick pass — it touches every fit/predict
-call site and every test that currently builds a raw params dict by hand.
-It should happen as its own scoped, reviewed piece of work once this
-target shape is agreed, not alongside anything else.
+This was a real refactor, not a quick pass — it touched every fit/predict
+call site and every test that previously built a raw params dict by hand.
+It happened across Phases C1-C3, each its own scoped, reviewed piece of
+work, rather than all at once.
 
 ---
 
 ## 6. Deferred / Future Work
 
-### Rename "Step 1"/"Step 2" to something descriptive
+### ~~Rename "Step 1"/"Step 2" to something descriptive~~
 
-Raised 2026-10-09: `fit_step1`/`fit_step2`, `step1_models`,
-`step2_stacked_models`/`step2_distance_only_models`, `predict_step1`/
-`predict_step2`, `get_step1_historical_series` — none of these names say
-what the thing *is* (a level-volume fit; a neighbor-informed,
-distance-weighted blend with a volume-stability switch), only which
-numbered stage of the pipeline produced it. A reader has to already know
-the pipeline to decode the name, rather than the name teaching them the
-pipeline.
+**Done, Phase C3.** Raised 2026-10-09: `fit_step1`/`fit_step2`,
+`step1_models`, `step2_stacked_models`/`step2_distance_only_models`,
+`predict_step1`/`predict_step2`, `get_step1_historical_series` — none of
+these names said what the thing *was* (a level-volume fit; a
+neighbor-informed, distance-weighted blend with a volume-stability
+switch), only which numbered stage of the pipeline produced it.
 
-Deliberately not done now — this spans most of `LocalMarket.py` plus
-every caller in `MarketSystem.py` and every test that references these
-names, and renaming is cheapest done once alongside Phase C (§5), when
-`step1_models`/`step2_*_models` are being replaced with typed objects
-anyway. Doing it twice (rename now, restructure later) would be wasted
-churn. Candidate direction, to revisit then rather than decide now: name
-by what each stage *is* (its own model type/role), not by its position in
-a numbered sequence.
+Deliberately not done immediately when raised — it spanned most of
+`LocalMarket.py` plus every caller in `MarketSystem.py` and every test
+referencing these names, and renaming was cheapest done once alongside
+Phase C (§5), when `step1_models`/`step2_*_models` were being replaced
+with typed objects anyway. Landed together with Phase C1 (base model:
+`step1_models`→`models`, `fit_step1`→`fit_base_models`,
+`predict_step1`→`predict_from_base_model`,
+`get_step1_historical_series`→`get_base_predicted_series`) and Phase C3
+(neighbor-informed model: `Step2FitInputs`→`NeighborFitInputs`,
+`fit_step2`→`fit_neighbor_models`, `predict_step2`→`predict_from_neighbor_model`,
+`step2_stacked_models`/`step2_distance_only_models`→`neighbor_models`,
+`step2_window_labels`→`neighbor_window_labels`).
 
 ### Validate the trend correction at LocalMarket Step 1 (port level)
 
