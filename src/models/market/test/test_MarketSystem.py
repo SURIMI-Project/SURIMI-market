@@ -484,31 +484,23 @@ def test_step_advances_tick_and_clears_accumulators():
 
 def test_step_updates_volume_baseline_from_real_observed_volume():
     system = _fitted_system()
-    # NOTE: VolumeBaselineTracker exposes no public getter for the raw
-    # (running_sum, running_count) pair -- only .ratio()/.update(). This
-    # test's intent is specifically to observe that running-mean bookkeeping
-    # changed, so it reaches into the tracker's private _stats rather than
-    # inferring the same fact indirectly through .ratio().
-    before = dict(system.local_markets["ESALC"].volume_baseline[("ANE", "Fresh - Whole")]._stats)
+    before = system.local_markets["ESALC"].volume_baseline[("ANE", "Fresh - Whole")].snapshot()
 
     system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 50000.0)
     system.step()
 
-    after = system.local_markets["ESALC"].volume_baseline[("ANE", "Fresh - Whole")]._stats
+    after = system.local_markets["ESALC"].volume_baseline[("ANE", "Fresh - Whole")].snapshot()
     assert after[1] != before.get(1)
 
 
 def test_step_combined_market_skips_volume_baseline_update_on_a_zero_catch_tick():
     system = _fitted_system()
     key = ("ANE", "Fresh - Whole")
-    # NOTE: see test_step_updates_volume_baseline_from_real_observed_volume --
-    # reaching into VolumeBaselineTracker._stats directly since there's no
-    # public getter for the raw (running_sum, running_count) pair.
-    before = dict(system.combined_markets["ES"].volume_baseline[key]._stats)
+    before = system.combined_markets["ES"].volume_baseline[key].snapshot()
 
     system.step()  # no add_monthly_catch calls anywhere this tick
 
-    after = system.combined_markets["ES"].volume_baseline[key]._stats
+    after = system.combined_markets["ES"].volume_baseline[key].snapshot()
     assert after.get(1) == before.get(1), (
         "a zero-catch tick must not update the running mean (would dilute it toward 0 "
         "and inflate every later VolumeRatio) -- LocalMarket already skips absent keys "
@@ -518,7 +510,7 @@ def test_step_combined_market_skips_volume_baseline_update_on_a_zero_catch_tick(
     system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 1000.0)
     system.step()
 
-    after_nonzero = system.combined_markets["ES"].volume_baseline[key]._stats
+    after_nonzero = system.combined_markets["ES"].volume_baseline[key].snapshot()
     assert after_nonzero[2] != before.get(2), "a real, nonzero catch must still update the baseline"
 
 

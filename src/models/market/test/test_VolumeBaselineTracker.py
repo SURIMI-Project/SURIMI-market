@@ -43,3 +43,15 @@ def test_ratio_is_nan_for_a_month_with_no_observations():
     tracker = VolumeBaselineTracker()
     tracker.update(pd.Timestamp("2022-01-01"), volume=100.0)
     assert pd.isna(tracker.ratio(pd.Timestamp("2022-07-01"), volume=100.0))  # July never seeded/updated
+
+
+def test_snapshot_returns_a_copy_of_the_raw_running_sum_and_count():
+    tracker = VolumeBaselineTracker()
+    tracker.update(pd.Timestamp("2022-01-01"), volume=100.0)
+    tracker.update(pd.Timestamp("2022-01-15"), volume=300.0)
+
+    snapshot = tracker.snapshot()
+    assert snapshot == {1: (400.0, 2)}
+
+    snapshot[1] = (0.0, 0)  # mutating the returned copy must not affect the tracker
+    assert tracker.snapshot() == {1: (400.0, 2)}

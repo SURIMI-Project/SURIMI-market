@@ -40,3 +40,9 @@ class VolumeBaselineTracker:
             return float("nan")
         baseline = month_stats[0] / month_stats[1]
         return (volume / baseline) if baseline > 0 else float("nan")
+
+    def snapshot(self) -> dict[int, tuple[float, int]]:
+        """Read-only copy of the raw per-month (running_sum, running_count)
+        pairs -- for callers (tests, diagnostics) that need to observe the
+        bookkeeping directly rather than through .ratio()."""
+        return dict(self._stats)
