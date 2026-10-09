@@ -38,8 +38,8 @@ class CombinedMarket:
         # prefix; same shape as LocalMarket's own accumulator.
         self._direct_catch = CatchAccumulator()
 
-        # (species_code, category_code) -> frozen params dict (baseline_price,
-        # baseline_volume, alpha, beta) or level-only params (alpha=beta=0).
+        # (species_code, category_code) -> frozen PriceModel (a
+        # LevelVolumeModel, or a LevelOnlyModel on the no-volume fallback path)
         self.models: dict[tuple[str, str], PriceModel] = {}
         self.window_labels: dict[tuple[str, str], str] = {}
 
