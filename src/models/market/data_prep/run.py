@@ -10,25 +10,15 @@ from .download import download_and_extract, get_current_zip_url
 from .extract import filter_and_clean, load_fish_sales_data
 from .output import build_prices_csv_rows, write_prices_csv, write_size_ratios_csv
 from .size_ratios import compute_size_ratios
+from ..market_topology import build_prefix_to_locals as _build_prefix_to_locals_from_df
 
 
 def build_prefix_to_locals(markets_csv_path) -> dict:
-    """Group markets.csv's 5-letter LOCODEs by their 2-letter prefix. The
-    set of needed prefixes is the union of any 2-letter codes explicitly
-    listed and any prefixes implied by the 5-letter codes present, so a
-    combined market always exists for any country with local ports under
-    it, even if its own 2-letter row is missing."""
-    markets = pd.read_csv(markets_csv_path)
-    codes = markets["market_code"].dropna().unique().tolist()
-    local_codes = [c for c in codes if len(c) == 5]
-    explicit_prefixes = {c for c in codes if len(c) == 2}
-    implied_prefixes = {c[:2] for c in local_codes}
-    prefixes = explicit_prefixes | implied_prefixes
-
-    return {
-        prefix: [c for c in local_codes if c.startswith(prefix)]
-        for prefix in prefixes
-    }
+    """Thin, path-based wrapper around market_topology.build_prefix_to_locals
+    (shared with MarketSystem.py) -- kept here under this name/signature
+    since this module's own tests and callers pass a CSV path, not an
+    in-memory DataFrame."""
+    return _build_prefix_to_locals_from_df(pd.read_csv(markets_csv_path))
 
 
 def run(markets_csv_path, output_dir, gdb_path=None, dest_dir=None) -> None:

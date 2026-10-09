@@ -69,8 +69,6 @@ def test_setup_topology_does_not_error_on_combined_markets_missing_coordinates()
     assert err is None
 
 
-from grpc import StatusCode
-
 from surimi.v1 import sales_pb2, species_pb2
 
 
@@ -223,8 +221,7 @@ def _synthetic_prices_df(n_years=6, seed=0):
 
     combined_volume = rows  # combined ES row = sum of all three ports
     combined_rows = []
-    import pandas as _pd
-    df_local = _pd.DataFrame(rows)
+    df_local = pd.DataFrame(rows)
     for d, group in df_local.groupby("date"):
         combined_rows.append({
             "date": d, "market_code": "ES", "species_code": "ANE", "category_code": "Fresh - Whole",

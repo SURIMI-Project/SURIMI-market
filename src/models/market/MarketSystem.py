@@ -21,20 +21,8 @@ from .LocalMarket import LocalMarket
 from .CombinedMarket import CombinedMarket
 from .distance import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
+from .market_topology import build_prefix_to_locals
 from .stacked_model import compute_high_tier_ports, distance_weighted_neighbor_signal, build_static_anchor_series
-
-
-def build_prefix_to_locals(markets_df: pd.DataFrame) -> dict[str, list[str]]:
-    """Union of explicit 2-letter combined codes and prefixes implied by the
-    5-letter local codes present (spec section 4) -- identical logic to
-    Plan 1's data_prep/run.py equivalent."""
-    codes = markets_df["market_code"].dropna().unique().tolist()
-    local_codes = [c for c in codes if len(c) == 5]
-    explicit_prefixes = {c for c in codes if len(c) == 2}
-    implied_prefixes = {c[:2] for c in local_codes}
-    prefixes = explicit_prefixes | implied_prefixes
-
-    return {prefix: [c for c in local_codes if c.startswith(prefix)] for prefix in prefixes}
 
 
 class MarketSystem:

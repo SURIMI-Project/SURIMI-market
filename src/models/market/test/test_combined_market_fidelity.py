@@ -40,7 +40,7 @@ def test_combined_market_accuracy_within_acceptable_mape():
     # real dataset's final year) for comparison, while actually letting
     # ANE@ES's trend correction activate -- see the assertion below, which
     # confirms this directly rather than assuming it.
-    results, handler = run_backtest_split(
+    _, handler = run_backtest_split(
         root_config_dir=CONFIG_DIR.rsplit("/", 1)[0],
         scenario_id=CONFIG_DIR.split("/")[-1],
         as_of_date=pd.Timestamp("2024-01-01"),

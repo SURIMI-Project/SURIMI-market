@@ -15,33 +15,13 @@ from dateutil.relativedelta import relativedelta
 from src.models.market import consts
 from src.models.market.MarketHandler import MarketHandler
 from src.models.market.level_volume_model import score_mape
-
-
-class _Market:
-    def __init__(self, market_code):
-        self.market_code = market_code
-
-
-class _Species:
-    def __init__(self, species_code):
-        self.species_code = species_code
-
-
-class _PriceCategory:
-    def __init__(self, category_code):
-        self.category_code = category_code
-
-
-class _Items:
-    def __init__(self, markets, species, price_categories):
-        self.markets = markets
-        self.species = species
-        self.price_categories = price_categories
-
-
-class _Simulation:
-    def __init__(self, items):
-        self.items = items
+from src.models.market.test.fake_simulation import (
+    FakeMarket as _Market,
+    FakeSpecies as _Species,
+    FakePriceCategory as _PriceCategory,
+    FakeItems as _Items,
+    FakeSimulation as _Simulation,
+)
 
 
 def _build_fake_simulation(market_codes, species_codes, category_codes):

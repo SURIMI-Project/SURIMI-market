@@ -19,6 +19,9 @@ from .level_volume_model import (
     fit_level_only_model,
     predict_level_only,
     score_mape,
+    compute_volume_baseline_stats,
+    apply_volume_baseline_update,
+    populate_price_time_series,
 )
 from .stacked_model import (
     fit_stacked_model,
@@ -138,18 +141,7 @@ class LocalMarket:
         return selected
 
     def _seed_volume_baseline_stats(self, key, monthly, train_start, train_end):
-        monthly = monthly.copy()
-        monthly["month"] = monthly["date"].dt.month
-        train = monthly[monthly["date"] < train_end]
-        if train_start is not None:
-            train = train[train["date"] >= train_start]
-
-        stats: dict[int, tuple[float, int]] = {}
-        for month, group in train.groupby("month"):
-            valid = group["landings_kg"].dropna()
-            if len(valid) > 0:
-                stats[month] = (float(valid.sum()), int(len(valid)))
-        self.volume_baseline_stats[key] = stats
+        self.volume_baseline_stats[key] = compute_volume_baseline_stats(monthly, train_start, train_end)
 
     @staticmethod
     def _date_indexed(series: pd.Series, monthly: pd.DataFrame) -> pd.Series:
@@ -166,16 +158,12 @@ class LocalMarket:
 
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
         key = (species_code, category_code)
-        if key not in self.volume_baseline_stats or pd.isna(volume):
+        result = apply_volume_baseline_update(self.volume_baseline_stats, key, date, volume)
+        if result is None:
             return
-
-        month = date.month
-        prev_sum, prev_count = self.volume_baseline_stats[key].get(month, (0.0, 0))
-        new_sum, new_count = prev_sum + volume, prev_count + 1
-        self.volume_baseline_stats[key][month] = (new_sum, new_count)
-
+        month, new_mean = result
         if key in self.step1_models and self.step1_models[key]["baseline_volume"] is not None:
-            self.step1_models[key]["baseline_volume"][month] = new_sum / new_count
+            self.step1_models[key]["baseline_volume"][month] = new_mean
 
     def predict_step1(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
@@ -202,9 +190,7 @@ class LocalMarket:
     # --- Real-price-first (spec section 8) ---
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
-        rows = prices_df[(prices_df["market_code"] == self.market_code) & (prices_df["size"].isna())]
-        for row in rows.itertuples(index=False):
-            self.price_time_series[(row.species_code, row.category_code, row.date)] = row.price
+        populate_price_time_series(self.price_time_series, prices_df, self.market_code)
 
     def get_real_price(self, species_code: str, category_code: str, date: pd.Timestamp) -> float | None:
         return self.price_time_series.get((species_code, category_code, date))

@@ -8,33 +8,13 @@ from grpc import StatusCode
 from surimi.v1 import sales_pb2, species_pb2, update_sales_pb2
 
 from src.models.market.MarketHandler import MarketHandler
-
-
-class _FakeMarket:
-    def __init__(self, market_code):
-        self.market_code = market_code
-
-
-class _FakeSpecies:
-    def __init__(self, species_code):
-        self.species_code = species_code
-
-
-class _FakePriceCategory:
-    def __init__(self, category_code):
-        self.category_code = category_code
-
-
-class _FakeItems:
-    def __init__(self, markets, species, price_categories):
-        self.markets = markets
-        self.species = species
-        self.price_categories = price_categories
-
-
-class _FakeSimulation:
-    def __init__(self, items):
-        self.items = items
+from src.models.market.test.fake_simulation import (
+    FakeMarket as _FakeMarket,
+    FakeSpecies as _FakeSpecies,
+    FakePriceCategory as _FakePriceCategory,
+    FakeItems as _FakeItems,
+    FakeSimulation as _FakeSimulation,
+)
 
 
 def _write_minimal_config(tmp_path, scenario_id="scn"):
