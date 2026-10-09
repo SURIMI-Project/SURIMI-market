@@ -299,8 +299,8 @@ broken, but each is a concrete readability/maintainability cost.
 |---|---|---|
 | 1 | ~~`LocalMarket._blend_step2_predictions` / `predict_step2`~~ | **Fixed.** Both called their own independent copy of the Stacked-vs-DistanceOnly volume-ratio switch; collapsed into `stacked_model.should_use_distance_only()`. Surfaced a real latent bug along the way: `predict_step2`'s scalar "no baseline yet" case produced `None`, which crashes under the `\|`-based vectorized form the shared function needs — fixed by producing `float("nan")` instead, which compares safely under both `\|` and `or`. |
 | 2 | ~~`LocalMarket.fit_step2` call site (`MarketSystem._fit_step2_for_all_ports`)~~ | **Fixed.** Four loose positional arguments (`port_monthly`, `anchor_series`, `neighbor_signal`, `latest_date`) carried Step 2's whole handoff with no named structure; bundled into a `Step2FitInputs` dataclass (`LocalMarket.py`). |
-| 3 | Every fit/predict function | A fitted model's coefficients are an untyped `dict` (`params["baseline_volume"]`, `params.get("gamma")`-style checks), so "which kind of model is this" is answered by key presence, not a type. |
-| 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | Each independently builds a throwaway one-row DataFrame to call a predict function designed for a whole monthly series — an API-shape mismatch repeated three times. |
+| 3 | Every fit/predict function | **Partially fixed (Phase C1).** `CombinedMarket`'s and `LocalMarket`'s base model (`models[key]`) is now a typed `PriceModel` (`LevelOnlyModel`/`LevelVolumeModel`), not a dict with key-presence dispatch. Step 2's `step2_stacked_models`/`step2_distance_only_models` are still untyped dicts — that's Phase C3 (`Step2Model`/`StackedModel`/`DistanceOnlyModel`), not yet done. |
+| 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | **Partially fixed (Phase C1).** `CombinedMarket.get_price`/`LocalMarket.predict_from_base_model` (renamed from `predict_step1`) now just call `PriceModel.predict(date, volume)` — the one-row-DataFrame wrapping moved inside the model classes themselves, collapsing 2 of the 3 call sites into 1 shared implementation. `predict_step2` still builds its own one-row DataFrame independently; that's Phase C3. |
 | 5 | ~~`Utility.py`~~ | **Fixed.** Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this held no class and was renamed to `utility.py`. |
 | 6 | `consts.py` | Every project constant lives flat in one file, grouped only by comment headers — currency/units, distance math, volume tiers, switch thresholds, window candidates, rolling-origin params, anchor schemes, trend confidence/rate, all undifferentiated. |
 | 7 | ~~Repeated boilerplate~~ | **Fixed.** `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` was repeated 11 times across `level_volume_model.py`, `stacked_model.py`, and `LocalMarket.py`; collapsed into `level_volume_model.with_month_column()`. |
@@ -311,30 +311,36 @@ broken, but each is a concrete readability/maintainability cost.
 
 ## 5. Proposed Target Architecture
 
-**Partially implemented.** Phase A (`CatchAccumulator`, below) and Phase B
+**Partially implemented.** Phase A (`CatchAccumulator`, below), Phase B
 (`should_use_distance_only`, `compute_inverse_distance_weights`,
-`Step2FitInputs` — fixing #1, #8, #2) have already landed. Everything else
-in this section — the `PriceModel` hierarchy, `Step2Model`,
-`TrendCorrection`, `VolumeBaselineTracker` — is still pending sign-off. The
-core move still ahead: each fitted model variant becomes a real class with
-a `predict()` method, replacing dict-key-presence dispatch with
-polymorphism. This directly resolves #3, and makes #4 trivial to fix
-alongside it. #1 and #8 are already fixed at the function level (Phase B);
-wrapping them into `Step2Model` here is about giving them a home as an
-object, not about removing any remaining duplication.
+`Step2FitInputs` — fixing #1, #8, #2), and Phase C1 (`PriceModel`,
+`TrendCorrection`, `LevelOnlyModel`, `LevelVolumeModel` — fixing #3 and #4
+for the base model; also renamed `LocalMarket`'s `step1_*` members to
+`models`/`fit_base_models`/`predict_from_base_model`/`get_base_predicted_series`)
+have already landed. Everything else in this section — `Step2Model`,
+`StackedModel`, `DistanceOnlyModel`, `VolumeBaselineTracker` — is still
+pending sign-off (Phases C2/C3). The core move still ahead: Step 2's fitted
+variants become real classes with a `predict()` method too, finishing what
+Phase C1 started for the base model — resolving the rest of #3 and #4. #1
+and #8 are already fixed at the function level (Phase B); wrapping them
+into `Step2Model` here is about giving them a home as an object, not about
+removing any remaining duplication.
 
 ```mermaid
 classDiagram
     class PriceModel {
         <<interface>>
+        %% already implemented, Phase C1
         +predict(date, volume) float
     }
     class LevelOnlyModel {
+        %% already implemented, Phase C1
         -baseline_price: Series
         -alpha: float
         +predict(date, volume) float
     }
     class LevelVolumeModel {
+        %% already implemented, Phase C1
         -baseline_price: Series
         -baseline_volume: Series
         -alpha: float
@@ -345,6 +351,7 @@ classDiagram
         +predict(date, volume) float
     }
     class TrendCorrection {
+        %% already implemented, Phase C1
         -confidence: float
         -rate: float
         -years_trained: float
@@ -400,9 +407,10 @@ than a cleaner one.
 
 What this changes, concretely:
 
-- `CombinedMarket.models[key]` / `LocalMarket.step1_models[key]` hold a
-  `PriceModel` object, not a dict. `get_price()`/`predict_step1()` become
-  `self.models[key].predict(date, volume)` — no branching.
+- *(already done, Phase C1)* `CombinedMarket.models[key]` / `LocalMarket.models[key]`
+  (renamed from `step1_models`) hold a `PriceModel` object, not a dict.
+  `get_price()`/`predict_from_base_model()` (renamed from `predict_step1`)
+  are now just `self.models[key].predict(date, volume)` — no branching.
 - `LocalMarket.step2_stacked_models` + `step2_distance_only_models`
   collapse into one `step2_models[key]: Step2Model`, which calls the
   already-shared `should_use_distance_only()` (fixed in Phase B) from one
