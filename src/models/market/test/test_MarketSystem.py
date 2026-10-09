@@ -265,12 +265,12 @@ def test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor():
     assert ("ANE", "Fresh - Whole") in system.local_markets["ESBCN"].step2_stacked_models
 
 
-def _prices_df_high_tier_share_straddles_threshold(n_years=6, seed=2):
-    """ESALC's 3% share of real local volume is genuinely High-tier, but
-    would be wrongly classified Mid-tier (1.5%) if the combined-market 'ES'
-    aggregate row (which duplicates the local total, not a fourth real
-    port) were counted in the denominator -- regression test for that
-    volume-share bug."""
+def _prices_df_with_combined_market_aggregate_row(n_years=6, seed=2):
+    """Three real local ports (ESALC, ESBCN, ESVLC) with positive volume,
+    plus a combined-market 'ES' aggregate row that duplicates the local
+    total rather than being a fourth real port -- regression fixture for
+    making sure that aggregate row never leaks into the donor-candidate
+    set alongside the genuine local ports."""
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2018-01-01", periods=n_years * 12, freq="MS")
     rows = []
@@ -294,23 +294,23 @@ def _prices_df_high_tier_share_straddles_threshold(n_years=6, seed=2):
     return pd.concat([df_local, pd.DataFrame(combined_rows)], ignore_index=True)
 
 
-def test_fit_all_high_tier_share_excludes_combined_market_aggregate_row():
+def test_fit_all_donor_candidates_excludes_combined_market_aggregate_row():
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())
-    system.fit_all(_prices_df_high_tier_share_straddles_threshold(), latest_date=pd.Timestamp("2024-01-01"))
+    system.fit_all(_prices_df_with_combined_market_aggregate_row(), latest_date=pd.Timestamp("2024-01-01"))
 
     key = ("ANE", "Fresh - Whole")
-    high_tier_ports = system.high_tier_ports_by_key[key]
+    donor_candidate_ports = system.donor_candidates_by_key[key]
 
-    # ESALC's real share among local ports is 3/100 = 3% (High-tier,
-    # >2%). If the ES aggregate row were wrongly counted in the
-    # denominator (3/200 = 1.5%), it would be Mid-tier instead -- this
-    # assertion fails under the pre-fix computation.
-    assert "ESALC" in high_tier_ports
-    assert "ESBCN" in high_tier_ports
+    # All three real local ports have positive volume for this key, so
+    # all three are donor candidates (final eligibility -- the nearest-K
+    # narrowing -- happens later, inside compute_inverse_distance_weights).
+    assert "ESALC" in donor_candidate_ports
+    assert "ESBCN" in donor_candidate_ports
+    assert "ESVLC" in donor_candidate_ports
     # The combined-market row itself is never a LocalMarket and must
-    # never appear in a High-tier *set* at all, regardless of share.
-    assert "ES" not in high_tier_ports
+    # never appear in the donor-candidate set at all.
+    assert "ES" not in donor_candidate_ports
 
 
 def test_fit_all_defaults_to_static_anchor_scheme():
@@ -420,7 +420,7 @@ def test_fit_all_skips_step2_gracefully_for_port_with_no_high_tier_neighbor(capl
     # combined "ES" row is High-tier by volume share but is not a
     # LocalMarket, so it never qualifies as a neighbor source.
     assert ("ANE", "Fresh - Whole") not in system.local_markets["ESVLC"].step2_stacked_models
-    assert any("No High-tier neighbor" in r.message or "no High-tier neighbor" in r.message for r in caplog.records)
+    assert any("no eligible neighbor port available" in r.message for r in caplog.records)
 
 
 def _fitted_system():

@@ -68,7 +68,7 @@ classDiagram
         -local_markets: Dict~str, LocalMarket~
         -prefix_to_locals: Dict~str, list~
         -distance_lookup: Dict~tuple, float~
-        -high_tier_ports_by_key: Dict~tuple, set~
+        -donor_candidates_by_key: Dict~tuple, set~
         +setup_topology(markets_df)
         +fit_all(prices_df, latest_date, anchor_scheme)
         +step()
@@ -129,7 +129,7 @@ lives as standalone functions in sibling modules, called by `CombinedMarket`/
 |---|---|
 | `level_volume_model.py` | Level-only and level-volume fit/predict (shared by `CombinedMarket` and `LocalMarket` Step 1); trend-rate fit/predict (`CombinedMarket` only); shared volume-baseline and real-price bookkeeping helpers |
 | `trend_confidence.py` | Continuous `[0,1]` trend confidence score, per key |
-| `stacked_model.py` | High-tier port classification, distance-weighted neighbor signal, Stacked/DistanceOnly fit/predict (`LocalMarket` Step 2) |
+| `stacked_model.py` | Nearest-K donor selection, distance-weighted neighbor signal, Stacked/DistanceOnly fit/predict (`LocalMarket` Step 2) |
 | `window_selection.py` | Generic rolling-origin training-window search, reused identically by all three fit paths above |
 | `market_topology.py` | 5-letter port code → 2-letter prefix grouping |
 | `utility.py` | Haversine distance, pairwise port distance lookup |
@@ -158,8 +158,8 @@ sequenceDiagram
         LM->>LM: window selection + level-volume fit
     end
     MS->>MS: _fit_step2_for_all_ports()
-    Note over MS: computes high-tier ports, anchor series (from CM),<br/>neighbor signal (from sibling LMs' Step-1 series)
-    loop each port with a High-tier neighbor available
+    Note over MS: computes donor-candidate ports, anchor series (from CM),<br/>neighbor signal (from sibling LMs' Step-1 series)
+    loop each port with a nearest-K eligible neighbor available
         MS->>LM: fit_step2(port_monthly, anchor_series, neighbor_signal, latest_date)
         LM->>LM: window selection + Stacked/DistanceOnly fit
     end
@@ -235,10 +235,10 @@ of port/species combinations).
 
 ### 3.3 LocalMarket Step 2 (neighbor-informed)
 
-Built on top of Step 1, for ports with a usable **High-tier neighbor**
-(determined by each port's share of total species volume,
-`stacked_model.compute_high_tier_ports`). `MarketSystem` computes two
-inputs and hands them to `LocalMarket.fit_step2`:
+Built on top of Step 1, for ports with a usable neighbor among the
+**TOP_K_NEAREST_DONORS** (5) local ports geographically closest to it
+(`stacked_model.compute_inverse_distance_weights`). `MarketSystem` computes
+two inputs and hands them to `LocalMarket.fit_step2`:
 
 - **Anchor series**: `CombinedMarket`'s frozen seasonal baseline for this
   species (the default, `ANCHOR_SCHEME_STATIC`), or `CombinedMarket`'s own

@@ -22,7 +22,6 @@ from .utility import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
 from .market_topology import build_prefix_to_locals
 from .stacked_model import (
-    compute_high_tier_ports,
     distance_weighted_neighbor_signal,
     build_static_anchor_series,
     compute_inverse_distance_weights,
@@ -41,10 +40,12 @@ class MarketSystem:
         self.prefix_to_locals: dict[str, list[str]] = {}
         self.distance_lookup: dict[tuple[str, str], float] = {}
 
-        # (species_code, category_code) -> set of High-tier port codes, frozen
-        # at fit_all time and reused every tick to build each port's live
-        # neighbor signal without recomputing volume shares.
-        self.high_tier_ports_by_key: dict[tuple[str, str], set[str]] = {}
+        # (species_code, category_code) -> set of local ports with any
+        # positive landings for this key, frozen at fit_all time and reused
+        # every tick to build each port's live neighbor signal. Donor
+        # eligibility is narrowed further by distance inside
+        # compute_inverse_distance_weights (nearest TOP_K_NEAREST_DONORS only).
+        self.donor_candidates_by_key: dict[tuple[str, str], set[str]] = {}
 
         # (market_code, (species_code, category_code)) -> the exact
         # port_monthly/neighbor_signal/anchor_series Step 2 was fit with.
@@ -216,8 +217,8 @@ class MarketSystem:
                 & (blended["market_code"].isin(self.local_markets.keys()))
             ]
             volumes_by_port = volume_rows.groupby("market_code")["landings_kg"].sum().to_dict()
-            high_tier_ports = compute_high_tier_ports(volumes_by_port)
-            self.high_tier_ports_by_key[key] = high_tier_ports
+            donor_candidate_ports = {port for port, volume in volumes_by_port.items() if volume > 0}
+            self.donor_candidates_by_key[key] = donor_candidate_ports
 
             predicted_series_by_port = {}
             for code, local_market in self.local_markets.items():
@@ -258,11 +259,11 @@ class MarketSystem:
                     continue
 
                 neighbor_signal = distance_weighted_neighbor_signal(
-                    market_code, high_tier_ports, predicted_series_by_port, self.distance_lookup
+                    market_code, donor_candidate_ports, predicted_series_by_port, self.distance_lookup
                 )
                 if neighbor_signal is None:
                     self.logger.warning(
-                        f"LocalMarket {market_code}: no High-tier neighbor available for {key}, "
+                        f"LocalMarket {market_code}: no eligible neighbor port available for {key}, "
                         "falling back to the base model only"
                     )
                     continue
@@ -349,13 +350,13 @@ class MarketSystem:
                     baseline_table = combined_market.get_baseline_price_table(key[0], key[1])
                     if baseline_table is not None and current_date.month in baseline_table.index:
                         anchor_value = baseline_table[current_date.month]
-                        high_tier_ports = self.high_tier_ports_by_key.get(key, set())
+                        donor_candidate_ports = self.donor_candidates_by_key.get(key, set())
                         neighbor_candidates = {
                             other_code: predicted
                             for (other_code, other_key), predicted in base_predictions.items()
                             if other_key == key and other_code != code and predicted is not None
                         }
-                        neighbor_value = self._weighted_neighbor_value(code, high_tier_ports, neighbor_candidates)
+                        neighbor_value = self._weighted_neighbor_value(code, donor_candidate_ports, neighbor_candidates)
                         if neighbor_value is not None:
                             step2_price = local_market.predict_step2(
                                 key[0], key[1], current_date, local_volumes[code].get(key, 0.0),
@@ -405,10 +406,10 @@ class MarketSystem:
         self.tick.increase_tick()
 
     def _weighted_neighbor_value(
-        self, target_port: str, high_tier_ports: set, neighbor_candidates: dict[str, float]
+        self, target_port: str, donor_candidate_ports: set, neighbor_candidates: dict[str, float]
     ) -> float | None:
         weights = compute_inverse_distance_weights(
-            target_port, high_tier_ports, neighbor_candidates, self.distance_lookup
+            target_port, donor_candidate_ports, neighbor_candidates, self.distance_lookup
         )
         if not weights:
             return None
