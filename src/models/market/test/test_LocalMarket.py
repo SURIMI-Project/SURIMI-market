@@ -260,6 +260,46 @@ def test_predict_step2_falls_back_to_distance_only_on_nan_volume():
     assert nan_price == distance_only_price
 
 
+def test_predict_step2_falls_back_to_distance_only_when_month_has_no_seeded_baseline():
+    """Regression test for the None->NaN fix in predict_step2: when no
+    volume_baseline_stats entry exists at all for the queried month (as
+    opposed to an entry existing but evaluating to a NaN ratio), volume_ratio
+    must become float("nan") (not None), so should_use_distance_only's `|`
+    comparisons don't raise and the call still routes to DistanceOnly.
+
+    Note: fit_step1 itself seeds volume_baseline_stats for every month present
+    in its training data (via _seed_volume_baseline_stats), and the synthetic
+    6-year fixture below covers all 12 months -- so simply skipping an explicit
+    seeding line is not enough to produce a genuinely absent month entry. The
+    stats dict for this key is cleared after fitting to force month_stats to
+    be None, exactly as if nothing had ever been seeded for it.
+    """
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    port.fit_step2(
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=pd.Timestamp("2024-01-01"),
+        ),
+    )
+    port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {}  # no month entries at all
+
+    date = pd.Timestamp("2024-01-01")
+    price = port.predict_step2("ANE", "Fresh - Whole", date, volume=500.0, anchor_value=2.0, neighbor_value=2.0)
+    assert price is not None
+
+    from src.models.market.stacked_model import predict_distance_only_model
+    expected_distance_only = predict_distance_only_model(
+        pd.DataFrame({"date": [date], "price": [None], "landings_kg": [500.0]}),
+        pd.Series([2.0], index=[date]),
+        pd.Series([2.0], index=[date]),
+        port.step2_distance_only_models[("ANE", "Fresh - Whole")],
+    ).iloc[0]
+    assert price == pytest.approx(expected_distance_only)
+
+
 def test_predict_step2_returns_none_when_no_step2_coefficients():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     price = port.predict_step2("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
