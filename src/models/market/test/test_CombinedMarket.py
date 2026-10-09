@@ -389,13 +389,35 @@ def _build_monthly_from_real_prices(market_code, species_code):
     return build_complete_monthly_series(rows)
 
 
+# Measured against the real, unmodified production code (spec
+# 2026-10-08-combined-market-trend-term-v2-design.md section 4). Window
+# label is expected to match exactly -- it's produced by code this plan
+# never modifies (fit_level_volume_model/select_best_window). confidence
+# and rate use generous tolerances: they come from a fresh implementation
+# of the spec's described algorithm, not a byte-for-byte copy of the
+# throwaway spike script that originally measured these numbers, and
+# small fencepost differences (e.g. exactly which calendar months a given
+# window boundary includes) are expected, not a bug, as long as they're
+# close.
+EXPECTED_TREND_PARAMS = {
+    ("ES", "ANE"): {"window": "3yr", "confidence": 0.92, "rate": 0.0625},
+    ("ES", "PIL"): {"window": "2yr", "confidence": 0.00, "rate": 0.0060},
+    ("ES", "HKE"): {"window": "Full", "confidence": 0.00, "rate": 0.0157},
+    ("ES", "SAA"): {"window": "6yr", "confidence": 0.08, "rate": 0.0203},
+    ("ES", "MUT"): {"window": "3yr", "confidence": 0.42, "rate": 0.0150},
+    ("FR", "ANE"): {"window": "3yr", "confidence": 0.08, "rate": 0.0337},
+    ("FR", "PIL"): {"window": "Full", "confidence": 0.08, "rate": -0.0027},
+    ("FR", "HKE"): {"window": "4yr", "confidence": 0.17, "rate": 0.0294},
+    ("FR", "SAA"): {"window": "Full", "confidence": 0.25, "rate": 0.0226},
+    ("FR", "MUT"): {"window": "3yr", "confidence": 0.42, "rate": -0.0252},
+}
+
+
 @pytest.mark.skipif(
     not os.path.exists(f"{CONFIG_DIR}/prices.csv"),
     reason="requires config/northwestern_med/prices.csv",
 )
-def test_real_data_selects_trend_only_for_ane_at_es():
-    expected_trend = {("ES", "ANE")}  # the one key validated during investigation
-
+def test_real_data_trend_params_match_measured_values():
     for market_code in ["ES", "FR"]:
         market = CombinedMarket(market_code)
         monthly_by_key = {
@@ -411,10 +433,18 @@ def test_real_data_selects_trend_only_for_ane_at_es():
 
         for species in VALIDATED_SPECIES:
             key = (species, CATEGORY)
-            if key not in market.models:
+            expected = EXPECTED_TREND_PARAMS.get((market_code, species))
+            if expected is None or key not in market.models:
                 continue
-            has_trend = "gamma" in market.models[key]
-            should_have_trend = (market_code, species) in expected_trend
-            assert has_trend == should_have_trend, (
-                f"{market_code}/{species}: expected trend={should_have_trend}, got {has_trend}"
+            params = market.models[key]
+            assert market.window_labels[key] == expected["window"], (
+                f"{market_code}/{species}: expected window {expected['window']!r}, "
+                f"got {market.window_labels[key]!r}"
+            )
+            assert params["trend_confidence"] == pytest.approx(expected["confidence"], abs=0.1), (
+                f"{market_code}/{species}: expected confidence ~{expected['confidence']}, "
+                f"got {params['trend_confidence']}"
+            )
+            assert params["trend_rate"] == pytest.approx(expected["rate"], abs=0.015), (
+                f"{market_code}/{species}: expected rate ~{expected['rate']}, got {params['trend_rate']}"
             )
