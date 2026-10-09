@@ -188,9 +188,9 @@ def test_update_volume_baseline_is_incremental_running_mean():
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
 
-    before = market.models[("ANE", "Fresh - Whole")]["baseline_volume"][1]  # January baseline
+    before = market.models[("ANE", "Fresh - Whole")].baseline_volume[1]  # January baseline
     market.update_volume_baseline("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=5000.0)
-    after = market.models[("ANE", "Fresh - Whole")]["baseline_volume"][1]
+    after = market.models[("ANE", "Fresh - Whole")].baseline_volume[1]
 
     assert after != before
     assert after > before  # one large new observation should pull the mean up
@@ -236,16 +236,16 @@ def test_fit_attaches_trend_params_to_every_key():
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2025-01-01"))
 
     for key in monthly_by_key:
-        params = market.models[key]
-        for field in ("trend_confidence", "trend_rate", "trend_years_trained", "trend_train_end"):
-            assert field in params
-        assert 0.0 <= params["trend_confidence"] <= 1.0
+        model = market.models[key]
+        for field in ("confidence", "rate", "years_trained", "train_end"):
+            assert hasattr(model.trend, field)
+        assert 0.0 <= model.trend.confidence <= 1.0
 
     # The trending series must measure meaningfully higher confidence than
     # the flat one -- confirms each key's own monthly data is actually
     # threaded through, not a shared or stale value.
-    trending_confidence = market.models[("ANE", "Fresh - Whole")]["trend_confidence"]
-    flat_confidence = market.models[("MUT", "Fresh - Whole")]["trend_confidence"]
+    trending_confidence = market.models[("ANE", "Fresh - Whole")].trend.confidence
+    flat_confidence = market.models[("MUT", "Fresh - Whole")].trend.confidence
     assert trending_confidence == pytest.approx(1.0)
     assert flat_confidence == pytest.approx(1 / 12)
 
@@ -268,23 +268,23 @@ def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatc
     market_high = CombinedMarket("ES")
     market_high.fit({key: monthly}, latest_date=latest_date)
 
-    assert market_low.models[key]["trend_confidence"] == 0.0
-    assert market_high.models[key]["trend_confidence"] == 1.0
+    assert market_low.models[key].trend.confidence == 0.0
+    assert market_high.models[key].trend.confidence == 1.0
     assert market_low.window_labels[key] == market_high.window_labels[key]
-    params_low = market_low.models[key]
-    params_high = market_high.models[key]
-    pd.testing.assert_series_equal(params_low["baseline_price"], params_high["baseline_price"])
-    pd.testing.assert_series_equal(params_low["baseline_log_price"], params_high["baseline_log_price"])
-    assert params_low["alpha"] == params_high["alpha"]
-    assert params_low["beta"] == params_high["beta"]
+    model_low = market_low.models[key]
+    model_high = market_high.models[key]
+    pd.testing.assert_series_equal(model_low.baseline_price, model_high.baseline_price)
+    pd.testing.assert_series_equal(model_low.baseline_log_price, model_high.baseline_log_price)
+    assert model_low.alpha == model_high.alpha
+    assert model_low.beta == model_high.beta
 
 
 def test_get_price_price_increases_with_positive_trend_correction():
     market = CombinedMarket("ES")
     monthly_by_key = {("ANE", "Fresh - Whole"): _trending_synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2025-01-01"))
-    params = market.models[("ANE", "Fresh - Whole")]
-    assert params["trend_confidence"] == pytest.approx(1.0)  # precondition for this test
+    model = market.models[("ANE", "Fresh - Whole")]
+    assert model.trend.confidence == pytest.approx(1.0)  # precondition for this test
 
     price_near_fit_end = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2025-02-01"), volume=1000.0)
     price_far_future = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2040-02-01"), volume=1000.0)
@@ -301,8 +301,8 @@ def test_get_price_is_unaffected_by_trend_for_a_flat_series():
     market = CombinedMarket("ES")
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
-    params = market.models[("ANE", "Fresh - Whole")]
-    assert params["trend_confidence"] == pytest.approx(1 / 12)  # precondition: low confidence
+    model = market.models[("ANE", "Fresh - Whole")]
+    assert model.trend.confidence == pytest.approx(1 / 12)  # precondition: low confidence
 
     # Same calendar month both times, so baseline/volume-anomaly terms
     # match and any difference comes only from the trend correction. This
@@ -325,8 +325,8 @@ def test_get_baseline_price_table_unaffected_by_trend_term():
     market = CombinedMarket("ES")
     monthly = _trending_synthetic_monthly()
     market.fit({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2025-01-01"))
-    params = market.models[("ANE", "Fresh - Whole")]
-    assert params["trend_confidence"] == pytest.approx(1.0)  # precondition: this is the high-confidence case
+    model = market.models[("ANE", "Fresh - Whole")]
+    assert model.trend.confidence == pytest.approx(1.0)  # precondition: this is the high-confidence case
 
     table = market.get_baseline_price_table("ANE", "Fresh - Whole")
     assert table is not None
@@ -334,7 +334,7 @@ def test_get_baseline_price_table_unaffected_by_trend_term():
     # baseline_price is the plain per-month arithmetic mean, computed
     # identically regardless of whether a trend term was also fit.
     pd.testing.assert_series_equal(
-        table, params["baseline_price"].reindex(range(1, 13)), check_names=False
+        table, model.baseline_price.reindex(range(1, 13)), check_names=False
     )
 
 
@@ -417,15 +417,15 @@ def test_real_data_trend_params_match_measured_values():
             expected = EXPECTED_TREND_PARAMS.get((market_code, species))
             if expected is None or key not in market.models:
                 continue
-            params = market.models[key]
+            model = market.models[key]
             assert market.window_labels[key] == expected["window"], (
                 f"{market_code}/{species}: expected window {expected['window']!r}, "
                 f"got {market.window_labels[key]!r}"
             )
-            assert params["trend_confidence"] == pytest.approx(expected["confidence"], abs=0.1), (
+            assert model.trend.confidence == pytest.approx(expected["confidence"], abs=0.1), (
                 f"{market_code}/{species}: expected confidence ~{expected['confidence']}, "
-                f"got {params['trend_confidence']}"
+                f"got {model.trend.confidence}"
             )
-            assert params["trend_rate"] == pytest.approx(expected["rate"], abs=0.015), (
-                f"{market_code}/{species}: expected rate ~{expected['rate']}, got {params['trend_rate']}"
+            assert model.trend.rate == pytest.approx(expected["rate"], abs=0.015), (
+                f"{market_code}/{species}: expected rate ~{expected['rate']}, got {model.trend.rate}"
             )

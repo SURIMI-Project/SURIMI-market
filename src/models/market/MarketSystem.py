@@ -172,7 +172,7 @@ class MarketSystem:
         for market_code, local_market in self.local_markets.items():
             rows = blended[blended["market_code"] == market_code]
             monthly_by_key = self._build_monthly_by_key(rows)
-            local_market.fit_step1(monthly_by_key, latest_date)
+            local_market.fit_base_models(monthly_by_key, latest_date)
             local_market.load_price_time_series(prices_df)
 
         self._fit_step2_for_all_ports(blended, latest_date, combined_monthly_by_key, anchor_scheme)
@@ -196,7 +196,7 @@ class MarketSystem:
     ):
         all_keys = set()
         for local_market in self.local_markets.values():
-            all_keys.update(local_market.step1_models.keys())
+            all_keys.update(local_market.models.keys())
 
         # Built once per port (O(ports*keys)), not once per (port, key)
         # (O(ports*keys^2)) -- the per-key rebuild was the dominant term in
@@ -221,12 +221,12 @@ class MarketSystem:
 
             predicted_series_by_port = {}
             for code, local_market in self.local_markets.items():
-                series = local_market.get_step1_historical_series(species_code, category_code)
+                series = local_market.get_base_predicted_series(species_code, category_code)
                 if series is not None:
                     predicted_series_by_port[code] = series
 
             for market_code, local_market in self.local_markets.items():
-                if key not in local_market.step1_models:
+                if key not in local_market.models:
                     continue
 
                 prefix = market_code[:2]
@@ -263,7 +263,7 @@ class MarketSystem:
                 if neighbor_signal is None:
                     self.logger.warning(
                         f"LocalMarket {market_code}: no High-tier neighbor available for {key}, "
-                        "falling back to Step-1-only"
+                        "falling back to the base model only"
                     )
                     continue
 
@@ -302,11 +302,11 @@ class MarketSystem:
 
     def _compute_tick_prices(self, current_date, local_volumes, combined_direct_volumes):
         """Pure price computation for a single tick: CombinedMarket prices,
-        Step 1 for every LocalMarket/key, and the final reported price per
+        the base model for every LocalMarket/key, and the final reported price per
         LocalMarket (real price first, Step 2 as fallback). No side effects
         (no history, baseline update, or tick advance) -- shared by step()
         and get_species_prices_message's pre-first-step live fallback."""
-        # Step 2: CombinedMarket prices + total tick volumes.
+        # CombinedMarket prices + total tick volumes.
         combined_prices = {}
         combined_total_volumes = {}
         for prefix, combined_market in self.combined_markets.items():
@@ -319,29 +319,31 @@ class MarketSystem:
                 )
                 combined_total_volumes[(prefix, key)] = total_volume
 
-        # Step 3: Step 1 for every LocalMarket, every key, unconditionally --
+        # Base model for every LocalMarket, every key, unconditionally --
         # needed as neighbor fuel regardless of whether this port itself has
         # real data this tick.
-        step1_predictions = {}
+        base_predictions = {}
         for code, local_market in self.local_markets.items():
-            for key in local_market.step1_models.keys():
+            for key in local_market.models.keys():
                 volume = local_volumes[code].get(key, 0.0)
-                step1_predictions[(code, key)] = local_market.predict_step1(key[0], key[1], current_date, volume)
+                base_predictions[(code, key)] = local_market.predict_from_base_model(
+                    key[0], key[1], current_date, volume
+                )
 
-        # Step 4: final reported price per LocalMarket (real-price-first;
+        # Final reported price per LocalMarket (real-price-first;
         # Step 2 only computed/used when this port itself lacks real data).
         local_prices = {code: {} for code in self.local_markets}
         for code, local_market in self.local_markets.items():
             prefix = code[:2]
             combined_market = self.combined_markets.get(prefix)
 
-            for key in local_market.step1_models.keys():
+            for key in local_market.models.keys():
                 real_price = local_market.get_real_price(key[0], key[1], current_date)
                 if pd.notna(real_price):
                     local_prices[code][key] = real_price
                     continue
 
-                final_price = step1_predictions.get((code, key))
+                final_price = base_predictions.get((code, key))
 
                 if key in local_market.step2_stacked_models and combined_market is not None:
                     baseline_table = combined_market.get_baseline_price_table(key[0], key[1])
@@ -350,7 +352,7 @@ class MarketSystem:
                         high_tier_ports = self.high_tier_ports_by_key.get(key, set())
                         neighbor_candidates = {
                             other_code: predicted
-                            for (other_code, other_key), predicted in step1_predictions.items()
+                            for (other_code, other_key), predicted in base_predictions.items()
                             if other_key == key and other_code != code and predicted is not None
                         }
                         neighbor_value = self._weighted_neighbor_value(code, high_tier_ports, neighbor_candidates)
@@ -369,7 +371,7 @@ class MarketSystem:
     def _advance_tick_state(
         self, current_date, local_volumes, combined_total_volumes, local_prices, combined_prices
     ):
-        # Step 5: adaptive volume-baseline updates (real observed volume
+        # Adaptive volume-baseline updates (real observed volume
         # only). A zero-catch tick must not be recorded as an explicit 0.0 --
         # it would dilute the running mean and inflate later VolumeRatio.
         # Local skips absent keys for free; Combined filters on volume > 0
@@ -382,7 +384,7 @@ class MarketSystem:
                 if p == prefix and volume > 0:
                     combined_market.update_volume_baseline(key[0], key[1], current_date, volume)
 
-        # Step 6: save history.
+        # Save history.
         current_tick = self.tick.get_tick()
         for code, local_market in self.local_markets.items():
             local_market.record_history(current_tick, local_prices[code], local_volumes[code])
@@ -395,7 +397,7 @@ class MarketSystem:
             }
             combined_market.record_history(current_tick, prices_for_prefix, volumes_for_prefix)
 
-        # Step 7: clear accumulators, advance tick.
+        # Clear accumulators, advance tick.
         for local_market in self.local_markets.values():
             local_market.clear_monthly_catch()
         for combined_market in self.combined_markets.values():

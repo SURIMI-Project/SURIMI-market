@@ -12,13 +12,14 @@ from dateutil.relativedelta import relativedelta
 
 from . import consts
 from .CatchAccumulator import CatchAccumulator
+from .PriceModel import PriceModel
+from .TrendCorrection import TrendCorrection
+from .LevelOnlyModel import LevelOnlyModel
+from .LevelVolumeModel import LevelVolumeModel
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
     fit_trend_rate_model,
-    predict_trend_correction,
-    fit_level_only_model,
-    predict_level_only,
     score_mape,
     compute_volume_baseline_stats,
     apply_volume_baseline_update,
@@ -39,7 +40,7 @@ class CombinedMarket:
 
         # (species_code, category_code) -> frozen params dict (baseline_price,
         # baseline_volume, alpha, beta) or level-only params (alpha=beta=0).
-        self.models: dict[tuple[str, str], dict] = {}
+        self.models: dict[tuple[str, str], PriceModel] = {}
         self.window_labels: dict[tuple[str, str], str] = {}
 
         # (species_code, category_code) -> {month: (running_sum, running_count)}
@@ -61,10 +62,9 @@ class CombinedMarket:
 
         Window selection and the frozen baseline are unconditional --
         identical regardless of trend. Trend confidence/rate are computed
-        separately and attached afterward via _attach_trend_params for
-        every key that gets a model, so get_price() can apply the trend
-        correction unconditionally (a no-op ~1.0 multiplier for a
-        non-trending key).
+        separately via _fit_trend for every key that gets a model, so
+        get_price() can apply the trend correction unconditionally (a
+        no-op ~1.0 multiplier for a non-trending key).
         """
         selected: dict[tuple[str, str], str | None] = {}
 
@@ -85,7 +85,9 @@ class CombinedMarket:
                 label, years = result
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
                 try:
-                    params = fit_level_volume_model(monthly, train_start, latest_date)
+                    model = LevelVolumeModel.fit(
+                        monthly, train_start, latest_date, self._fit_trend(monthly, latest_date)
+                    )
                 except (ValueError, np.linalg.LinAlgError):
                     # Rolling-origin validation scored this window acceptably, but the
                     # final window (train_start..latest_date) can still fail to fit if
@@ -97,11 +99,10 @@ class CombinedMarket:
                         f"scored acceptably in rolling-origin validation but failed to re-fit on "
                         f"the final window ending at {latest_date}; falling back to level-only fit"
                     )
-                    params = None
+                    model = None
 
-                if params is not None:
-                    self._attach_trend_params(params, monthly, latest_date)
-                    self.models[key] = params
+                if model is not None:
+                    self.models[key] = model
                     self.window_labels[key] = label
                     self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
                     selected[key] = label
@@ -114,9 +115,8 @@ class CombinedMarket:
                     f"for {key}, falling back to level-only fit"
                 )
             try:
-                params = fit_level_only_model(monthly, None, latest_date)
-                self._attach_trend_params(params, monthly, latest_date)
-                self.models[key] = params
+                model = LevelOnlyModel.fit(monthly, None, latest_date, self._fit_trend(monthly, latest_date))
+                self.models[key] = model
                 self.window_labels[key] = "level-only-fallback"
                 selected[key] = "level-only-fallback"
             except ValueError:
@@ -128,18 +128,14 @@ class CombinedMarket:
 
         return selected
 
-    def _attach_trend_params(self, params: dict, monthly: pd.DataFrame, train_end: pd.Timestamp) -> None:
-        """
-        Computes trend confidence and rate from the complete historical
-        record and attaches them unconditionally, for both the main
-        level-volume path and the level-only fallback, so get_price()
-        never needs to check which path produced a given key's params.
-        """
+    def _fit_trend(self, monthly: pd.DataFrame, train_end: pd.Timestamp) -> TrendCorrection:
         trend_rate_params = fit_trend_rate_model(monthly, train_end)
-        params["trend_confidence"] = compute_trend_confidence(monthly)
-        params["trend_rate"] = trend_rate_params["rate"]
-        params["trend_years_trained"] = trend_rate_params["years_trained"]
-        params["trend_train_end"] = train_end
+        return TrendCorrection(
+            confidence=compute_trend_confidence(monthly),
+            rate=trend_rate_params["rate"],
+            years_trained=trend_rate_params["years_trained"],
+            train_end=train_end,
+        )
 
     def _seed_volume_baseline_stats(self, key, monthly, train_start, train_end):
         self.volume_baseline_stats[key] = compute_volume_baseline_stats(monthly, train_start, train_end)
@@ -151,8 +147,8 @@ class CombinedMarket:
         if result is None:
             return
         month, new_mean = result
-        if key in self.models and self.models[key]["baseline_volume"] is not None:
-            self.models[key]["baseline_volume"][month] = new_mean
+        if key in self.models:
+            self.models[key].update_baseline_volume(month, new_mean)
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
         """Load real recorded prices for this market_code."""
@@ -161,12 +157,7 @@ class CombinedMarket:
     def get_price(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
     ) -> float | None:
-        """
-        Real-price-first: check price_time_series, else predict. The
-        trend correction is applied unconditionally -- a pure ~1.0
-        multiplier for a key with near-zero trend confidence, so there's
-        no branch on whether a key "has" a trend.
-        """
+        """Real-price-first: check price_time_series, else predict."""
         key = (species_code, category_code)
         real_price = self.price_time_series.get((species_code, category_code, date))
         if pd.notna(real_price):
@@ -175,15 +166,7 @@ class CombinedMarket:
         if key not in self.models:
             return None
 
-        params = self.models[key]
-        monthly = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
-        if params.get("baseline_volume") is None:
-            predicted = predict_level_only(monthly, params)
-        else:
-            predicted = predict_level_volume(monthly, params)
-        predicted = predicted * predict_trend_correction(monthly, params)
-        value = predicted.iloc[0]
-        return float(value) if pd.notna(value) else None
+        return self.models[key].predict(date, volume)
 
     def get_live_anchor_series(
         self, species_code: str, category_code: str, own_monthly: pd.DataFrame, target_dates
@@ -205,12 +188,7 @@ class CombinedMarket:
         if key not in self.models:
             return None
 
-        params = self.models[key]
-        if params.get("baseline_volume") is None:
-            predicted = predict_level_only(own_monthly, params)
-        else:
-            predicted = predict_level_volume(own_monthly, params)
-        predicted = predicted.copy()
+        predicted = self.models[key].predict_series(own_monthly).copy()
         predicted.index = own_monthly["date"]
         return predicted.reindex(pd.DatetimeIndex(target_dates))
 
@@ -225,7 +203,7 @@ class CombinedMarket:
         key = (species_code, category_code)
         if key not in self.models:
             return None
-        return self.models[key]["baseline_price"].reindex(range(1, 13))
+        return self.models[key].baseline_price.reindex(range(1, 13))
 
     def record_history(self, tick: int, prices: dict, volumes: dict):
         self.price_history.append((tick, {"prices": dict(prices), "volumes": dict(volumes)}))

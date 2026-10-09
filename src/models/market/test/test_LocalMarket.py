@@ -22,33 +22,33 @@ def test_local_market_holds_lon_lat_once():
     assert port.lat == 38.3
 
 
-def test_fit_step1_selects_window_and_stores_historical_series():
+def test_fit_base_models_selects_window_and_stores_historical_series():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
 
-    selected = port.fit_step1(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+    selected = port.fit_base_models(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
 
     assert selected[("ANE", "Fresh - Whole")] is not None
-    series = port.get_step1_historical_series("ANE", "Fresh - Whole")
+    series = port.get_base_predicted_series("ANE", "Fresh - Whole")
     assert series is not None
     assert len(series) == len(monthly_by_key[("ANE", "Fresh - Whole")])
 
 
-def test_predict_step1_uses_frozen_coefficients():
+def test_predict_from_base_model_uses_frozen_coefficients():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
-    port.fit_step1(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
 
-    price = port.predict_step1("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=500.0)
+    price = port.predict_from_base_model("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=500.0)
     assert price == pytest.approx(2.5, abs=0.5)
 
 
-def test_predict_step1_returns_none_for_unknown_species():
+def test_predict_from_base_model_returns_none_for_unknown_species():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    assert port.predict_step1("ZZZ", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=500.0) is None
+    assert port.predict_from_base_model("ZZZ", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=500.0) is None
 
 
-def test_fit_step1_falls_back_and_excludes_same_as_combined_market(caplog):
+def test_fit_base_models_falls_back_and_excludes_same_as_combined_market(caplog):
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     monthly = pd.DataFrame({
         "date": pd.date_range("2023-01-01", periods=2, freq="MS"),
@@ -57,7 +57,7 @@ def test_fit_step1_falls_back_and_excludes_same_as_combined_market(caplog):
     })
 
     with caplog.at_level(logging.WARNING):
-        selected = port.fit_step1({("GHOST", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2023-03-01"))
+        selected = port.fit_base_models({("GHOST", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2023-03-01"))
 
     assert selected[("GHOST", "Fresh - Whole")] is None
 
@@ -105,7 +105,7 @@ def test_record_history_appends_a_snapshot():
 # lock in the NaN-safe behavior so a refactor can't silently reintroduce either.
 
 
-def test_predict_step1_returns_none_for_month_absent_from_thin_fallback_training():
+def test_predict_from_base_model_returns_none_for_month_absent_from_thin_fallback_training():
     """Bug class 1 (per-month table coverage): LocalMarket never exposes the raw
     baseline_price/baseline_volume Series to a caller, only consumes them via
     pandas' NaN-safe `.map()` inside predict_level_only/predict_level_volume.
@@ -119,28 +119,33 @@ def test_predict_step1_returns_none_for_month_absent_from_thin_fallback_training
         "landings_kg": [500.0, 510.0],
     })
 
-    selected = port.fit_step1({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2023-03-01"))
+    selected = port.fit_base_models({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2023-03-01"))
     assert selected[("ANE", "Fresh - Whole")] == "level-only-fallback"
 
-    baseline_price = port.step1_models[("ANE", "Fresh - Whole")]["baseline_price"]
+    baseline_price = port.models[("ANE", "Fresh - Whole")].baseline_price
     assert set(baseline_price.index) == {1, 2}  # confirms the thin/sparse shape, same as CombinedMarket's finding
 
-    price_for_known_month = port.predict_step1("ANE", "Fresh - Whole", pd.Timestamp("2023-02-01"), volume=500.0)
+    price_for_known_month = port.predict_from_base_model(
+        "ANE", "Fresh - Whole", pd.Timestamp("2023-02-01"), volume=500.0
+    )
     assert price_for_known_month == pytest.approx(2.1, abs=0.5)
 
-    price_for_absent_month = port.predict_step1("ANE", "Fresh - Whole", pd.Timestamp("2023-03-01"), volume=500.0)
+    price_for_absent_month = port.predict_from_base_model(
+        "ANE", "Fresh - Whole", pd.Timestamp("2023-03-01"), volume=500.0
+    )
     assert price_for_absent_month is None
 
 
 def test_real_price_first_pattern_falls_through_on_nan_when_caller_guards_with_notna():
     """Bug class 2 (NaN guard): LocalMarket splits real-price-first into
-    get_real_price (raw lookup) and predict_step1 (frozen-model prediction),
-    deferring the combining to MarketSystem.step(). Locks in the contract that
-    makes that safe: get_real_price returns a stored NaN as-is (not swallowed to
-    None), so the caller must guard with pd.notna(), not `is not None`."""
+    get_real_price (raw lookup) and predict_from_base_model (frozen-model
+    prediction), deferring the combining to MarketSystem.step(). Locks in the
+    contract that makes that safe: get_real_price returns a stored NaN as-is
+    (not swallowed to None), so the caller must guard with pd.notna(), not
+    `is not None`."""
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
-    port.fit_step1(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
 
     # Simulate a loaded blended row with a missing/NaN price for this date (as
     # load_price_time_series would store verbatim for such a row).
@@ -151,7 +156,7 @@ def test_real_price_first_pattern_falls_through_on_nan_when_caller_guards_with_n
     assert pd.isna(real_price)  # ...but it is not usable
 
     # The correct real-price-first caller pattern: guard with pd.notna(), not `is not None`.
-    price = real_price if pd.notna(real_price) else port.predict_step1(
+    price = real_price if pd.notna(real_price) else port.predict_from_base_model(
         "ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=500.0
     )
     assert price == pytest.approx(2.5, abs=0.5)
@@ -177,7 +182,7 @@ def _synthetic_port_neighbor_anchor(seed=1):
 
 def test_fit_step2_selects_a_window_and_freezes_both_submodels():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
 
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     label = port.fit_step2(
@@ -195,7 +200,7 @@ def test_fit_step2_selects_a_window_and_freezes_both_submodels():
 
 def test_predict_step2_picks_stacked_when_volume_ratio_in_normal_range():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
         "ANE", "Fresh - Whole",
@@ -215,7 +220,7 @@ def test_predict_step2_picks_stacked_when_volume_ratio_in_normal_range():
 
 def test_predict_step2_falls_back_to_distance_only_on_extreme_volume_ratio():
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
         "ANE", "Fresh - Whole",
@@ -240,7 +245,7 @@ def test_predict_step2_falls_back_to_distance_only_on_nan_volume():
     a NaN volume must route to DistanceOnly (matching the volume=0.0 extreme-ratio case),
     not silently fall through to the Stacked branch (which would NaN-propagate to None)."""
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
         "ANE", "Fresh - Whole",
@@ -267,7 +272,7 @@ def test_predict_step2_falls_back_to_distance_only_when_month_has_no_seeded_base
     must become float("nan") (not None), so should_use_distance_only's `|`
     comparisons don't raise and the call still routes to DistanceOnly.
 
-    Note: fit_step1 itself seeds volume_baseline_stats for every month present
+    Note: fit_base_models itself seeds volume_baseline_stats for every month present
     in its training data (via _seed_volume_baseline_stats), and the synthetic
     6-year fixture below covers all 12 months -- so simply skipping an explicit
     seeding line is not enough to produce a genuinely absent month entry. The
@@ -275,7 +280,7 @@ def test_predict_step2_falls_back_to_distance_only_when_month_has_no_seeded_base
     be None, exactly as if nothing had ever been seeded for it.
     """
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
         "ANE", "Fresh - Whole",
@@ -320,7 +325,7 @@ def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit
     # Discover which window this fixture naturally selects as best, with no
     # monkeypatching in effect yet.
     baseline_port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    baseline_port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
+    baseline_port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
     natural_label = baseline_port.fit_step2(
         "ANE", "Fresh - Whole",
         Step2FitInputs(
@@ -346,7 +351,7 @@ def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit
     monkeypatch.setattr(local_market_module, "fit_stacked_model", flaky_fit_stacked_model)
 
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
     label = port.fit_step2(
         "ANE", "Fresh - Whole",
         Step2FitInputs(

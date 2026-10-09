@@ -246,13 +246,13 @@ def test_fit_all_fits_combined_markets_and_loads_real_prices():
     assert ("ANE", "Fresh - Whole") in system.combined_markets["ES"].models
 
 
-def test_fit_all_fits_step1_for_every_local_market():
+def test_fit_all_fits_base_models_for_every_local_market():
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())
     system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
 
     for code in ["ESALC", "ESBCN", "ESVLC"]:
-        assert ("ANE", "Fresh - Whole") in system.local_markets[code].step1_models
+        assert ("ANE", "Fresh - Whole") in system.local_markets[code].models
 
 
 def test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor():
@@ -340,14 +340,14 @@ def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_step2_model()
     live_gamma = live_system.local_markets["ESALC"].step2_stacked_models[key]["gamma"]
     assert static_gamma != live_gamma  # different anchor source must produce a different fit
 
-    # Step 1 and CombinedMarket don't depend on anchor_scheme at all.
+    # The base model and CombinedMarket don't depend on anchor_scheme at all.
     assert (
-        static_system.local_markets["ESALC"].step1_models[key]["alpha"]
-        == live_system.local_markets["ESALC"].step1_models[key]["alpha"]
+        static_system.local_markets["ESALC"].models[key].alpha
+        == live_system.local_markets["ESALC"].models[key].alpha
     )
     assert (
-        static_system.combined_markets["ES"].models[key]["alpha"]
-        == live_system.combined_markets["ES"].models[key]["alpha"]
+        static_system.combined_markets["ES"].models[key].alpha
+        == live_system.combined_markets["ES"].models[key].alpha
     )
 
 
@@ -375,8 +375,8 @@ def test_fit_all_only_fits_contracted_species_not_every_species_in_prices_csv():
 
     system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"))
 
-    assert ("UNCONTRACTED", "Fresh - Whole") not in system.local_markets["ESALC"].step1_models
-    assert ("ANE", "Fresh - Whole") in system.local_markets["ESALC"].step1_models
+    assert ("UNCONTRACTED", "Fresh - Whole") not in system.local_markets["ESALC"].models
+    assert ("ANE", "Fresh - Whole") in system.local_markets["ESALC"].models
 
 
 def _synthetic_prices_df_no_sibling_local_port(n_years=6, seed=1):
@@ -440,21 +440,21 @@ def test_step_uses_real_price_when_available_and_skips_prediction_reporting():
     assert snapshot["prices"][("ANE", "Fresh - Whole")] == 7.77
 
 
-def test_step_computes_step1_for_every_port_even_with_real_data(monkeypatch):
+def test_step_computes_base_model_for_every_port_even_with_real_data(monkeypatch):
     system = _fitted_system()
     system.local_markets["ESALC"].price_time_series[("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"))] = 7.77
 
     calls = []
-    original = system.local_markets["ESALC"].predict_step1
+    original = system.local_markets["ESALC"].predict_from_base_model
 
     def spy(*args, **kwargs):
         calls.append(args)
         return original(*args, **kwargs)
 
-    system.local_markets["ESALC"].predict_step1 = spy
+    system.local_markets["ESALC"].predict_from_base_model = spy
     system.step()
 
-    assert len(calls) > 0  # Step 1 still ran even though ESALC had real data this tick
+    assert len(calls) > 0  # the base model still ran even though ESALC had real data this tick
 
 
 def test_step_advances_tick_and_clears_accumulators():
@@ -507,9 +507,9 @@ def test_step_records_history_for_combined_markets_too():
     assert len(system.combined_markets["ES"].price_history) == 1
 
 
-def test_step_falls_back_to_step1_when_step2_anchor_or_neighbor_unavailable():
+def test_step_falls_back_to_base_model_when_step2_anchor_or_neighbor_unavailable():
     # ESVLC never got Step 2 coefficients (no High-tier neighbor) -- its
-    # reported price must still be a valid Step-1 prediction, not None.
+    # reported price must still be a valid base-model prediction, not None.
     system = _fitted_system()
     system.step()
 

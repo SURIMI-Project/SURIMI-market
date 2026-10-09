@@ -49,7 +49,7 @@ def test_combined_market_accuracy_within_acceptable_mape():
     # pair. Without this, a future change could silently stop exercising
     # the trend correction without anyone noticing.
     confidences = {
-        (market_code, species): combined_market.models[(species, category)]["trend_confidence"]
+        (market_code, species): combined_market.models[(species, category)].trend.confidence
         for market_code, combined_market in handler.market_system.combined_markets.items()
         for species, category in combined_market.models
         if category == CATEGORY

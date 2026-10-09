@@ -1,7 +1,8 @@
 """
-One instance per 5-letter LOCODE. Holds frozen Step 1 coefficients and Step 2
-Stacked/DistanceOnly coefficients, plus the per-port catch accumulator reused
-unchanged from Elsa's LocalMarket.
+One instance per 5-letter LOCODE. Holds a frozen base model (own-history
+only, no neighbor signal) and frozen Step 2 Stacked/DistanceOnly
+coefficients, plus the per-port catch accumulator reused unchanged from
+Elsa's LocalMarket.
 """
 from dataclasses import dataclass
 from dateutil.relativedelta import relativedelta
@@ -12,11 +13,13 @@ import pandas as pd
 
 from . import consts
 from .CatchAccumulator import CatchAccumulator
+from .PriceModel import PriceModel
+from .TrendCorrection import TrendCorrection
+from .LevelOnlyModel import LevelOnlyModel
+from .LevelVolumeModel import LevelVolumeModel
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
-    fit_level_only_model,
-    predict_level_only,
     score_mape,
     compute_volume_baseline_stats,
     apply_volume_baseline_update,
@@ -52,10 +55,11 @@ class LocalMarket:
 
         self.logger = logging.getLogger(consts.LOCAL_MARKET_LOGGER_NAME)
 
-        # Step 1 state
-        self.step1_models: dict[tuple[str, str], dict] = {}
-        self.step1_window_labels: dict[tuple[str, str], str] = {}
-        self._step1_historical_series: dict[tuple[str, str], pd.Series] = {}
+        # Base model state (own-history only, no neighbor signal -- same
+        # model CombinedMarket uses)
+        self.models: dict[tuple[str, str], PriceModel] = {}
+        self.window_labels: dict[tuple[str, str], str] = {}
+        self._base_predicted_series: dict[tuple[str, str], pd.Series] = {}
 
         # Step 2 state
         self.step2_stacked_models: dict[tuple[str, str], dict] = {}
@@ -79,9 +83,9 @@ class LocalMarket:
     def get_monthly_catch_snapshot(self):
         return self._monthly_catch.snapshot()
 
-    # --- Step 1 fitting ---
+    # --- Base model fitting ---
 
-    def fit_step1(
+    def fit_base_models(
         self, monthly_by_key: dict[tuple[str, str], pd.DataFrame], latest_date: pd.Timestamp
     ) -> dict[tuple[str, str], str | None]:
         selected: dict[tuple[str, str], str | None] = {}
@@ -103,11 +107,12 @@ class LocalMarket:
                 label, years = result
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
                 try:
-                    params = fit_level_volume_model(monthly, train_start, latest_date)
-                    self.step1_models[key] = params
-                    self.step1_window_labels[key] = label
-                    self._step1_historical_series[key] = self._date_indexed(
-                        predict_level_volume(monthly, params), monthly
+                    trend = TrendCorrection.identity(latest_date)
+                    model = LevelVolumeModel.fit(monthly, train_start, latest_date, trend)
+                    self.models[key] = model
+                    self.window_labels[key] = label
+                    self._base_predicted_series[key] = self._date_indexed(
+                        model.predict_series(monthly), monthly
                     )
                     self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
                     selected[key] = label
@@ -124,15 +129,16 @@ class LocalMarket:
 
             else:
                 self.logger.warning(
-                    f"LocalMarket {self.market_code}: no stable Step-1 window found for {key}, "
+                    f"LocalMarket {self.market_code}: no stable base-model window found for {key}, "
                     f"falling back to level-only fit"
                 )
             try:
-                params = fit_level_only_model(monthly, None, latest_date)
-                self.step1_models[key] = params
-                self.step1_window_labels[key] = "level-only-fallback"
-                self._step1_historical_series[key] = self._date_indexed(
-                    predict_level_only(monthly, params), monthly
+                trend = TrendCorrection.identity(latest_date)
+                model = LevelOnlyModel.fit(monthly, None, latest_date, trend)
+                self.models[key] = model
+                self.window_labels[key] = "level-only-fallback"
+                self._base_predicted_series[key] = self._date_indexed(
+                    model.predict_series(monthly), monthly
                 )
                 selected[key] = "level-only-fallback"
             except ValueError:
@@ -163,30 +169,22 @@ class LocalMarket:
         if result is None:
             return
         month, new_mean = result
-        if key in self.step1_models and self.step1_models[key]["baseline_volume"] is not None:
-            self.step1_models[key]["baseline_volume"][month] = new_mean
+        if key in self.models:
+            self.models[key].update_baseline_volume(month, new_mean)
 
-    def predict_step1(
+    def predict_from_base_model(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
     ) -> float | None:
-        """Evaluate the frozen Step-1 model for a given tick; always computed,
+        """Evaluate the frozen base model for a given tick; always computed,
         regardless of whether this port has real price data that tick."""
         key = (species_code, category_code)
-        if key not in self.step1_models:
+        if key not in self.models:
             return None
+        return self.models[key].predict(date, volume)
 
-        params = self.step1_models[key]
-        monthly = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
-        if params.get("baseline_volume") is None:
-            predicted = predict_level_only(monthly, params)
-        else:
-            predicted = predict_level_volume(monthly, params)
-        value = predicted.iloc[0]
-        return float(value) if pd.notna(value) else None
-
-    def get_step1_historical_series(self, species_code: str, category_code: str) -> pd.Series | None:
+    def get_base_predicted_series(self, species_code: str, category_code: str) -> pd.Series | None:
         """Full historical predicted series, used by other ports' neighbor signals."""
-        return self._step1_historical_series.get((species_code, category_code))
+        return self._base_predicted_series.get((species_code, category_code))
 
     # --- Real-price-first ---
 
