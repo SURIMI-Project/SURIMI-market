@@ -28,6 +28,15 @@ import pandas as pd
 from . import consts
 
 
+def with_month_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of df with a "month" column derived from its "date"
+    column -- the same two-line pattern repeated across this package's
+    fit/predict functions, collapsed into one place."""
+    df = df.copy()
+    df["month"] = df["date"].dt.month
+    return df
+
+
 def fit_level_only_model(
     monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp
 ) -> dict:
@@ -35,8 +44,7 @@ def fit_level_only_model(
     Fallback fit with no volume term at all, used when there isn't enough
     data/variance to fit the full level-volume model.
     """
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
+    monthly = with_month_column(monthly)
 
     train = monthly[monthly["date"] < train_end]
     if train_start is not None:
@@ -50,8 +58,7 @@ def fit_level_only_model(
 
 
 def predict_level_only(monthly: pd.DataFrame, params: dict) -> pd.Series:
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
+    monthly = with_month_column(monthly)
     predicted = monthly["month"].map(params["baseline_price"]) + params["alpha"]
     predicted.index = monthly.index
     return predicted
@@ -60,8 +67,7 @@ def predict_level_only(monthly: pd.DataFrame, params: dict) -> pd.Series:
 def fit_level_volume_model(
     monthly: pd.DataFrame, train_start: pd.Timestamp | None, train_end: pd.Timestamp
 ) -> dict:
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
+    monthly = with_month_column(monthly)
     monthly["log_price"] = np.log(monthly["price"])
 
     train = monthly[monthly["date"] < train_end]
@@ -94,8 +100,7 @@ def fit_level_volume_model(
 
 
 def predict_level_volume(monthly: pd.DataFrame, params: dict) -> pd.Series:
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
+    monthly = with_month_column(monthly)
 
     baseline_volume_mapped = monthly["month"].map(params["baseline_volume"])
     vol_anom = (monthly["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
@@ -222,8 +227,7 @@ def compute_volume_baseline_stats(
     per-calendar-month (sum, count) of non-null landings_kg within
     [train_start, train_end).
     """
-    monthly = monthly.copy()
-    monthly["month"] = monthly["date"].dt.month
+    monthly = with_month_column(monthly)
     train = monthly[monthly["date"] < train_end]
     if train_start is not None:
         train = train[train["date"] >= train_start]

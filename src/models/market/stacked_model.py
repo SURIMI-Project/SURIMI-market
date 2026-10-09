@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from . import consts
+from .level_volume_model import with_month_column
 
 
 def compute_volume_shares(volumes_by_port: dict[str, float]) -> dict[str, float]:
@@ -77,8 +78,7 @@ def fit_stacked_model(
     train_start: pd.Timestamp | None,
     train_end: pd.Timestamp,
 ) -> dict:
-    port = port_monthly.copy()
-    port["month"] = port["date"].dt.month
+    port = with_month_column(port_monthly)
     port["anchor"] = port["date"].map(anchor_series)
     port["neighbor"] = port["date"].map(neighbor_signal)
 
@@ -117,8 +117,7 @@ def fit_stacked_model(
 def predict_stacked_model(
     port_monthly: pd.DataFrame, anchor_series: pd.Series, neighbor_signal: pd.Series, params: dict
 ) -> pd.Series:
-    port = port_monthly.copy()
-    port["month"] = port["date"].dt.month
+    port = with_month_column(port_monthly)
     port["anchor"] = port["date"].map(anchor_series)
     port["neighbor"] = port["date"].map(neighbor_signal)
 
@@ -137,8 +136,7 @@ def fit_distance_only_model(
     train_start: pd.Timestamp | None,
     train_end: pd.Timestamp,
 ) -> dict:
-    port = port_monthly.copy()
-    port["month"] = port["date"].dt.month
+    port = with_month_column(port_monthly)
     port["anchor"] = port["date"].map(anchor_series)
     port["neighbor"] = port["date"].map(neighbor_signal)
 
@@ -163,8 +161,7 @@ def fit_distance_only_model(
 def predict_distance_only_model(
     port_monthly: pd.DataFrame, anchor_series: pd.Series, neighbor_signal: pd.Series, params: dict
 ) -> pd.Series:
-    port = port_monthly.copy()
-    port["month"] = port["date"].dt.month
+    port = with_month_column(port_monthly)
     port["anchor"] = port["date"].map(anchor_series)
     port["neighbor"] = port["date"].map(neighbor_signal)
 

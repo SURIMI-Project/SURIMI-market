@@ -20,6 +20,7 @@ from .level_volume_model import (
     compute_volume_baseline_stats,
     apply_volume_baseline_update,
     populate_price_time_series,
+    with_month_column,
 )
 from .stacked_model import (
     fit_stacked_model,
@@ -270,8 +271,7 @@ class LocalMarket:
         return None
 
     def _trial_baseline_volume(self, port_monthly, train_start, train_end):
-        port = port_monthly.copy()
-        port["month"] = port["date"].dt.month
+        port = with_month_column(port_monthly)
         train = port[port["date"] < train_end]
         if train_start is not None:
             train = train[train["date"] >= train_start]
@@ -285,8 +285,7 @@ class LocalMarket:
             port_monthly, anchor_series, neighbor_signal, params["distance_only"]
         )
 
-        port = port_monthly.copy()
-        port["month"] = port["date"].dt.month
+        port = with_month_column(port_monthly)
         baseline_volume = params["trial_volume"]
         volume_ratio = port["landings_kg"].fillna(0.0) / port["month"].map(baseline_volume)
 
