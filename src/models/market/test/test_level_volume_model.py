@@ -11,6 +11,7 @@ from src.models.market.level_volume_model import (
     predict_level_only,
     fit_trend_rate_model,
     predict_trend_correction,
+    with_month_column,
 )
 
 
@@ -247,3 +248,12 @@ def test_predict_trend_correction_is_a_no_op_at_zero_confidence():
         {"date": [train_end + pd.DateOffset(years=5)], "price": [None], "landings_kg": [1000.0]}
     )
     assert predict_trend_correction(far_future, params).iloc[0] == pytest.approx(1.0)
+
+
+def test_with_month_column_derives_month_without_mutating_the_original():
+    df = pd.DataFrame({"date": pd.to_datetime(["2024-01-15", "2024-12-01"]), "price": [1.0, 2.0]})
+
+    result = with_month_column(df)
+
+    assert result["month"].tolist() == [1, 12]
+    assert "month" not in df.columns  # original untouched, since with_month_column copies

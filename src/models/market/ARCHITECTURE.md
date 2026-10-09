@@ -303,16 +303,19 @@ broken, but each is a concrete readability/maintainability cost.
 | 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | Each independently builds a throwaway one-row DataFrame to call a predict function designed for a whole monthly series — an API-shape mismatch repeated three times. |
 | 5 | ~~`Utility.py`~~ | **Fixed.** Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this held no class and was renamed to `utility.py`. |
 | 6 | `consts.py` | Every project constant lives flat in one file, grouped only by comment headers — currency/units, distance math, volume tiers, switch thresholds, window candidates, rolling-origin params, anchor schemes, trend confidence/rate, all undifferentiated. |
-| 7 | Repeated boilerplate | `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` opens nearly every fit/predict function, reinvented each time rather than one named helper. |
+| 7 | ~~Repeated boilerplate~~ | **Fixed.** `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` was repeated 11 times across `level_volume_model.py`, `stacked_model.py`, and `LocalMarket.py`; collapsed into `level_volume_model.with_month_column()`. |
 | 8 | `stacked_model.distance_weighted_neighbor_signal` / `MarketSystem._weighted_neighbor_value` | Same pattern as #1: inverse-distance-weighted averaging is implemented twice, independently — vectorized over a whole historical series at fit time, scalar over one tick's candidates at runtime. Not a one-off: this is a recurring shape in this codebase (fit-time vectorized vs. runtime scalar), not an isolated mistake. |
-| 9 | `CombinedMarket._direct_catch`/`add_direct_catch` vs. `LocalMarket._monthly_catch`/`add_monthly_catch` | The exact same pattern (a `defaultdict(float)` keyed by `(species_code, category_code)`, add/clear/snapshot, guarded by a lock) exists independently in both classes under different names. |
+| 9 | ~~`CombinedMarket._direct_catch`/`add_direct_catch` vs. `LocalMarket._monthly_catch`/`add_monthly_catch`~~ | **Fixed.** Both classes now compose a shared `CatchAccumulator` instance; their public `add_direct_catch`/`add_monthly_catch`-style methods are unchanged, but the duplicated `defaultdict`+lock+add/clear/snapshot pattern is gone. |
 
 ---
 
 ## 5. Proposed Target Architecture
 
-**Not yet implemented — pending sign-off.** The core move: each fitted
-model variant becomes a real class with a `predict()` method, replacing
+**Partially implemented.** Phase A (`CatchAccumulator`, below) has already
+landed. Everything else in this section — the `PriceModel` hierarchy,
+`Step2Model`, `TrendCorrection`, `VolumeBaselineTracker` — is still
+pending sign-off. The core move still ahead: each fitted model variant
+becomes a real class with a `predict()` method, replacing
 dict-key-presence dispatch with polymorphism. This directly resolves #1
 and #3 above, and makes #4 trivial to fix alongside it.
 
@@ -362,6 +365,7 @@ classDiagram
         +ratio(date, volume) float
     }
     class CatchAccumulator {
+        %% already implemented, Phase A
         +add(species_code, category_code, quantity)
         +clear()
         +snapshot() dict
@@ -404,9 +408,10 @@ What this changes, concretely:
 - `VolumeBaselineTracker`/a `RealPriceLookup` object replace the shared
   free functions in `level_volume_model.py` that `CombinedMarket` and
   `LocalMarket` currently call against their own raw dicts.
-- A shared `CatchAccumulator` replaces `CombinedMarket._direct_catch` and
-  `LocalMarket._monthly_catch`, fixing #9 — same object, instantiated once
-  per market, instead of the same pattern hand-written twice under
+- *(already done, Phase A)* A shared `CatchAccumulator` replaces
+  `CombinedMarket._direct_catch` and `LocalMarket._monthly_catch`, fixing
+  #9 — same object, instantiated once per market, instead of the same
+  pattern hand-written twice under
   different names.
 - #8 needs its own, separate fix — it lives in `MarketSystem`, not in
   either market class, so wrapping Stacked/DistanceOnly in `Step2Model`
