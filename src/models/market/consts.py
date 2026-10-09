@@ -22,9 +22,10 @@ SIMULATION_HANDLER_LOGGER_NAME = "market_simulation"
 # geosphere::distHaversine() default to 1e-10m precision.
 EARTH_RADIUS_M = 6_378_137
 
-# Volume-share tiers for High-tier neighbor determination
-MID_TIER_MIN_VOLUME_SHARE_PCT = 0.2
-HIGH_TIER_MIN_VOLUME_SHARE_PCT = 2.0
+# Step 2 neighbor-donor eligibility: a port may donate its Step-1
+# predicted series only if it's among the target port's K nearest
+# (haversine distance) -- replaces an earlier volume-share tier gate.
+TOP_K_NEAREST_DONORS = 5
 
 # Dynamic Stacked/DistanceOnly switch thresholds
 LOW_VOLUME_RATIO_THRESHOLD = 0.10

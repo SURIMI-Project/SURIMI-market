@@ -1,33 +1,12 @@
 """
-High-tier neighbor determination, distance-weighted neighbor signal
-construction, and the Stacked/DistanceOnly fit/predict functions.
+Distance-weighted neighbor signal construction (nearest-K donor
+selection) and the Stacked/DistanceOnly fit/predict functions.
 """
 import numpy as np
 import pandas as pd
 
 from . import consts
 from .level_volume_model import with_month_column
-
-
-def compute_volume_shares(volumes_by_port: dict[str, float]) -> dict[str, float]:
-    total = sum(volumes_by_port.values())
-    if total <= 0:
-        return {port: 0.0 for port in volumes_by_port}
-    return {port: (volume / total) * 100 for port, volume in volumes_by_port.items()}
-
-
-def compute_tier(volume_share_pct: float) -> str:
-    """Matches pd.cut(bins=[-0.01, 0.2, 2, 100]) right-inclusive-lower-bin semantics exactly."""
-    if volume_share_pct > consts.HIGH_TIER_MIN_VOLUME_SHARE_PCT:
-        return "High"
-    if volume_share_pct > consts.MID_TIER_MIN_VOLUME_SHARE_PCT:
-        return "Mid"
-    return "Low"
-
-
-def compute_high_tier_ports(volumes_by_port: dict[str, float]) -> set[str]:
-    shares = compute_volume_shares(volumes_by_port)
-    return {port for port, share in shares.items() if compute_tier(share) == "High"}
 
 
 def should_use_distance_only(volume_ratio):
@@ -55,20 +34,28 @@ def compute_inverse_distance_weights(
     distance_lookup: dict[tuple[str, str], float],
 ) -> dict[str, float]:
     """
-    Inverse-distance weight (1/distance) for every candidate neighbor port
-    -- a port counts as a candidate if it isn't the target itself, has a
-    known distance to the target, and is actually available (present in
+    Inverse-distance weight (1/distance) for each of the target's
+    TOP_K_NEAREST_DONORS geographically closest eligible ports -- replaces
+    the old volume-share "High-tier" gate (simpler: no percentage-share
+    math, no 3-way classification, just "closest K"). A port counts as a
+    candidate for the distance ranking if it isn't the target itself and
+    has a known distance to the target; THEN, after narrowing to the
+    nearest K by distance alone, the availability filter (present in
     whatever the caller is weighting: a dict of per-tick scalar values, or
     a dict of historical Series -- `available_ports` just needs to support
-    `in`). Returns an empty dict if there are no valid candidates; callers
-    treat that the same way they already treat "no neighbor signal".
+    `in`) is applied -- this order matters and was the exact one
+    empirically validated, not an equivalent-looking alternative. Returns
+    an empty dict if nothing survives both filters; callers treat that the
+    same way they already treat "no neighbor signal".
     """
-    candidates = [
+    with_known_distance = [
         port for port in source_ports
-        if port != target_port
-        and port in available_ports
-        and (target_port, port) in distance_lookup
+        if port != target_port and (target_port, port) in distance_lookup
     ]
+    nearest = sorted(
+        with_known_distance, key=lambda port: distance_lookup[(target_port, port)]
+    )[:consts.TOP_K_NEAREST_DONORS]
+    candidates = [port for port in nearest if port in available_ports]
     return {port: 1.0 / distance_lookup[(target_port, port)] for port in candidates}
 
 

@@ -2,41 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.models.market import consts
 from src.models.market.stacked_model import (
-    compute_volume_shares,
-    compute_tier,
-    compute_high_tier_ports,
     should_use_distance_only,
     distance_weighted_neighbor_signal,
+    compute_inverse_distance_weights,
 )
-
-
-def test_compute_volume_shares_sums_to_100():
-    shares = compute_volume_shares({"A": 60.0, "B": 30.0, "C": 10.0})
-    assert shares["A"] == pytest.approx(60.0)
-    assert sum(shares.values()) == pytest.approx(100.0)
-
-
-def test_compute_volume_shares_handles_zero_total():
-    shares = compute_volume_shares({"A": 0.0, "B": 0.0})
-    assert shares == {"A": 0.0, "B": 0.0}
-
-
-def test_compute_tier_boundaries_match_right_inclusive_lower_bin():
-    # Matches pd.cut(bins=[-0.01, 0.2, 2, 100]) semantics exactly:
-    # exactly 0.2 -> Low, exactly 2.0 -> Mid, only > 2.0 -> High.
-    assert compute_tier(0.2) == "Low"
-    assert compute_tier(0.20001) == "Mid"
-    assert compute_tier(2.0) == "Mid"
-    assert compute_tier(2.00001) == "High"
-    assert compute_tier(0.0) == "Low"
-
-
-def test_compute_high_tier_ports_selects_only_high_tier():
-    high_tier = compute_high_tier_ports({"A": 90.0, "B": 1.5, "C": 1.0})
-    assert "A" in high_tier
-    assert "B" not in high_tier
-    assert "C" not in high_tier
 
 
 def test_should_use_distance_only_true_when_ratio_missing_or_extreme():
@@ -98,6 +69,54 @@ def test_distance_weighted_neighbor_signal_handles_missing_dates_gracefully():
     assert signal.iloc[0] == pytest.approx(1.0)
     assert pd.isna(signal.iloc[1])  # no valid source for this date
     assert signal.iloc[2] == pytest.approx(3.0)
+
+
+def test_compute_inverse_distance_weights_keeps_only_the_k_nearest():
+    # 7 candidates, all available -- only the TOP_K_NEAREST_DONORS (5) closest
+    # to TARGET should survive, regardless of them all otherwise qualifying.
+    source_ports = {"P1", "P2", "P3", "P4", "P5", "P6", "P7"}
+    available_ports = {port: 1.0 for port in source_ports}
+    distance_lookup = {("TARGET", port): float(i) + 1 for i, port in enumerate(
+        ["P1", "P2", "P3", "P4", "P5", "P6", "P7"]
+    )}
+
+    weights = compute_inverse_distance_weights("TARGET", source_ports, available_ports, distance_lookup)
+
+    assert len(weights) == consts.TOP_K_NEAREST_DONORS
+    assert set(weights) == {"P1", "P2", "P3", "P4", "P5"}
+    assert "P6" not in weights
+    assert "P7" not in weights
+
+
+def test_compute_inverse_distance_weights_nearest_k_chosen_before_availability_filter():
+    # Nearest 5 by distance are P1..P5; P6 is 6th-nearest. P1 (the single
+    # nearest) is unavailable. The tested behavior narrows to the nearest 5
+    # FIRST, then drops unavailable ones from that set -- it must NOT
+    # backfill with P6 to keep 5 candidates. If the implementation instead
+    # filtered by availability before ranking by distance, P6 would appear
+    # in the result -- this test would then fail.
+    source_ports = {"P1", "P2", "P3", "P4", "P5", "P6"}
+    distance_lookup = {("TARGET", port): float(i) + 1 for i, port in enumerate(
+        ["P1", "P2", "P3", "P4", "P5", "P6"]
+    )}
+    available_ports = {"P2": 1.0, "P3": 1.0, "P4": 1.0, "P5": 1.0, "P6": 1.0}  # P1 missing
+
+    weights = compute_inverse_distance_weights("TARGET", source_ports, available_ports, distance_lookup)
+
+    assert set(weights) == {"P2", "P3", "P4", "P5"}
+    assert "P6" not in weights  # must not be backfilled in place of unavailable P1
+    assert "P1" not in weights
+
+
+def test_compute_inverse_distance_weights_handles_fewer_than_k_candidates():
+    source_ports = {"P1", "P2", "P3"}
+    available_ports = {port: 1.0 for port in source_ports}
+    distance_lookup = {("TARGET", "P1"): 10.0, ("TARGET", "P2"): 20.0, ("TARGET", "P3"): 30.0}
+
+    weights = compute_inverse_distance_weights("TARGET", source_ports, available_ports, distance_lookup)
+
+    assert set(weights) == {"P1", "P2", "P3"}
+    assert weights["P1"] == pytest.approx(1.0 / 10.0)
 
 
 from src.models.market.stacked_model import (
