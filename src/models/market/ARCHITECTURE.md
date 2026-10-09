@@ -297,27 +297,31 @@ broken, but each is a concrete readability/maintainability cost.
 
 | # | Where | Issue |
 |---|---|---|
-| 1 | `LocalMarket._blend_step2_predictions` / `predict_step2` | The Stacked-vs-DistanceOnly volume-ratio switch is written out twice, independently, with no shared source of truth. |
-| 2 | `LocalMarket.fit_step2` call site (`MarketSystem._fit_step2_for_all_ports`) | Four loose positional arguments (`port_monthly`, `anchor_series`, `neighbor_signal`, `latest_date`) carry Step 2's whole handoff with no named structure. |
+| 1 | ~~`LocalMarket._blend_step2_predictions` / `predict_step2`~~ | **Fixed.** Both called their own independent copy of the Stacked-vs-DistanceOnly volume-ratio switch; collapsed into `stacked_model.should_use_distance_only()`. Surfaced a real latent bug along the way: `predict_step2`'s scalar "no baseline yet" case produced `None`, which crashes under the `\|`-based vectorized form the shared function needs — fixed by producing `float("nan")` instead, which compares safely under both `\|` and `or`. |
+| 2 | ~~`LocalMarket.fit_step2` call site (`MarketSystem._fit_step2_for_all_ports`)~~ | **Fixed.** Four loose positional arguments (`port_monthly`, `anchor_series`, `neighbor_signal`, `latest_date`) carried Step 2's whole handoff with no named structure; bundled into a `Step2FitInputs` dataclass (`LocalMarket.py`). |
 | 3 | Every fit/predict function | A fitted model's coefficients are an untyped `dict` (`params["baseline_volume"]`, `params.get("gamma")`-style checks), so "which kind of model is this" is answered by key presence, not a type. |
 | 4 | `CombinedMarket.get_price`, `LocalMarket.predict_step1`/`predict_step2` | Each independently builds a throwaway one-row DataFrame to call a predict function designed for a whole monthly series — an API-shape mismatch repeated three times. |
 | 5 | ~~`Utility.py`~~ | **Fixed.** Per `CONTRIBUTING.md`'s own naming table ("CamelCase for class files, otherwise snake_case"), this held no class and was renamed to `utility.py`. |
 | 6 | `consts.py` | Every project constant lives flat in one file, grouped only by comment headers — currency/units, distance math, volume tiers, switch thresholds, window candidates, rolling-origin params, anchor schemes, trend confidence/rate, all undifferentiated. |
 | 7 | ~~Repeated boilerplate~~ | **Fixed.** `monthly = monthly.copy(); monthly["month"] = monthly["date"].dt.month` was repeated 11 times across `level_volume_model.py`, `stacked_model.py`, and `LocalMarket.py`; collapsed into `level_volume_model.with_month_column()`. |
-| 8 | `stacked_model.distance_weighted_neighbor_signal` / `MarketSystem._weighted_neighbor_value` | Same pattern as #1: inverse-distance-weighted averaging is implemented twice, independently — vectorized over a whole historical series at fit time, scalar over one tick's candidates at runtime. Not a one-off: this is a recurring shape in this codebase (fit-time vectorized vs. runtime scalar), not an isolated mistake. |
+| 8 | ~~`stacked_model.distance_weighted_neighbor_signal` / `MarketSystem._weighted_neighbor_value`~~ | **Fixed.** Same pattern as #1: inverse-distance-weighted averaging was implemented twice, independently — vectorized over a whole historical series at fit time, scalar over one tick's candidates at runtime. The candidate-filtering/weight-computation (genuinely identical in both) was extracted into `stacked_model.compute_inverse_distance_weights()`; the aggregation math (genuinely different) was left alone in each caller. |
 | 9 | ~~`CombinedMarket._direct_catch`/`add_direct_catch` vs. `LocalMarket._monthly_catch`/`add_monthly_catch`~~ | **Fixed.** Both classes now compose a shared `CatchAccumulator` instance; their public `add_direct_catch`/`add_monthly_catch`-style methods are unchanged, but the duplicated `defaultdict`+lock+add/clear/snapshot pattern is gone. |
 
 ---
 
 ## 5. Proposed Target Architecture
 
-**Partially implemented.** Phase A (`CatchAccumulator`, below) has already
-landed. Everything else in this section — the `PriceModel` hierarchy,
-`Step2Model`, `TrendCorrection`, `VolumeBaselineTracker` — is still
-pending sign-off. The core move still ahead: each fitted model variant
-becomes a real class with a `predict()` method, replacing
-dict-key-presence dispatch with polymorphism. This directly resolves #1
-and #3 above, and makes #4 trivial to fix alongside it.
+**Partially implemented.** Phase A (`CatchAccumulator`, below) and Phase B
+(`should_use_distance_only`, `compute_inverse_distance_weights`,
+`Step2FitInputs` — fixing #1, #8, #2) have already landed. Everything else
+in this section — the `PriceModel` hierarchy, `Step2Model`,
+`TrendCorrection`, `VolumeBaselineTracker` — is still pending sign-off. The
+core move still ahead: each fitted model variant becomes a real class with
+a `predict()` method, replacing dict-key-presence dispatch with
+polymorphism. This directly resolves #3, and makes #4 trivial to fix
+alongside it. #1 and #8 are already fixed at the function level (Phase B);
+wrapping them into `Step2Model` here is about giving them a home as an
+object, not about removing any remaining duplication.
 
 ```mermaid
 classDiagram
@@ -400,11 +404,11 @@ What this changes, concretely:
   `PriceModel` object, not a dict. `get_price()`/`predict_step1()` become
   `self.models[key].predict(date, volume)` — no branching.
 - `LocalMarket.step2_stacked_models` + `step2_distance_only_models`
-  collapse into one `step2_models[key]: Step2Model`, which owns the
-  volume-ratio switch internally — fixing #1 by construction, since there's
-  only one place left to write it.
-- Step 2's fit-time handoff (currently 4 positional args) becomes one
-  `Step2FitInputs` object, fixing #2.
+  collapse into one `step2_models[key]: Step2Model`, which calls the
+  already-shared `should_use_distance_only()` (fixed in Phase B) from one
+  place instead of two.
+- *(already done, Phase B)* Step 2's fit-time handoff (previously 4
+  positional args) is now one `Step2FitInputs` object, fixing #2.
 - `VolumeBaselineTracker`/a `RealPriceLookup` object replace the shared
   free functions in `level_volume_model.py` that `CombinedMarket` and
   `LocalMarket` currently call against their own raw dicts.
@@ -413,11 +417,10 @@ What this changes, concretely:
   #9 — same object, instantiated once per market, instead of the same
   pattern hand-written twice under
   different names.
-- #8 needs its own, separate fix — it lives in `MarketSystem`, not in
-  either market class, so wrapping Stacked/DistanceOnly in `Step2Model`
-  doesn't touch it. The fix is the same shape as #1: one shared
-  inverse-distance-weighting function, called from both the fit-time
-  series construction and the runtime scalar computation.
+- *(already done, Phase B)* #8 lived in `MarketSystem`, not in either
+  market class, so it needed its own fix separate from `Step2Model`:
+  `stacked_model.compute_inverse_distance_weights()`, called from both the
+  fit-time series construction and the runtime scalar computation.
 
 > **Naming note:** `Step2Model` (and `PriceModel`/`LevelVolumeModel`
 > above it, to a lesser degree) inherited "Step 1"/"Step 2" terminology
