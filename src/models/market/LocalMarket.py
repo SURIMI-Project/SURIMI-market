@@ -1,8 +1,8 @@
 """
 One instance per 5-letter LOCODE. Holds a frozen base model (own-history
-only, no neighbor signal) and frozen Step 2 Stacked/DistanceOnly
-coefficients, plus the per-port catch accumulator reused unchanged from
-Elsa's LocalMarket.
+only, no neighbor signal) and a frozen neighbor-informed model
+(Stacked/DistanceOnly, picked dynamically per tick), plus the per-port catch
+accumulator reused unchanged from Elsa's LocalMarket.
 """
 from dataclasses import dataclass
 from dateutil.relativedelta import relativedelta
@@ -19,6 +19,9 @@ from .LevelOnlyModel import LevelOnlyModel
 from .LevelVolumeModel import LevelVolumeModel
 from .VolumeBaselineTracker import VolumeBaselineTracker
 from .RealPriceLookup import RealPriceLookup
+from .NeighborInformedModel import NeighborInformedModel
+from .StackedModel import StackedModel
+from .DistanceOnlyModel import DistanceOnlyModel
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
@@ -36,9 +39,9 @@ from .window_selection import build_rolling_splits, select_best_window, rank_win
 
 
 @dataclass
-class Step2FitInputs:
-    """Bundles Step 2's fit-time handoff (previously four loose positional
-    arguments) into one named object."""
+class NeighborFitInputs:
+    """Bundles the neighbor-informed model's fit-time handoff (previously
+    four loose positional arguments) into one named object."""
     port_monthly: pd.DataFrame
     anchor_series: pd.Series
     neighbor_signal: pd.Series
@@ -60,10 +63,9 @@ class LocalMarket:
         self.window_labels: dict[tuple[str, str], str] = {}
         self._base_predicted_series: dict[tuple[str, str], pd.Series] = {}
 
-        # Step 2 state
-        self.step2_stacked_models: dict[tuple[str, str], dict] = {}
-        self.step2_distance_only_models: dict[tuple[str, str], dict] = {}
-        self.step2_window_labels: dict[tuple[str, str], str] = {}
+        # Neighbor-informed model state
+        self.neighbor_models: dict[tuple[str, str], NeighborInformedModel] = {}
+        self.neighbor_window_labels: dict[tuple[str, str], str] = {}
 
         self.volume_baseline: dict[tuple[str, str], VolumeBaselineTracker] = {}
         self.real_prices = RealPriceLookup()
@@ -201,9 +203,9 @@ class LocalMarket:
     def record_history(self, tick: int, prices: dict, catches: dict):
         self.price_history.append((tick, {"prices": dict(prices), "catches": dict(catches)}))
 
-    # --- Step 2 fitting ---
+    # --- Neighbor-informed model fitting ---
 
-    def fit_step2(self, species_code: str, category_code: str, inputs: Step2FitInputs) -> str | None:
+    def fit_neighbor_models(self, species_code: str, category_code: str, inputs: NeighborFitInputs) -> str | None:
         key = (species_code, category_code)
         rolling_splits = build_rolling_splits(inputs.latest_date)
 
@@ -218,7 +220,7 @@ class LocalMarket:
             return {"stacked": stacked, "distance_only": distance_only, "trial_volume": trial_volume}
 
         def score_fn(params, test_start, test_end):
-            blended = self._blend_step2_predictions(
+            blended = self._blend_neighbor_candidate_predictions(
                 inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, params
             )
             mask = (inputs.port_monthly["date"] >= test_start) & (inputs.port_monthly["date"] < test_end)
@@ -229,7 +231,7 @@ class LocalMarket:
             the real history. Checks the blended value, not each sub-model independently,
             since only one of Stacked/DistanceOnly is ever selected per tick -- a bad value
             in the unselected one would never be reached."""
-            blended = self._blend_step2_predictions(
+            blended = self._blend_neighbor_candidate_predictions(
                 inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, params
             )
             valid = blended.notna()
@@ -242,43 +244,46 @@ class LocalMarket:
 
         if not ranked:
             self.logger.warning(
-                f"LocalMarket {self.market_code}: no stable Step-2 window found for {key}, "
-                f"falling back to Step-1-only"
+                f"LocalMarket {self.market_code}: no stable neighbor-informed window found for {key}, "
+                f"falling back to the base model only"
             )
             return None
 
         # Rolling-origin success doesn't guarantee the final re-fit succeeds -- the
         # final window (never scored directly) can land differently, e.g. inside a
         # real landings gap. Try each ranked candidate in order; a fittable, sane,
-        # lower-scored window beats falling back to Step-1-only.
+        # lower-scored window beats falling back to the base model only.
         for label, years in ranked:
             train_start = inputs.latest_date - relativedelta(years=years) if years is not None else None
             try:
                 final_params = fit_fn(train_start, inputs.latest_date)
             except (ValueError, np.linalg.LinAlgError):
                 self.logger.warning(
-                    f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
+                    f"LocalMarket {self.market_code}: selected neighbor-informed window {label} for {key} "
                     f"scored acceptably in rolling-origin validation but failed to re-fit on the "
                     f"final window ending at {inputs.latest_date}; trying the next-best-scoring window"
                 )
                 continue
             if not sanity_check_fn(final_params):
                 self.logger.warning(
-                    f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
+                    f"LocalMarket {self.market_code}: selected neighbor-informed window {label} for {key} "
                     f"scored acceptably in rolling-origin validation but its final re-fit would "
                     f"predict a non-positive price somewhere in the real history available; "
                     f"trying the next-best-scoring window"
                 )
                 continue
-            self.step2_stacked_models[key] = final_params["stacked"]
-            self.step2_distance_only_models[key] = final_params["distance_only"]
-            self.step2_window_labels[key] = label
+            self.neighbor_models[key] = NeighborInformedModel(
+                stacked=StackedModel(final_params["stacked"]),
+                distance_only=DistanceOnlyModel(final_params["distance_only"]),
+                volume_baseline=self.volume_baseline.get(key),
+            )
+            self.neighbor_window_labels[key] = label
             return label
 
         self.logger.warning(
-            f"LocalMarket {self.market_code}: every candidate Step-2 window for {key} scored "
+            f"LocalMarket {self.market_code}: every candidate neighbor-informed window for {key} scored "
             f"acceptably in rolling-origin validation but failed to re-fit or failed the sanity "
-            f"check on the final window ending at {inputs.latest_date}; falling back to Step-1-only"
+            f"check on the final window ending at {inputs.latest_date}; falling back to the base model only"
         )
         return None
 
@@ -289,8 +294,8 @@ class LocalMarket:
             train = train[train["date"] >= train_start]
         return train.groupby("month")["landings_kg"].mean()
 
-    def _blend_step2_predictions(self, port_monthly, anchor_series, neighbor_signal, params) -> pd.Series:
-        """Dynamic-switch-blended prediction used only during fit_step2's
+    def _blend_neighbor_candidate_predictions(self, port_monthly, anchor_series, neighbor_signal, params) -> pd.Series:
+        """Dynamic-switch-blended prediction used only during fit_neighbor_models'
         rolling-origin scoring."""
         stacked_pred = predict_stacked_model(port_monthly, anchor_series, neighbor_signal, params["stacked"])
         distance_pred = predict_distance_only_model(
@@ -306,7 +311,7 @@ class LocalMarket:
         blended.index = port_monthly.index
         return blended
 
-    def predict_step2(
+    def predict_from_neighbor_model(
         self,
         species_code: str,
         category_code: str,
@@ -315,30 +320,10 @@ class LocalMarket:
         anchor_value: float,
         neighbor_value: float,
     ) -> float | None:
-        """Runtime dynamic switch. VolumeRatio reads from self.volume_baseline,
-        the same incrementally-updated structure Step 1 seeds and
-        update_volume_baseline keeps current -- not a separate Step-2-only baseline."""
+        """Runtime dynamic switch, now owned by NeighborInformedModel itself --
+        this method just looks up the right instance and delegates."""
         key = (species_code, category_code)
-        if key not in self.step2_stacked_models or key not in self.step2_distance_only_models:
+        model = self.neighbor_models.get(key)
+        if model is None:
             return None
-
-        tracker = self.volume_baseline.get(key)
-        volume_ratio = tracker.ratio(date, volume) if tracker is not None else float("nan")
-
-        use_distance_only = should_use_distance_only(volume_ratio)
-
-        single_row = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
-        anchor_series = pd.Series([anchor_value], index=[date])
-        neighbor_signal = pd.Series([neighbor_value], index=[date])
-
-        if use_distance_only:
-            predicted = predict_distance_only_model(
-                single_row, anchor_series, neighbor_signal, self.step2_distance_only_models[key]
-            )
-        else:
-            predicted = predict_stacked_model(
-                single_row, anchor_series, neighbor_signal, self.step2_stacked_models[key]
-            )
-
-        value = predicted.iloc[0]
-        return float(value) if pd.notna(value) else None
+        return model.predict(date, volume, anchor_value, neighbor_value)

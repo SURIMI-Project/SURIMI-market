@@ -150,7 +150,7 @@ def test_open_items_report():
         def _used_step2(h, species_code, market_code):
             key = (species_code, "Fresh - Whole")
             local_market = h.market_system.local_markets.get(market_code)
-            return local_market is not None and key in local_market.step2_stacked_models
+            return local_market is not None and key in local_market.neighbor_models
 
         merged["step2_both_schemes"] = merged.apply(
             lambda r: _used_step2(handler, r["species_code"], r["market_code"])

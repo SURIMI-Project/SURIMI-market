@@ -16,7 +16,7 @@ from MarketError import MarketError
 
 from . import consts
 from .Tick import Tick
-from .LocalMarket import LocalMarket, Step2FitInputs
+from .LocalMarket import LocalMarket, NeighborFitInputs
 from .CombinedMarket import CombinedMarket
 from .utility import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
@@ -48,11 +48,11 @@ class MarketSystem:
         self.donor_candidates_by_key: dict[tuple[str, str], set[str]] = {}
 
         # (market_code, (species_code, category_code)) -> the exact
-        # port_monthly/neighbor_signal/anchor_series Step 2 was fit with.
-        # Retained so a later report can refit with a DIFFERENT anchor
-        # scheme against the identical neighbor signal, rather than
-        # approximating it.
-        self.step2_fit_inputs: dict[tuple[str, tuple[str, str]], dict] = {}
+        # port_monthly/neighbor_signal/anchor_series the neighbor-informed
+        # model was fit with. Retained so a later report can refit with a
+        # DIFFERENT anchor scheme against the identical neighbor signal,
+        # rather than approximating it.
+        self.neighbor_fit_inputs: dict[tuple[str, tuple[str, str]], dict] = {}
 
         self.logger = logging.getLogger(consts.MARKET_SYSTEM_LOGGER_NAME)
         self.pending_sales_summary = {}
@@ -151,11 +151,12 @@ class MarketSystem:
         latest_date: pd.Timestamp,
         anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
     ):
-        """anchor_scheme selects Step 2's anchor source. ANCHOR_SCHEME_STATIC
-        (default, used in production) anchors on CombinedMarket's frozen
-        seasonal baseline; ANCHOR_SCHEME_LIVE (analysis-only, used by the
-        fidelity backtest) anchors on CombinedMarket's own live prediction
-        instead. Only _fit_step2_for_all_ports branches on it."""
+        """anchor_scheme selects the neighbor-informed model's anchor source.
+        ANCHOR_SCHEME_STATIC (default, used in production) anchors on
+        CombinedMarket's frozen seasonal baseline; ANCHOR_SCHEME_LIVE
+        (analysis-only, used by the fidelity backtest) anchors on
+        CombinedMarket's own live prediction instead. Only
+        _fit_neighbor_models_for_all_ports branches on it."""
         blended = prices_df[prices_df["size"].isna()]
         if self.species_codes:
             blended = blended[blended["species_code"].isin(self.species_codes)]
@@ -176,7 +177,7 @@ class MarketSystem:
             local_market.fit_base_models(monthly_by_key, latest_date)
             local_market.load_price_time_series(prices_df)
 
-        self._fit_step2_for_all_ports(blended, latest_date, combined_monthly_by_key, anchor_scheme)
+        self._fit_neighbor_models_for_all_ports(blended, latest_date, combined_monthly_by_key, anchor_scheme)
 
     def _build_monthly_by_key(self, rows: pd.DataFrame) -> dict[tuple[str, str], pd.DataFrame]:
         result = {}
@@ -188,7 +189,7 @@ class MarketSystem:
                 continue
         return result
 
-    def _fit_step2_for_all_ports(
+    def _fit_neighbor_models_for_all_ports(
         self,
         blended: pd.DataFrame,
         latest_date: pd.Timestamp,
@@ -268,16 +269,16 @@ class MarketSystem:
                     )
                     continue
 
-                local_market.fit_step2(
+                local_market.fit_neighbor_models(
                     species_code, category_code,
-                    Step2FitInputs(
+                    NeighborFitInputs(
                         port_monthly=port_monthly,
                         anchor_series=anchor_series,
                         neighbor_signal=neighbor_signal,
                         latest_date=latest_date,
                     ),
                 )
-                self.step2_fit_inputs[(market_code, key)] = {
+                self.neighbor_fit_inputs[(market_code, key)] = {
                     "port_monthly": port_monthly,
                     "neighbor_signal": neighbor_signal,
                 }
@@ -304,7 +305,7 @@ class MarketSystem:
     def _compute_tick_prices(self, current_date, local_volumes, combined_direct_volumes):
         """Pure price computation for a single tick: CombinedMarket prices,
         the base model for every LocalMarket/key, and the final reported price per
-        LocalMarket (real price first, Step 2 as fallback). No side effects
+        LocalMarket (real price first, the neighbor-informed model as fallback). No side effects
         (no history, baseline update, or tick advance) -- shared by step()
         and get_species_prices_message's pre-first-step live fallback."""
         # CombinedMarket prices + total tick volumes.
@@ -332,7 +333,7 @@ class MarketSystem:
                 )
 
         # Final reported price per LocalMarket (real-price-first;
-        # Step 2 only computed/used when this port itself lacks real data).
+        # The neighbor-informed model is only computed/used when this port itself lacks real data).
         local_prices = {code: {} for code in self.local_markets}
         for code, local_market in self.local_markets.items():
             prefix = code[:2]
@@ -346,7 +347,7 @@ class MarketSystem:
 
                 final_price = base_predictions.get((code, key))
 
-                if key in local_market.step2_stacked_models and combined_market is not None:
+                if key in local_market.neighbor_models and combined_market is not None:
                     baseline_table = combined_market.get_baseline_price_table(key[0], key[1])
                     if baseline_table is not None and current_date.month in baseline_table.index:
                         anchor_value = baseline_table[current_date.month]
@@ -358,12 +359,12 @@ class MarketSystem:
                         }
                         neighbor_value = self._weighted_neighbor_value(code, donor_candidate_ports, neighbor_candidates)
                         if neighbor_value is not None:
-                            step2_price = local_market.predict_step2(
+                            neighbor_price = local_market.predict_from_neighbor_model(
                                 key[0], key[1], current_date, local_volumes[code].get(key, 0.0),
                                 anchor_value, neighbor_value,
                             )
-                            if step2_price is not None:
-                                final_price = step2_price
+                            if neighbor_price is not None:
+                                final_price = neighbor_price
 
                 local_prices[code][key] = final_price
 

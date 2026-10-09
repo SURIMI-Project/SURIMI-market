@@ -255,14 +255,14 @@ def test_fit_all_fits_base_models_for_every_local_market():
         assert ("ANE", "Fresh - Whole") in system.local_markets[code].models
 
 
-def test_fit_all_fits_step2_for_ports_with_a_high_tier_neighbor():
+def test_fit_all_fits_neighbor_models_for_ports_with_a_high_tier_neighbor():
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())
     system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
 
     # ESALC and ESBCN are each other's dominant High-tier neighbor.
-    assert ("ANE", "Fresh - Whole") in system.local_markets["ESALC"].step2_stacked_models
-    assert ("ANE", "Fresh - Whole") in system.local_markets["ESBCN"].step2_stacked_models
+    assert ("ANE", "Fresh - Whole") in system.local_markets["ESALC"].neighbor_models
+    assert ("ANE", "Fresh - Whole") in system.local_markets["ESBCN"].neighbor_models
 
 
 def _prices_df_with_combined_market_aggregate_row(n_years=6, seed=2):
@@ -319,10 +319,10 @@ def test_fit_all_defaults_to_static_anchor_scheme():
     system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
 
     key = ("ANE", "Fresh - Whole")
-    assert key in system.local_markets["ESALC"].step2_stacked_models  # unchanged from before anchor_scheme existed
+    assert key in system.local_markets["ESALC"].neighbor_models  # unchanged from before anchor_scheme existed
 
 
-def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_step2_model():
+def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_neighbor_model():
     key = ("ANE", "Fresh - Whole")
     prices_df = _synthetic_prices_df()
 
@@ -334,10 +334,10 @@ def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_step2_model()
     live_system.setup_topology(_markets_df_three_ports())
     live_system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"), anchor_scheme=consts.ANCHOR_SCHEME_LIVE)
 
-    assert key in static_system.local_markets["ESALC"].step2_stacked_models
-    assert key in live_system.local_markets["ESALC"].step2_stacked_models
-    static_gamma = static_system.local_markets["ESALC"].step2_stacked_models[key]["gamma"]
-    live_gamma = live_system.local_markets["ESALC"].step2_stacked_models[key]["gamma"]
+    assert key in static_system.local_markets["ESALC"].neighbor_models
+    assert key in live_system.local_markets["ESALC"].neighbor_models
+    static_gamma = static_system.local_markets["ESALC"].neighbor_models[key].stacked.gamma
+    live_gamma = live_system.local_markets["ESALC"].neighbor_models[key].stacked.gamma
     assert static_gamma != live_gamma  # different anchor source must produce a different fit
 
     # The base model and CombinedMarket don't depend on anchor_scheme at all.
@@ -351,15 +351,15 @@ def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_step2_model()
     )
 
 
-def test_fit_all_retains_step2_fit_inputs_for_later_reuse():
+def test_fit_all_retains_neighbor_fit_inputs_for_later_reuse():
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())
     system.fit_all(_synthetic_prices_df(), latest_date=pd.Timestamp("2024-01-01"))
 
     key = ("ESALC", ("ANE", "Fresh - Whole"))
-    assert key in system.step2_fit_inputs
-    assert "neighbor_signal" in system.step2_fit_inputs[key]
-    assert "port_monthly" in system.step2_fit_inputs[key]
+    assert key in system.neighbor_fit_inputs
+    assert "neighbor_signal" in system.neighbor_fit_inputs[key]
+    assert "port_monthly" in system.neighbor_fit_inputs[key]
 
 
 def test_fit_all_only_fits_contracted_species_not_every_species_in_prices_csv():
@@ -408,7 +408,7 @@ def _synthetic_prices_df_no_sibling_local_port(n_years=6, seed=1):
     return pd.concat([pd.DataFrame(rows), pd.DataFrame(combined_rows)], ignore_index=True)
 
 
-def test_fit_all_skips_step2_gracefully_for_port_with_no_high_tier_neighbor(caplog):
+def test_fit_all_skips_neighbor_model_gracefully_for_port_with_no_high_tier_neighbor(caplog):
     import logging
     system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     system.setup_topology(_markets_df_three_ports())
@@ -419,7 +419,7 @@ def test_fit_all_skips_step2_gracefully_for_port_with_no_high_tier_neighbor(capl
     # ESVLC is the only LOCAL market reporting ANE/Fresh-Whole here -- the
     # combined "ES" row is High-tier by volume share but is not a
     # LocalMarket, so it never qualifies as a neighbor source.
-    assert ("ANE", "Fresh - Whole") not in system.local_markets["ESVLC"].step2_stacked_models
+    assert ("ANE", "Fresh - Whole") not in system.local_markets["ESVLC"].neighbor_models
     assert any("no eligible neighbor port available" in r.message for r in caplog.records)
 
 
@@ -521,8 +521,8 @@ def test_step_records_history_for_combined_markets_too():
     assert len(system.combined_markets["ES"].price_history) == 1
 
 
-def test_step_falls_back_to_base_model_when_step2_anchor_or_neighbor_unavailable():
-    # ESVLC never got Step 2 coefficients (no High-tier neighbor) -- its
+def test_step_falls_back_to_base_model_when_neighbor_model_anchor_or_neighbor_unavailable():
+    # ESVLC never got a neighbor-informed model (no High-tier neighbor) -- its
     # reported price must still be a valid base-model prediction, not None.
     system = _fitted_system()
     system.step()
@@ -533,8 +533,8 @@ def test_step_falls_back_to_base_model_when_step2_anchor_or_neighbor_unavailable
 
 def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
     # ESALC and ESBCN are each other's dominant High-tier neighbor here, so
-    # ESBCN genuinely exercises the Step 2 neighbor-signal path, not a
-    # fallback-to-Step-1-only path.
+    # ESBCN genuinely exercises the neighbor-informed model's neighbor-signal
+    # path, not a fallback-to-base-model-only path.
     #
     # Two runs of the same fitted system and tick, differing only in
     # whether ESALC has a real recorded price set for this tick.
@@ -549,16 +549,17 @@ def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
         "market_code": ["ESALC"],
         "species_code": ["ANE"],
         "category_code": ["Fresh - Whole"],
-        "price": [999.99],  # a real price wildly different from anything Step 1 would predict
+        "price": [999.99],  # a real price wildly different from anything the base model would predict
         "size": [None],
     }))
     system_with_real.step()
     _, snapshot_with = system_with_real.local_markets["ESBCN"].price_history[-1]
     price_with_real = snapshot_with["prices"][("ANE", "Fresh - Whole")]
 
-    # ESBCN's own Step 2 output must be identical either way -- its neighbor
-    # signal comes from ESALC's Step-1 PREDICTION, which doesn't change based
-    # on whether ESALC also happens to have a real price on record this tick.
+    # ESBCN's own neighbor-informed-model output must be identical either way --
+    # its neighbor signal comes from ESALC's base-model PREDICTION, which
+    # doesn't change based on whether ESALC also happens to have a real price
+    # on record this tick.
     assert price_with_real == price_without_real
 
 
