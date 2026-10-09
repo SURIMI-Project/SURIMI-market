@@ -144,7 +144,7 @@ def test_fit_trend_rate_model_measures_a_positive_rate_from_rising_blocks():
     params = fit_trend_rate_model(monthly, train_end)
 
     assert params["rate"] == pytest.approx(0.0397, abs=0.001)
-    assert params["years_trained"] == pytest.approx(10.0, abs=0.01)
+    assert params["years_trained"] == pytest.approx(9.0, abs=0.01)
 
 
 def test_fit_trend_rate_model_returns_zero_rate_with_fewer_than_two_blocks():
@@ -158,7 +158,11 @@ def test_fit_trend_rate_model_returns_zero_rate_with_fewer_than_two_blocks():
     params = fit_trend_rate_model(monthly, train_end)
 
     assert params["rate"] == 0.0
-    assert params["years_trained"] == pytest.approx(5.0, abs=0.01)
+    # years_trained reflects the span the rate was actually measured
+    # from (spec section 3, Step 4): with fewer than 2 usable blocks,
+    # no rate was measured at all, so years_trained is 0.0, not the
+    # 5-year span of available-but-unused history.
+    assert params["years_trained"] == 0.0
 
 
 def test_fit_trend_rate_model_handles_empty_history():
@@ -207,7 +211,17 @@ def test_predict_trend_correction_grows_forward_and_clamps_at_years_trained():
     )
     at_years_trained_bound = pd.DataFrame(
         {
-            "date": [train_end + pd.Timedelta(days=rate_params["years_trained"] * 365.25)],
+            # Round the day offset up to a whole day: predict_trend_correction
+            # computes trend_years via Timedelta.dt.days, which truncates to
+            # whole days, so a fractional-day offset here (e.g. years_trained
+            # now being an exact integer post-Fix-3, times 365.25) would land
+            # just short of the clamp bound in whole-day terms and no longer
+            # compare bit-for-bit equal to the far-future (already-clamped)
+            # case below.
+            "date": [
+                train_end
+                + pd.Timedelta(days=int(np.ceil(rate_params["years_trained"] * 365.25)))
+            ],
             "price": [None],
             "landings_kg": [1000.0],
         }

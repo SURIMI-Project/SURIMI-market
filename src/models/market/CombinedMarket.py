@@ -93,12 +93,6 @@ class CombinedMarket:
                 train_start = latest_date - relativedelta(years=years) if years is not None else None
                 try:
                     params = fit_level_volume_model(monthly, train_start, latest_date)
-                    self._attach_trend_params(params, monthly, latest_date)
-                    self.models[key] = params
-                    self.window_labels[key] = label
-                    self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
-                    selected[key] = label
-                    continue
                 except (ValueError, np.linalg.LinAlgError):
                     # The window length scored acceptably across historical rolling-origin
                     # splits (each with its own, earlier train_end), but real volume data is
@@ -114,6 +108,15 @@ class CombinedMarket:
                         f"scored acceptably in rolling-origin validation but failed to re-fit on "
                         f"the final window ending at {latest_date}; falling back to level-only fit"
                     )
+                    params = None
+
+                if params is not None:
+                    self._attach_trend_params(params, monthly, latest_date)
+                    self.models[key] = params
+                    self.window_labels[key] = label
+                    self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
+                    selected[key] = label
+                    continue
 
             # Fallback cascade (spec section 9 point 2): try level-only.
             else:

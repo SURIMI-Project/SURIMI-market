@@ -58,7 +58,7 @@ schema (date/price/landings_kg instead of Date/Price_EUR_kg/Volume_Kg).
 import numpy as np
 import pandas as pd
 
-from src.models.market import consts
+from . import consts
 
 
 def fit_level_only_model(
@@ -151,13 +151,19 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
     remainder nearest the oldest observation is simply unused -- this
     matches the spec's own worked example: ES's ~10yr history yields
     exactly 3 blocks, not 3.33). Each block's mean log-price is one data
-    point; rate
-    is the slope of a straight line through those points
+    point; rate is the slope of a straight line through those points
     (numpy.polyfit), with the x-axis in years relative to train_end
     (negative for historical blocks, matching predict_trend_correction's
     trend_years convention exactly). Completely independent of window
     selection -- this function never reads or influences which window
     CombinedMarket.fit() picks.
+
+    Block centers are the nominal midpoint of each block's time window,
+    not the centroid of the data actually inside it -- a block that's
+    only partially populated (e.g. the most recent one, when this
+    function is called with a train_end shared across multiple series
+    with different data-coverage end dates) introduces a small, usually
+    negligible bias in its effective x-coordinate.
 
     Returns {"rate": 0.0, ...} (a harmless no-op, not a raised error) when
     fewer than 2 blocks fit -- a straight line needs at least 2 points,
@@ -166,6 +172,7 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
     fitting failure.
     """
     history = monthly.dropna(subset=["price"]).copy()
+    history = history[history["price"] > 0]
     history = history[history["date"] < train_end].sort_values("date")
     if history.empty:
         return {"rate": 0.0, "years_trained": 0.0}
@@ -174,7 +181,6 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
     block_days = pd.Timedelta(days=consts.TREND_RATE_BLOCK_YEARS * 365.25)
 
     oldest = history["date"].min()
-    years_trained = (train_end - oldest).days / 365.25
 
     block_centers = []
     block_averages = []
@@ -189,9 +195,10 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
         block_end = block_start
 
     if len(block_centers) < 2:
-        return {"rate": 0.0, "years_trained": max(years_trained, 0.0)}
+        return {"rate": 0.0, "years_trained": 0.0}
 
     rate, _ = np.polyfit(block_centers, block_averages, 1)
+    years_trained = len(block_centers) * consts.TREND_RATE_BLOCK_YEARS
     return {"rate": float(rate), "years_trained": float(years_trained)}
 
 

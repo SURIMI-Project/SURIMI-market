@@ -282,6 +282,8 @@ def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatc
     market_high = CombinedMarket("ES")
     market_high.fit({key: monthly}, latest_date=latest_date)
 
+    assert market_low.models[key]["trend_confidence"] == 0.0
+    assert market_high.models[key]["trend_confidence"] == 1.0
     assert market_low.window_labels[key] == market_high.window_labels[key]
     params_low = market_low.models[key]
     params_high = market_high.models[key]
@@ -291,7 +293,7 @@ def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatc
     assert params_low["beta"] == params_high["beta"]
 
 
-def test_get_price_applies_trend_correction_proportional_to_confidence():
+def test_get_price_price_increases_with_positive_trend_correction():
     market = CombinedMarket("ES")
     monthly_by_key = {("ANE", "Fresh - Whole"): _trending_synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2025-01-01"))
@@ -318,7 +320,12 @@ def test_get_price_is_unaffected_by_trend_for_a_flat_series():
 
     # Same calendar month both times, so baseline/volume-anomaly terms are
     # identical by construction -- any remaining difference comes only
-    # from the trend correction, which low confidence should make tiny.
+    # from the trend correction. This fixture's measured rate happens to
+    # be ~0.0 (not just its confidence), so this test mainly confirms a
+    # near-zero-rate series doesn't acquire a fabricated trend; it does
+    # not specifically exercise the low-confidence-damping behavior
+    # (that's covered by predict_trend_correction's own unit tests in
+    # test_level_volume_model.py).
     price_near_fit_end = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=1000.0)
     price_far_future = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2039-02-01"), volume=1000.0)
 
