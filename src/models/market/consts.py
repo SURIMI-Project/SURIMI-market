@@ -60,7 +60,7 @@ TREND_CONFIDENCE_T_THRESHOLD = 2.0
 # Trend rate (spec v2 section 3, Step 3): sequential block size, in years,
 # used to measure the historical rate from block-average log-prices
 # (numpy.polyfit across all blocks that fit in the complete real record
-# before train_end, built forward from the oldest available date). 3yr
+# before train_end, built backward from train_end). 3yr
 # was empirically found to balance a long-enough fair test horizon
 # against enough blocks to fit a meaningful slope -- a larger block size
 # needs more lead-time history before its first usable cutoff, which

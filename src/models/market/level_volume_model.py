@@ -146,11 +146,12 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
     """
     Trend rate (spec 2026-10-08-combined-market-trend-term-v2-design.md
     section 3, Step 3). Builds sequential TREND_RATE_BLOCK_YEARS-year
-    blocks forward from the oldest available real price observation,
-    stopping once the next block would extend past train_end (any
-    partial remainder nearest train_end is simply unused -- this matches
-    the spec's own worked example: ES's ~10yr history yields exactly 3
-    blocks, not 3.33). Each block's mean log-price is one data point; rate
+    blocks backward from train_end, stopping once the next block would
+    extend past the oldest available real price observation (any partial
+    remainder nearest the oldest observation is simply unused -- this
+    matches the spec's own worked example: ES's ~10yr history yields
+    exactly 3 blocks, not 3.33). Each block's mean log-price is one data
+    point; rate
     is the slope of a straight line through those points
     (numpy.polyfit), with the x-axis in years relative to train_end
     (negative for historical blocks, matching predict_trend_correction's
@@ -177,15 +178,15 @@ def fit_trend_rate_model(monthly: pd.DataFrame, train_end: pd.Timestamp) -> dict
 
     block_centers = []
     block_averages = []
-    block_start = oldest
-    while block_start + block_days <= train_end:
-        block_end = block_start + block_days
+    block_end = train_end
+    while block_end - block_days >= oldest:
+        block_start = block_end - block_days
         block = history[(history["date"] >= block_start) & (history["date"] < block_end)]
         if len(block) > 0:
             center_date = block_start + (block_end - block_start) / 2
             block_centers.append((center_date - train_end).days / 365.25)
             block_averages.append(block["log_price"].mean())
-        block_start = block_end
+        block_end = block_start
 
     if len(block_centers) < 2:
         return {"rate": 0.0, "years_trained": max(years_trained, 0.0)}

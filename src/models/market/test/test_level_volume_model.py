@@ -143,7 +143,7 @@ def test_fit_trend_rate_model_measures_a_positive_rate_from_rising_blocks():
 
     params = fit_trend_rate_model(monthly, train_end)
 
-    assert params["rate"] == pytest.approx(0.0423, abs=0.001)
+    assert params["rate"] == pytest.approx(0.0397, abs=0.001)
     assert params["years_trained"] == pytest.approx(10.0, abs=0.01)
 
 
