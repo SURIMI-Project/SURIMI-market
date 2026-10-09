@@ -48,6 +48,30 @@ def should_use_distance_only(volume_ratio):
     )
 
 
+def compute_inverse_distance_weights(
+    target_port: str,
+    source_ports: set[str],
+    available_ports,
+    distance_lookup: dict[tuple[str, str], float],
+) -> dict[str, float]:
+    """
+    Inverse-distance weight (1/distance) for every candidate neighbor port
+    -- a port counts as a candidate if it isn't the target itself, has a
+    known distance to the target, and is actually available (present in
+    whatever the caller is weighting: a dict of per-tick scalar values, or
+    a dict of historical Series -- `available_ports` just needs to support
+    `in`). Returns an empty dict if there are no valid candidates; callers
+    treat that the same way they already treat "no neighbor signal".
+    """
+    candidates = [
+        port for port in source_ports
+        if port != target_port
+        and port in available_ports
+        and (target_port, port) in distance_lookup
+    ]
+    return {port: 1.0 / distance_lookup[(target_port, port)] for port in candidates}
+
+
 def distance_weighted_neighbor_signal(
     target_port: str,
     source_ports: set[str],
@@ -60,17 +84,14 @@ def distance_weighted_neighbor_signal(
     no valid source ports (no distance known, or the only candidate is
     the target itself).
     """
-    candidates = [
-        port for port in source_ports
-        if port != target_port
-        and port in predicted_series_by_port
-        and (target_port, port) in distance_lookup
-    ]
-    if not candidates:
+    weight_dict = compute_inverse_distance_weights(
+        target_port, source_ports, predicted_series_by_port, distance_lookup
+    )
+    if not weight_dict:
         return None
 
-    weights = pd.Series({port: 1.0 / distance_lookup[(target_port, port)] for port in candidates})
-    matrix = pd.DataFrame({port: predicted_series_by_port[port] for port in candidates})
+    weights = pd.Series(weight_dict)
+    matrix = pd.DataFrame({port: predicted_series_by_port[port] for port in weight_dict})
 
     valid = matrix.notna()
     weighted_sum = (matrix.fillna(0) * weights).sum(axis=1)
