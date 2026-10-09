@@ -22,6 +22,14 @@ class NeighborInformedModel:
     ):
         self.stacked = stacked
         self.distance_only = distance_only
+        # Captured once, here, not re-looked-up per predict() call (unlike the old
+        # scalar predict_step2, which did self.volume_baseline.get(key) fresh every
+        # tick). Safe only because LocalMarket never swaps in a different tracker
+        # INSTANCE for an already-fitted key -- VolumeBaselineTracker.update() always
+        # mutates the same object's stats in place, and fit_base_models (the only
+        # place a new tracker is ever assigned into the dict) always completes for
+        # every key before fit_neighbor_models runs for any key. If that ordering
+        # or mutate-in-place behavior ever changes, this captured reference goes stale.
         self.volume_baseline = volume_baseline
 
     def predict(
