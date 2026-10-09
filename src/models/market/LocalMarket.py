@@ -3,15 +3,14 @@ One instance per 5-letter LOCODE. Holds frozen Step 1 coefficients and Step 2
 Stacked/DistanceOnly coefficients, plus the per-port catch accumulator reused
 unchanged from Elsa's LocalMarket.
 """
-from collections import defaultdict
 from dateutil.relativedelta import relativedelta
 import logging
-import threading
 
 import numpy as np
 import pandas as pd
 
 from . import consts
+from .CatchAccumulator import CatchAccumulator
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
@@ -53,23 +52,19 @@ class LocalMarket:
         self.volume_baseline_stats: dict[tuple[str, str], dict[int, tuple[float, int]]] = {}
         self.price_time_series: dict[tuple[str, str, pd.Timestamp], float] = {}
 
-        self._monthly_catch: dict[tuple[str, str], float] = defaultdict(float)
+        self._monthly_catch = CatchAccumulator()
         self.price_history = []  # [(tick, {"prices": {...}, "catches": {...}})]
-        self.lock = threading.Lock()
 
     # --- Catch accumulation (reused unchanged from Elsa's LocalMarket) ---
 
     def add_monthly_catch(self, species_code, category_code, quantity):
-        with self.lock:
-            self._monthly_catch[(species_code, category_code)] += quantity
+        self._monthly_catch.add(species_code, category_code, quantity)
 
     def clear_monthly_catch(self):
-        with self.lock:
-            self._monthly_catch.clear()
+        self._monthly_catch.clear()
 
     def get_monthly_catch_snapshot(self):
-        with self.lock:
-            return dict(self._monthly_catch)
+        return self._monthly_catch.snapshot()
 
     # --- Step 1 fitting ---
 

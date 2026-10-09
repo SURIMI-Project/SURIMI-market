@@ -4,15 +4,14 @@ One instance per 2-letter market code. Holds the frozen seasonal-baseline
 passive -- never holds or queries LocalMarket references, only receives
 plain numbers.
 """
-from collections import defaultdict
 import logging
-import threading
 
 import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
 from . import consts
+from .CatchAccumulator import CatchAccumulator
 from .level_volume_model import (
     fit_level_volume_model,
     predict_level_volume,
@@ -36,8 +35,7 @@ class CombinedMarket:
 
         # Catch accumulator for sales routed straight to this 2-letter
         # prefix; same shape as LocalMarket's own accumulator.
-        self._direct_catch: dict[tuple[str, str], float] = defaultdict(float)
-        self._lock = threading.Lock()
+        self._direct_catch = CatchAccumulator()
 
         # (species_code, category_code) -> frozen params dict (baseline_price,
         # baseline_volume, alpha, beta) or level-only params (alpha=beta=0).
@@ -233,13 +231,10 @@ class CombinedMarket:
         self.price_history.append((tick, {"prices": dict(prices), "volumes": dict(volumes)}))
 
     def add_direct_catch(self, species_code: str, category_code: str, quantity: float):
-        with self._lock:
-            self._direct_catch[(species_code, category_code)] += quantity
+        self._direct_catch.add(species_code, category_code, quantity)
 
     def clear_direct_catch(self):
-        with self._lock:
-            self._direct_catch.clear()
+        self._direct_catch.clear()
 
     def get_direct_catch_snapshot(self) -> dict:
-        with self._lock:
-            return dict(self._direct_catch)
+        return self._direct_catch.snapshot()
