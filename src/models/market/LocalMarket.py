@@ -3,6 +3,7 @@ One instance per 5-letter LOCODE. Holds frozen Step 1 coefficients and Step 2
 Stacked/DistanceOnly coefficients, plus the per-port catch accumulator reused
 unchanged from Elsa's LocalMarket.
 """
+from dataclasses import dataclass
 from dateutil.relativedelta import relativedelta
 import logging
 
@@ -30,6 +31,16 @@ from .stacked_model import (
     should_use_distance_only,
 )
 from .window_selection import build_rolling_splits, select_best_window, rank_windows_by_score
+
+
+@dataclass
+class Step2FitInputs:
+    """Bundles Step 2's fit-time handoff (previously four loose positional
+    arguments) into one named object."""
+    port_monthly: pd.DataFrame
+    anchor_series: pd.Series
+    neighbor_signal: pd.Series
+    latest_date: pd.Timestamp
 
 
 class LocalMarket:
@@ -190,37 +201,35 @@ class LocalMarket:
 
     # --- Step 2 fitting ---
 
-    def fit_step2(
-        self,
-        species_code: str,
-        category_code: str,
-        port_monthly: pd.DataFrame,
-        anchor_series: pd.Series,
-        neighbor_signal: pd.Series,
-        latest_date: pd.Timestamp,
-    ) -> str | None:
+    def fit_step2(self, species_code: str, category_code: str, inputs: Step2FitInputs) -> str | None:
         key = (species_code, category_code)
-        rolling_splits = build_rolling_splits(latest_date)
+        rolling_splits = build_rolling_splits(inputs.latest_date)
 
         def fit_fn(train_start, train_end):
-            stacked = fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end)
-            distance_only = fit_distance_only_model(
-                port_monthly, anchor_series, neighbor_signal, train_start, train_end
+            stacked = fit_stacked_model(
+                inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, train_start, train_end
             )
-            trial_volume = self._trial_baseline_volume(port_monthly, train_start, train_end)
+            distance_only = fit_distance_only_model(
+                inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, train_start, train_end
+            )
+            trial_volume = self._trial_baseline_volume(inputs.port_monthly, train_start, train_end)
             return {"stacked": stacked, "distance_only": distance_only, "trial_volume": trial_volume}
 
         def score_fn(params, test_start, test_end):
-            blended = self._blend_step2_predictions(port_monthly, anchor_series, neighbor_signal, params)
-            mask = (port_monthly["date"] >= test_start) & (port_monthly["date"] < test_end)
-            return score_mape(blended[mask], port_monthly["price"][mask])
+            blended = self._blend_step2_predictions(
+                inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, params
+            )
+            mask = (inputs.port_monthly["date"] >= test_start) & (inputs.port_monthly["date"] < test_end)
+            return score_mape(blended[mask], inputs.port_monthly["price"][mask])
 
         def sanity_check_fn(params):
             """Reject a candidate whose blended prediction goes non-positive anywhere in
             the real history. Checks the blended value, not each sub-model independently,
             since only one of Stacked/DistanceOnly is ever selected per tick -- a bad value
             in the unselected one would never be reached."""
-            blended = self._blend_step2_predictions(port_monthly, anchor_series, neighbor_signal, params)
+            blended = self._blend_step2_predictions(
+                inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, params
+            )
             valid = blended.notna()
             blended_min = float(blended[valid].min()) if valid.any() else None
             return blended_min is None or blended_min > 0
@@ -241,14 +250,14 @@ class LocalMarket:
         # real landings gap. Try each ranked candidate in order; a fittable, sane,
         # lower-scored window beats falling back to Step-1-only.
         for label, years in ranked:
-            train_start = latest_date - relativedelta(years=years) if years is not None else None
+            train_start = inputs.latest_date - relativedelta(years=years) if years is not None else None
             try:
-                final_params = fit_fn(train_start, latest_date)
+                final_params = fit_fn(train_start, inputs.latest_date)
             except (ValueError, np.linalg.LinAlgError):
                 self.logger.warning(
                     f"LocalMarket {self.market_code}: selected Step-2 window {label} for {key} "
                     f"scored acceptably in rolling-origin validation but failed to re-fit on the "
-                    f"final window ending at {latest_date}; trying the next-best-scoring window"
+                    f"final window ending at {inputs.latest_date}; trying the next-best-scoring window"
                 )
                 continue
             if not sanity_check_fn(final_params):
@@ -267,7 +276,7 @@ class LocalMarket:
         self.logger.warning(
             f"LocalMarket {self.market_code}: every candidate Step-2 window for {key} scored "
             f"acceptably in rolling-origin validation but failed to re-fit or failed the sanity "
-            f"check on the final window ending at {latest_date}; falling back to Step-1-only"
+            f"check on the final window ending at {inputs.latest_date}; falling back to Step-1-only"
         )
         return None
 

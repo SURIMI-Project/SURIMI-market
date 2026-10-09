@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from src.models.market.LocalMarket import LocalMarket
+from src.models.market.LocalMarket import LocalMarket, Step2FitInputs
 
 
 def _synthetic_monthly(n_years=6, seed=0):
@@ -181,7 +181,11 @@ def test_fit_step2_selects_a_window_and_freezes_both_submodels():
 
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     label = port.fit_step2(
-        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=pd.Timestamp("2024-01-01"),
+        ),
     )
 
     assert label is not None
@@ -194,7 +198,11 @@ def test_predict_step2_picks_stacked_when_volume_ratio_in_normal_range():
     port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
-        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=pd.Timestamp("2024-01-01"),
+        ),
     )
 
     # Seed the baseline so VolumeRatio = 1.0 (normal) for this month.
@@ -210,7 +218,11 @@ def test_predict_step2_falls_back_to_distance_only_on_extreme_volume_ratio():
     port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
-        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=pd.Timestamp("2024-01-01"),
+        ),
     )
     port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
 
@@ -231,7 +243,11 @@ def test_predict_step2_falls_back_to_distance_only_on_nan_volume():
     port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     port.fit_step2(
-        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=pd.Timestamp("2024-01-01")
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=pd.Timestamp("2024-01-01"),
+        ),
     )
     port.volume_baseline_stats[("ANE", "Fresh - Whole")] = {1: (500.0, 1)}
 
@@ -266,7 +282,11 @@ def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit
     baseline_port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     baseline_port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
     natural_label = baseline_port.fit_step2(
-        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=latest_date
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=latest_date,
+        ),
     )
     assert natural_label is not None  # fixture must have a stable window to make this test meaningful
 
@@ -288,7 +308,11 @@ def test_fit_step2_falls_back_to_next_best_window_when_the_best_ones_final_refit
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     port.fit_step1({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
     label = port.fit_step2(
-        "ANE", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal, latest_date=latest_date
+        "ANE", "Fresh - Whole",
+        Step2FitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=latest_date,
+        ),
     )
 
     assert label is not None, "a fallback window should have been used instead of giving up to Step-1-only"
@@ -306,8 +330,11 @@ def test_fit_step2_returns_none_when_no_window_is_stable(caplog):
 
     with caplog.at_level(logging.WARNING):
         label = port.fit_step2(
-            "GHOST", "Fresh - Whole", port_monthly, anchor_series, neighbor_signal,
-            latest_date=pd.Timestamp("2023-03-01"),
+            "GHOST", "Fresh - Whole",
+            Step2FitInputs(
+                port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+                latest_date=pd.Timestamp("2023-03-01"),
+            ),
         )
 
     assert label is None

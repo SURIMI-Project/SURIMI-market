@@ -16,7 +16,7 @@ from MarketError import MarketError
 
 from . import consts
 from .Tick import Tick
-from .LocalMarket import LocalMarket
+from .LocalMarket import LocalMarket, Step2FitInputs
 from .CombinedMarket import CombinedMarket
 from .utility import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
@@ -268,7 +268,13 @@ class MarketSystem:
                     continue
 
                 local_market.fit_step2(
-                    species_code, category_code, port_monthly, anchor_series, neighbor_signal, latest_date
+                    species_code, category_code,
+                    Step2FitInputs(
+                        port_monthly=port_monthly,
+                        anchor_series=anchor_series,
+                        neighbor_signal=neighbor_signal,
+                        latest_date=latest_date,
+                    ),
                 )
                 self.step2_fit_inputs[(market_code, key)] = {
                     "port_monthly": port_monthly,
