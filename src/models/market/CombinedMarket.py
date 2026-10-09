@@ -195,7 +195,13 @@ class CombinedMarket:
     def get_price(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
     ) -> float | None:
-        """Real-price-first (spec section 8): check price_time_series, else predict."""
+        """
+        Real-price-first (spec section 8): check price_time_series, else
+        predict. The trend correction (spec v2 section 3, Step 4) is
+        applied unconditionally -- it is a pure multiplier of ~1.0 for a
+        key with near-zero trend confidence, so there is no branch here on
+        whether a key "has" a trend, unlike v1's "gamma" in params check.
+        """
         key = (species_code, category_code)
         real_price = self.price_time_series.get((species_code, category_code, date))
         if pd.notna(real_price):
@@ -208,10 +214,9 @@ class CombinedMarket:
         monthly = pd.DataFrame({"date": [date], "price": [None], "landings_kg": [volume]})
         if params.get("baseline_volume") is None:
             predicted = predict_level_only(monthly, params)
-        elif "gamma" in params:
-            predicted = predict_level_volume_trend(monthly, params)
         else:
             predicted = predict_level_volume(monthly, params)
+        predicted = predicted * predict_trend_correction(monthly, params)
         value = predicted.iloc[0]
         return float(value) if pd.notna(value) else None
 

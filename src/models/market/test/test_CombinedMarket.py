@@ -291,20 +291,40 @@ def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatc
     assert params_low["beta"] == params_high["beta"]
 
 
-def test_get_price_uses_trend_augmented_prediction_when_model_has_trend():
+def test_get_price_applies_trend_correction_proportional_to_confidence():
     market = CombinedMarket("ES")
     monthly_by_key = {("ANE", "Fresh - Whole"): _trending_synthetic_monthly()}
     market.fit(monthly_by_key, latest_date=pd.Timestamp("2025-01-01"))
-    assert "gamma" in market.models[("ANE", "Fresh - Whole")]  # precondition for this test
+    params = market.models[("ANE", "Fresh - Whole")]
+    assert params["trend_confidence"] == pytest.approx(1.0)  # precondition for this test
 
     price_near_fit_end = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2025-02-01"), volume=1000.0)
     price_far_future = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2040-02-01"), volume=1000.0)
 
     assert price_near_fit_end is not None
     assert price_far_future is not None
-    # Constructed with a positive price trend -- a later date should
-    # predict a higher price than a date right after the fit's own cutoff.
+    # Constructed with a positive price trend and full confidence -- a
+    # later date should predict a higher price than a date right after
+    # the fit's own cutoff.
     assert price_far_future > price_near_fit_end
+
+
+def test_get_price_is_unaffected_by_trend_for_a_flat_series():
+    market = CombinedMarket("ES")
+    monthly_by_key = {("ANE", "Fresh - Whole"): _synthetic_monthly()}
+    market.fit(monthly_by_key, latest_date=pd.Timestamp("2024-01-01"))
+    params = market.models[("ANE", "Fresh - Whole")]
+    assert params["trend_confidence"] == pytest.approx(1 / 12)  # precondition: low confidence
+
+    # Same calendar month both times, so baseline/volume-anomaly terms are
+    # identical by construction -- any remaining difference comes only
+    # from the trend correction, which low confidence should make tiny.
+    price_near_fit_end = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2024-02-01"), volume=1000.0)
+    price_far_future = market.get_price("ANE", "Fresh - Whole", pd.Timestamp("2039-02-01"), volume=1000.0)
+
+    assert price_near_fit_end is not None
+    assert price_far_future is not None
+    assert price_far_future == pytest.approx(price_near_fit_end, rel=0.05)
 
 
 def test_get_baseline_price_table_unaffected_by_trend_term():
@@ -317,7 +337,7 @@ def test_get_baseline_price_table_unaffected_by_trend_term():
     monthly = _trending_synthetic_monthly()
     market.fit({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2025-01-01"))
     params = market.models[("ANE", "Fresh - Whole")]
-    assert "gamma" in params  # precondition: this is the trend-augmented path
+    assert params["trend_confidence"] == pytest.approx(1.0)  # precondition: this is the high-confidence case
 
     table = market.get_baseline_price_table("ANE", "Fresh - Whole")
     assert table is not None
@@ -332,11 +352,11 @@ def test_get_baseline_price_table_unaffected_by_trend_term():
 def test_get_live_anchor_series_unaffected_by_trend_term():
     # Analysis-only path (spec: "never used by the live production path").
     # Confirm it still returns a result shaped the same way for a
-    # trend-augmented model -- it dispatches on baseline_volume is None,
-    # not on "gamma", so a trend-augmented model (which always has
-    # baseline_volume set) must still take the predict_level_volume branch
-    # here, not predict_level_volume_trend -- this function was not
-    # touched by this plan, confirm that directly.
+    # trend-bearing key -- it dispatches only on baseline_volume is None,
+    # never reads trend_confidence/trend_rate at all, so it always takes
+    # the plain predict_level_volume branch with no trend correction
+    # applied -- this function was not touched by this plan, confirm that
+    # directly.
     market = CombinedMarket("ES")
     monthly = _trending_synthetic_monthly()
     market.fit({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2025-01-01"))
