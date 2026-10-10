@@ -13,20 +13,32 @@ import pandas as pd
 from . import consts
 
 
-def compute_trend_confidence(monthly: pd.DataFrame) -> float:
+def compute_trend_confidence(monthly: pd.DataFrame, train_end: pd.Timestamp) -> float:
     """
     Fraction (0.0-1.0) of the 12 calendar months whose year-over-year OLS
-    slope is individually significant (|t| > TREND_CONFIDENCE_T_THRESHOLD)
-    in the majority sign direction. A month with fewer than 3 years of
+    slope is individually significant in the majority sign direction.
+    Significance is tested against a critical value scaled to each
+    month's own degrees-of-freedom (via consts.trend_confidence_critical_value),
+    not a fixed |t| threshold -- a month with only 3 years of data needs
+    a much higher |t| to be genuinely significant than a month with 15
+    years does, and a flat threshold either over-credits thin months or
+    under-credits well-sampled ones. A month with fewer than 3 years of
     data, or zero year-variance (no slope estimable), simply doesn't
     count toward the numerator rather than raising or forcing a result.
+
+    Filters to date < train_end (previously this function used the full,
+    unfiltered monthly series regardless of train_end, unlike
+    fit_trend_rate_model, which did filter -- a real data-leakage
+    inconsistency between the two trend sub-procedures, fixed here).
     """
     monthly = monthly.dropna(subset=["price"]).copy()
+    monthly = monthly[monthly["date"] < train_end]
     monthly["year"] = monthly["date"].dt.year
     monthly["month"] = monthly["date"].dt.month
 
     slopes: dict[int, float] = {}
     tstats: dict[int, float] = {}
+    dfs: dict[int, int] = {}
     for month in range(1, 13):
         sub = monthly[monthly["month"] == month]
         years = sub["year"].to_numpy(dtype=float)
@@ -43,12 +55,14 @@ def compute_trend_confidence(monthly: pd.DataFrame) -> float:
         slope = ((years - x_bar) * (prices - y_bar)).sum() / sxx
         intercept = y_bar - slope * x_bar
         residuals = prices - (intercept + slope * years)
-        s2 = (residuals ** 2).sum() / (n - 2)
+        df = n - 2
+        s2 = (residuals ** 2).sum() / df
         se_slope = np.sqrt(s2 / sxx)
         t_stat = slope / se_slope if se_slope > 0 else 0.0
 
         slopes[month] = slope
         tstats[month] = t_stat
+        dfs[month] = df
 
     if not slopes:
         return 0.0
@@ -61,6 +75,6 @@ def compute_trend_confidence(monthly: pd.DataFrame) -> float:
 
     n_significant = sum(
         1 for month, t in tstats.items()
-        if abs(t) > consts.TREND_CONFIDENCE_T_THRESHOLD and np.sign(slopes[month]) == majority_sign
+        if abs(t) > consts.trend_confidence_critical_value(dfs[month]) and np.sign(slopes[month]) == majority_sign
     )
     return n_significant / 12
