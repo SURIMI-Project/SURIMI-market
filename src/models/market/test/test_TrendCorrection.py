@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.models.market.TrendCorrection import TrendCorrection
+from src.models.market.price_models import TrendCorrection
 from src.models.market.level_volume_model import predict_trend_correction
 
 
