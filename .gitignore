@@ -39,3 +39,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+
+# Local-only scratch/evaluation artifacts -- never pushed, kept on disk only
+/local/
