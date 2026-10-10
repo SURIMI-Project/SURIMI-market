@@ -644,6 +644,12 @@ different, decrease; see §3.3 for why the base denominators (172 vs. 174)
 aren't perfectly comparable either (the validated dataset was regenerated
 between the two measurements).
 
+`MarketHandler.init_simulation` (full `fit_all()`, real config data, same
+`as_of_date`): **39.34s → 30.65s**, a ~22% reduction — expected, since
+removing the independent neighbor-window CV search (the whole point of
+§3.2.C) cuts each port's fitting cost roughly in half for the
+neighbor-informed model specifically.
+
 One single-split regression test (`test_fidelity_backtest.py`, which only
 checks `as_of_date=2022-01-01` against a flat 50.0% MAPE ceiling) needed
 its documented exemption list updated: `ANE`/`ESGLE` — already a high-MAPE,
