@@ -27,10 +27,6 @@ EARTH_RADIUS_M = 6_378_137
 # distance) -- replaces an earlier volume-share tier gate.
 TOP_K_NEAREST_DONORS = 5
 
-# Dynamic Stacked/DistanceOnly switch thresholds
-LOW_VOLUME_RATIO_THRESHOLD = 0.10
-HIGH_VOLUME_RATIO_THRESHOLD = 2.0
-
 # Adaptive training-window candidate set — deliberately small,
 # empirically tuned to this dataset, not a fine-grained sweep.
 WINDOW_CANDIDATE_YEARS = {"2yr": 2, "3yr": 3, "4yr": 4, "6yr": 6, "Full": None}

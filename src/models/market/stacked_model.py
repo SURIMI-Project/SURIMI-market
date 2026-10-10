@@ -1,30 +1,13 @@
 """
 Distance-weighted neighbor signal construction (nearest-K donor
-selection) and the Stacked/DistanceOnly fit/predict functions.
+selection) and the neighbor-informed StackedModel's fit/predict
+functions.
 """
 import numpy as np
 import pandas as pd
 
 from . import consts
 from .level_volume_model import with_month_column
-
-
-def should_use_distance_only(volume_ratio):
-    """
-    True when volume_ratio is missing or outside the normal operating
-    range [LOW_VOLUME_RATIO_THRESHOLD, HIGH_VOLUME_RATIO_THRESHOLD] --
-    the dynamic switch deciding whether to use the DistanceOnly model
-    (drops the unstable volume term) instead of Stacked. Works for a
-    single scalar ratio or a vectorized pd.Series of ratios alike --
-    callers passing a scalar "missing" value must use float("nan"), not
-    None, since `|` (needed here, unlike `or`, to also work elementwise
-    on a Series) is not short-circuiting and `None < threshold` raises.
-    """
-    return (
-        pd.isna(volume_ratio)
-        | (volume_ratio < consts.LOW_VOLUME_RATIO_THRESHOLD)
-        | (volume_ratio > consts.HIGH_VOLUME_RATIO_THRESHOLD)
-    )
 
 
 def compute_inverse_distance_weights(
@@ -66,7 +49,7 @@ def distance_weighted_neighbor_signal(
     distance_lookup: dict[tuple[str, str], float],
 ) -> pd.Series | None:
     """
-    Inverse-distance-weighted average of sibling ports' Step-1 PREDICTED
+    Inverse-distance-weighted average of sibling ports' base-model PREDICTED
     series, never their real recorded prices. Returns None if there are
     no valid source ports (no distance known, or the only candidate is
     the target itself).
@@ -104,6 +87,20 @@ def fit_stacked_model(
     train_start: pd.Timestamp | None,
     train_end: pd.Timestamp,
 ) -> dict:
+    """
+    Neighbor-informed price model: log(price) - log(anchor) = delta +
+    beta*vol_anom + gamma*neighbor_anom. Mirrors
+    level_volume_model.fit_level_volume_model's own formula shape exactly
+    (log-space, vol_anom relative to the port's own baseline volume and
+    clipped to the observed training range at predict time) -- this used
+    to be a separate, inconsistent linear-space formula with an
+    unclipped, absolute volume anomaly, which needed a whole extra
+    Stacked/DistanceOnly switch to compensate for instability the base
+    model already handles with a one-line clip. Being in log-space also
+    means a prediction can never be non-positive, by construction --
+    unlike the old linear-space formula, which needed a separate
+    sanity-check/retry safety net this version doesn't need at all.
+    """
     port = with_month_column(port_monthly)
     port["anchor"] = port["date"].map(anchor_series)
     port["neighbor"] = port["date"].map(neighbor_signal)
@@ -115,11 +112,12 @@ def fit_stacked_model(
     port_baseline_volume = train.groupby("month")["landings_kg"].mean()
     neighbor_baseline = train.groupby("month")["neighbor"].mean()
 
-    y = train["price"] - train["anchor"]
-    x1 = train["landings_kg"] - train["month"].map(port_baseline_volume)
+    baseline_volume_mapped = train["month"].map(port_baseline_volume)
+    y = np.log(train["price"]) - np.log(train["anchor"])
+    x1 = (train["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
     x2 = train["neighbor"] - train["month"].map(neighbor_baseline)
 
-    mask = (y.notna() & x1.notna() & x2.notna()).to_numpy()
+    mask = (y.notna() & x1.notna() & x2.notna() & (baseline_volume_mapped > 0)).to_numpy()
     if mask.sum() < 4:
         raise ValueError("not enough usable training rows to fit stacked model")
 
@@ -137,6 +135,8 @@ def fit_stacked_model(
         "gamma": float(gamma),
         "port_baseline_volume": port_baseline_volume,
         "neighbor_baseline": neighbor_baseline,
+        "vol_anom_min": float(x1.to_numpy()[mask].min()),
+        "vol_anom_max": float(x1.to_numpy()[mask].max()),
     }
 
 
@@ -147,51 +147,14 @@ def predict_stacked_model(
     port["anchor"] = port["date"].map(anchor_series)
     port["neighbor"] = port["date"].map(neighbor_signal)
 
-    vol_anom = port["landings_kg"] - port["month"].map(params["port_baseline_volume"])
+    baseline_volume_mapped = port["month"].map(params["port_baseline_volume"])
+    vol_anom = (port["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    vol_anom = vol_anom.clip(lower=params["vol_anom_min"], upper=params["vol_anom_max"])
     neighbor_anom = port["neighbor"] - port["month"].map(params["neighbor_baseline"])
 
-    predicted = port["anchor"] + params["delta"] + params["beta"] * vol_anom + params["gamma"] * neighbor_anom
-    predicted.index = port_monthly.index
-    return predicted
-
-
-def fit_distance_only_model(
-    port_monthly: pd.DataFrame,
-    anchor_series: pd.Series,
-    neighbor_signal: pd.Series,
-    train_start: pd.Timestamp | None,
-    train_end: pd.Timestamp,
-) -> dict:
-    port = with_month_column(port_monthly)
-    port["anchor"] = port["date"].map(anchor_series)
-    port["neighbor"] = port["date"].map(neighbor_signal)
-
-    train = port[port["date"] < train_end]
-    if train_start is not None:
-        train = train[train["date"] >= train_start]
-
-    neighbor_baseline = train.groupby("month")["neighbor"].mean()
-
-    y = train["price"] - train["anchor"]
-    x = train["neighbor"] - train["month"].map(neighbor_baseline)
-
-    mask = (y.notna() & x.notna()).to_numpy()
-    if mask.sum() < 3 or x.to_numpy()[mask].var() == 0:
-        raise ValueError("not enough usable training rows to fit distance-only model")
-
-    gamma, delta = np.polyfit(x.to_numpy()[mask], y.to_numpy()[mask], 1)
-
-    return {"delta": float(delta), "gamma": float(gamma), "neighbor_baseline": neighbor_baseline}
-
-
-def predict_distance_only_model(
-    port_monthly: pd.DataFrame, anchor_series: pd.Series, neighbor_signal: pd.Series, params: dict
-) -> pd.Series:
-    port = with_month_column(port_monthly)
-    port["anchor"] = port["date"].map(anchor_series)
-    port["neighbor"] = port["date"].map(neighbor_signal)
-
-    neighbor_anom = port["neighbor"] - port["month"].map(params["neighbor_baseline"])
-    predicted = port["anchor"] + params["delta"] + params["gamma"] * neighbor_anom
+    predicted_log = (
+        np.log(port["anchor"]) + params["delta"] + params["beta"] * vol_anom + params["gamma"] * neighbor_anom
+    )
+    predicted = np.exp(predicted_log)
     predicted.index = port_monthly.index
     return predicted

@@ -3,7 +3,6 @@ import logging
 import numpy as np
 import pandas as pd
 import pytest
-from dateutil.relativedelta import relativedelta
 
 from src.models.market.LocalMarket import LocalMarket, NeighborFitInputs
 
@@ -187,9 +186,16 @@ def _synthetic_port_neighbor_anchor(seed=1):
     return port_monthly, anchor_series, neighbor_signal
 
 
-def test_fit_neighbor_models_selects_a_window_and_freezes_both_submodels():
+def test_fit_neighbor_models_reuses_the_base_models_window_label():
+    """No independent rolling-origin search anymore -- fit_neighbor_models
+    must reuse exactly the window label fit_base_models already chose for
+    this key, not re-derive its own."""
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    base_selected = port.fit_base_models(
+        {("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01")
+    )
+    base_label = base_selected[("ANE", "Fresh - Whole")]
+    assert base_label is not None and base_label != "level-only-fallback"
 
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
     label = port.fit_neighbor_models(
@@ -200,18 +206,79 @@ def test_fit_neighbor_models_selects_a_window_and_freezes_both_submodels():
         ),
     )
 
-    assert label is not None
+    assert label == base_label
+    assert port.neighbor_window_labels[("ANE", "Fresh - Whole")] == base_label
     assert ("ANE", "Fresh - Whole") in port.neighbor_models
     model = port.neighbor_models[("ANE", "Fresh - Whole")]
-    assert model.stacked is not None
-    assert model.distance_only is not None
+    # Direct attributes now -- the old .stacked./.distance_only indirection
+    # is gone, there's only ever the one StackedModel.
+    assert isinstance(model.delta, float)
+    assert isinstance(model.beta, float)
+    assert isinstance(model.gamma, float)
 
 
-def test_predict_from_neighbor_model_picks_stacked_when_volume_ratio_in_normal_range():
+def test_fit_neighbor_models_returns_none_when_base_model_used_level_only_fallback(caplog):
+    """No well-defined window to reuse when the base model itself fell
+    back to the no-volume-term fit -- must fall back to the base model
+    only, not attempt a neighbor fit at all."""
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    thin_monthly = pd.DataFrame({
+        "date": pd.date_range("2023-01-01", periods=2, freq="MS"),
+        "price": [2.0, 2.1],
+        "landings_kg": [500.0, 510.0],
+    })
+    selected = port.fit_base_models({("ANE", "Fresh - Whole"): thin_monthly}, latest_date=pd.Timestamp("2023-03-01"))
+    assert selected[("ANE", "Fresh - Whole")] == "level-only-fallback"
+
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    with caplog.at_level(logging.WARNING):
+        label = port.fit_neighbor_models(
+            "ANE", "Fresh - Whole",
+            NeighborFitInputs(
+                port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+                latest_date=pd.Timestamp("2023-03-01"),
+            ),
+        )
+
+    assert label is None
+    assert ("ANE", "Fresh - Whole") not in port.neighbor_models
+
+
+def test_fit_neighbor_models_returns_none_when_base_model_was_never_fit_for_this_key(caplog):
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+
+    with caplog.at_level(logging.WARNING):
+        label = port.fit_neighbor_models(
+            "GHOST", "Fresh - Whole",
+            NeighborFitInputs(
+                port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+                latest_date=pd.Timestamp("2024-01-01"),
+            ),
+        )
+
+    assert label is None
+    assert ("GHOST", "Fresh - Whole") not in port.neighbor_models
+
+
+def test_fit_neighbor_models_falls_back_to_base_model_only_when_the_single_refit_fails(monkeypatch):
+    """Unlike the old design (which retried the next-best-scoring candidate
+    window if the top one's final re-fit failed), there is only ever one
+    candidate now -- the base model's own reused window -- so a re-fit
+    failure here must fall straight back to the base model only, with no
+    retry loop."""
+    import src.models.market.LocalMarket as local_market_module
+
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
     port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
-    port.fit_neighbor_models(
+
+    def always_fails(*args, **kwargs):
+        raise ValueError("simulated: this port's real landings gap falls inside the reused window")
+
+    monkeypatch.setattr(local_market_module, "fit_stacked_model", always_fails)
+
+    label = port.fit_neighbor_models(
         "ANE", "Fresh - Whole",
         NeighborFitInputs(
             port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
@@ -219,107 +286,8 @@ def test_predict_from_neighbor_model_picks_stacked_when_volume_ratio_in_normal_r
         ),
     )
 
-    # Nudge the baseline so VolumeRatio stays ~1.0 (normal) for this month. Mutates the
-    # SAME tracker instance fit_neighbor_models already captured into neighbor_models[key]
-    # (not a replacement dict entry) -- NeighborInformedModel holds that reference once, at
-    # fit time, so swapping in a brand-new tracker object afterward would never be seen by it.
-    port.volume_baseline[("ANE", "Fresh - Whole")].update(pd.Timestamp("2024-01-01"), volume=500.0)
-
-    price = port.predict_from_neighbor_model("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
-                                              anchor_value=2.0, neighbor_value=2.0)
-    assert price is not None
-
-
-def test_predict_from_neighbor_model_falls_back_to_distance_only_on_extreme_volume_ratio():
-    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
-    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
-    port.fit_neighbor_models(
-        "ANE", "Fresh - Whole",
-        NeighborFitInputs(
-            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
-            latest_date=pd.Timestamp("2024-01-01"),
-        ),
-    )
-    # Mutate the existing captured tracker in place (see comment in the "picks_stacked" test
-    # above for why replacing the dict entry wholesale wouldn't reach NeighborInformedModel).
-    port.volume_baseline[("ANE", "Fresh - Whole")].update(pd.Timestamp("2024-01-01"), volume=500.0)
-
-    # Volume is 0 -> VolumeRatio = 0, below LOW_VOLUME_RATIO_THRESHOLD -> must use DistanceOnly.
-    stacked_price = port.predict_from_neighbor_model("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=500.0,
-                                                      anchor_value=2.0, neighbor_value=2.0)
-    distance_only_price = port.predict_from_neighbor_model("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"),
-                                                             volume=0.0, anchor_value=2.0, neighbor_value=2.0)
-    assert distance_only_price is not None
-    assert distance_only_price != stacked_price
-
-
-def test_predict_from_neighbor_model_falls_back_to_distance_only_on_nan_volume():
-    """Regression test for the pd.isna() fix in the dynamic-switch use_distance_only check:
-    a NaN volume must route to DistanceOnly (matching the volume=0.0 extreme-ratio case),
-    not silently fall through to the Stacked branch (which would NaN-propagate to None)."""
-    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
-    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
-    port.fit_neighbor_models(
-        "ANE", "Fresh - Whole",
-        NeighborFitInputs(
-            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
-            latest_date=pd.Timestamp("2024-01-01"),
-        ),
-    )
-    # Mutate the existing captured tracker in place (see comment in the "picks_stacked" test
-    # above for why replacing the dict entry wholesale wouldn't reach NeighborInformedModel).
-    port.volume_baseline[("ANE", "Fresh - Whole")].update(pd.Timestamp("2024-01-01"), volume=500.0)
-
-    distance_only_price = port.predict_from_neighbor_model("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"),
-                                                             volume=0.0, anchor_value=2.0, neighbor_value=2.0)
-    nan_price = port.predict_from_neighbor_model("ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"),
-                                                  volume=float("nan"), anchor_value=2.0, neighbor_value=2.0)
-
-    assert nan_price is not None
-    assert nan_price == distance_only_price
-
-
-def test_predict_from_neighbor_model_falls_back_to_distance_only_when_month_has_no_seeded_baseline():
-    """Regression test for the None->NaN fix in the dynamic switch: when no
-    VolumeBaselineTracker was ever seeded for this key at all, volume_ratio
-    must become float("nan") (not None), so should_use_distance_only's `|`
-    comparisons don't raise and the call still routes to DistanceOnly.
-
-    NeighborInformedModel (unlike the old scalar predict_step2) captures its
-    volume_baseline reference ONCE, at fit_neighbor_models time, via
-    self.volume_baseline.get(key) -- not via a fresh dict lookup on every
-    predict call. So simulating "never seeded" means the dict entry for this
-    key must be absent BEFORE fit_neighbor_models runs (producing a captured
-    None, exactly the path a port whose base model fell back to LevelOnlyModel
-    takes in production), not removed/replaced afterward -- a later swap of
-    port.volume_baseline[key] would no longer reach the already-constructed
-    NeighborInformedModel, which is holding its own captured reference.
-    """
-    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
-    port.volume_baseline.pop(("ANE", "Fresh - Whole"))  # simulate never seeded, before fit_neighbor_models captures it
-
-    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
-    port.fit_neighbor_models(
-        "ANE", "Fresh - Whole",
-        NeighborFitInputs(
-            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
-            latest_date=pd.Timestamp("2024-01-01"),
-        ),
-    )
-    assert port.neighbor_models[("ANE", "Fresh - Whole")].volume_baseline is None
-
-    date = pd.Timestamp("2024-01-01")
-    price = port.predict_from_neighbor_model(
-        "ANE", "Fresh - Whole", date, volume=500.0, anchor_value=2.0, neighbor_value=2.0
-    )
-    assert price is not None
-
-    distance_only_model = port.neighbor_models[("ANE", "Fresh - Whole")].distance_only
-    expected_distance_only = distance_only_model.predict(date, anchor_value=2.0, neighbor_value=2.0)
-    assert price == pytest.approx(expected_distance_only)
+    assert label is None
+    assert ("ANE", "Fresh - Whole") not in port.neighbor_models
 
 
 def test_predict_from_neighbor_model_returns_none_when_no_neighbor_model():
@@ -329,74 +297,38 @@ def test_predict_from_neighbor_model_returns_none_when_no_neighbor_model():
     assert price is None
 
 
-def test_fit_neighbor_models_falls_back_to_next_best_window_when_the_best_ones_final_refit_fails(monkeypatch):
-    """Rolling-origin success doesn't guarantee the literal final window is
-    fittable -- a real example (MUT@ESLLC) had its best-scoring window's final
-    window fall mostly inside a real landings gap. fit_neighbor_models must try the
-    next-best-scoring candidate instead of giving up straight to the base model only."""
-    import src.models.market.LocalMarket as local_market_module
-
-    latest_date = pd.Timestamp("2024-01-01")
-    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
-
-    # Discover which window this fixture naturally selects as best, with no
-    # monkeypatching in effect yet.
-    baseline_port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    baseline_port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
-    natural_label = baseline_port.fit_neighbor_models(
-        "ANE", "Fresh - Whole",
-        NeighborFitInputs(
-            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
-            latest_date=latest_date,
-        ),
-    )
-    assert natural_label is not None  # fixture must have a stable window to make this test meaningful
-
-    real_fit_stacked_model = local_market_module.fit_stacked_model
-
-    def flaky_fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end):
-        # Fail only the natural best candidate's final re-fit (train_end ==
-        # latest_date marks the final re-fit, not a rolling-origin scoring call);
-        # every other call must keep succeeding normally.
-        from src.models.market import consts
-        years = consts.WINDOW_CANDIDATE_YEARS[natural_label]
-        natural_train_start = latest_date - relativedelta(years=years) if years is not None else None
-        if train_end == latest_date and train_start == natural_train_start:
-            raise ValueError("simulated: this port's real landings gap falls inside exactly this window")
-        return real_fit_stacked_model(port_monthly, anchor_series, neighbor_signal, train_start, train_end)
-
-    monkeypatch.setattr(local_market_module, "fit_stacked_model", flaky_fit_stacked_model)
-
+def test_predict_from_neighbor_model_stays_positive_for_extreme_volume_that_would_have_broken_the_old_linear_model():
+    """The old neighbor-informed model was additive in raw price (anchor +
+    delta + beta*vol_anom + gamma*neighbor_anom) with vol_anom computed as
+    an UNCLIPPED, ABSOLUTE volume anomaly -- an extreme enough volume would
+    drive that formula below zero, which is why the old fit_neighbor_models
+    needed a whole sanity-check/retry safety net. The new log-space,
+    clipped-relative-anomaly formula can't do that by construction: confirm
+    a wildly extreme volume (orders of magnitude past anything seen in
+    training, ~500kg) still produces a finite, positive price with no
+    special-casing anywhere in this path."""
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=latest_date)
-    label = port.fit_neighbor_models(
+    port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    port.fit_neighbor_models(
         "ANE", "Fresh - Whole",
         NeighborFitInputs(
             port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
-            latest_date=latest_date,
+            latest_date=pd.Timestamp("2024-01-01"),
         ),
     )
-
-    assert label is not None, "a fallback window should have been used instead of giving up to the base model only"
-    assert label != natural_label
     assert ("ANE", "Fresh - Whole") in port.neighbor_models
 
+    extreme_high_price = port.predict_from_neighbor_model(
+        "ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=1_000_000.0,
+        anchor_value=2.0, neighbor_value=2.0,
+    )
+    assert extreme_high_price is not None
+    assert extreme_high_price > 0
 
-def test_fit_neighbor_models_returns_none_when_no_window_is_stable(caplog):
-    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
-    dates = pd.date_range("2023-01-01", periods=2, freq="MS")
-    port_monthly = pd.DataFrame({"date": dates, "price": [np.nan, np.nan], "landings_kg": [np.nan, np.nan]})
-    anchor_series = pd.Series([2.0, 2.0], index=dates)
-    neighbor_signal = pd.Series([2.0, 2.0], index=dates)
-
-    with caplog.at_level(logging.WARNING):
-        label = port.fit_neighbor_models(
-            "GHOST", "Fresh - Whole",
-            NeighborFitInputs(
-                port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
-                latest_date=pd.Timestamp("2023-03-01"),
-            ),
-        )
-
-    assert label is None
-    assert ("GHOST", "Fresh - Whole") not in port.neighbor_models
+    zero_volume_price = port.predict_from_neighbor_model(
+        "ANE", "Fresh - Whole", pd.Timestamp("2024-01-01"), volume=0.0,
+        anchor_value=2.0, neighbor_value=2.0,
+    )
+    assert zero_volume_price is not None
+    assert zero_volume_price > 0
