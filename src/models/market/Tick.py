@@ -2,7 +2,14 @@ import datetime
 from dateutil.relativedelta import *
 
 class Tick:
-    """A per-MarketSystem time tracker."""
+    """A per-MarketSystem time tracker.
+
+    Month-stepped only: step_months is hardcoded via MarketSystem's
+    Tick(step_months=1, ...) construction, regardless of whatever
+    time_step/step_size value the gRPC contract carries -- the same
+    pre-existing, established behavior as the sibling elsa plugin's Tick,
+    not a new limitation introduced here.
+    """
     def __init__(self, start_time: datetime.datetime, step_months=1):
         self.tick = 0
         self.start_time = start_time
@@ -13,9 +20,6 @@ class Tick:
 
     def get_tick(self):
         return self.tick
-
-    def set_timestep(self, days: int):
-        self.step_months = days
 
     def get_timestamp(self):
         """
@@ -37,7 +41,3 @@ class Tick:
     def get_datetime(self):
         return (self.start_time + \
                 relativedelta(months=self.tick * self.step_months))
-
-    def reset(self):
-        self.tick = 0
-        self.start_time = datetime.datetime.utcnow()

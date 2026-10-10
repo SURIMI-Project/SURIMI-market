@@ -22,7 +22,6 @@ class MarketHandler(Handler.Handler):
         self.simulation_id = simulation_id
         self.scenario_id = scenario_id
         self.start_time = start_time
-        self.step_size = step_size
 
         self.logger = logging.getLogger(f"{consts.SIMULATION_HANDLER_LOGGER_NAME}.{simulation_id}")
         self.market_system = MarketSystem(currency=consts.SUPPORTED_CURRENCY, start_time=start_time)
