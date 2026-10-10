@@ -586,19 +586,33 @@ unchanged at 0.25**: neither defect happens to be present in that key's
 own per-month breakdown, so this narrower, statistically-correct fix
 does not resolve the SAA@FR case itself (see `.stage6b-report.md` for the
 full before/after numbers). Extending the trend correction to LocalMarket
-Step 1 is still unvalidated and still has the sparser-data concern above.
+Step 1 was tested directly (below) and rejected, for exactly the
+sparser-data reason above.
 
-**What validating this would mean, if picked up**: re-measure confidence
-and rate at per-port granularity (not just assume the national figures
-transfer), using the same long-horizon, many-cutoff methodology the
-original trend-term work used — not the short 1-2 year horizon this
-project's existing fidelity-backtest convention defaults to, which was
-already shown to give a misleading picture for several species at the
-national level. Start with the ports/species combinations with the
-longest, cleanest history rather than all ~174 port/species pairs at
-once, and expect some ports to measure a real trend and others not to —
-the whole point of continuous confidence is that it's supposed to answer
-that per-key, not be assumed uniformly true or false.
+**Tested and rejected (2026-10-10).** Measured confidence/rate per port
+(mirroring `CombinedMarket._fit_trend` exactly) for the 5 port/species
+pairs with the longest, cleanest real history (all ~15-year full-span
+series: FRAGD/HKE, FRLGR/HKE, FRNOU/HKE, FRSET/HKE, FRSET/SAA), using the
+same long-horizon, many-cutoff methodology the original national-level
+trend-term work used — not the short 1-2 year horizon the fidelity-backtest
+convention defaults to. 10 historical cutoffs per pair (2010-2023), MAPE
+compared in 1-year buckets out to 11 years ahead (550 data points total).
+
+Result: no upside anywhere, and a reproduction of the SAA@FR failure mode
+with less data, exactly as predicted above. For 4 of 5 pairs (all HKE),
+measured confidence came out ≈0 (0-1.2%) — the mechanism correctly found
+no real trend, so the measured variant is statistically indistinguishable
+from the current no-op (MAPE delta 0.002-0.018 points, noise). For the
+1 pair with non-trivial measured confidence (FRSET/SAA, 0.22-0.42), the
+measured trend made long-horizon forecasts dramatically worse: average
++6.2 MAPE points, up to +50 points worse at individual cutoff/horizon
+combinations (90.7% vs. 40.5% MAPE at one 6-year-out cutoff) — and the
+gap widens with horizon length rather than narrowing. The current
+hardcoded `TrendCorrection.identity` no-op in `LocalMarket` is kept as
+the correct call for this data regime, not unresolved debt; the asymmetry
+with `CombinedMarket` (which does measure a real trend) is intentional,
+not an inconsistency to unify. Spike script discarded (local-only,
+throwaway per its own convention) — not merged into any test suite.
 
 ### Stacked/DistanceOnly switch collapsed into one log-space StackedModel (Stage 7+8)
 
