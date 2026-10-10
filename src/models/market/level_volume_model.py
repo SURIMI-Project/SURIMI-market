@@ -14,13 +14,13 @@ volume level. vol_anom is clipped to the min/max relative anomaly actually
 observed during training before applying beta, since beta is only validated
 within the range of data it was fit on.
 
-Used identically for CombinedMarket's Model 2 and LocalMarket's Step 1 --
+Used identically for CombinedMarket's Model 2 and LocalMarket's base model --
 the same fitting/prediction logic, just applied to combined-market-level or
 per-port-level monthly data; a shared, single implementation, not forked
 per caller. baseline_price (the plain arithmetic mean) is still computed
 and returned alongside baseline_log_price, unused by fitting/prediction
-here, purely so LocalMarket Step 2's static anchor keeps reading the same
-key with the same (linear-space) meaning it always has.
+here, purely so LocalMarket's neighbor-informed model's static anchor keeps
+reading the same key with the same (linear-space) meaning it always has.
 """
 import numpy as np
 import pandas as pd
@@ -238,29 +238,6 @@ def compute_volume_baseline_stats(
         if len(valid) > 0:
             stats[month] = (float(valid.sum()), int(len(valid)))
     return stats
-
-
-def apply_volume_baseline_update(
-    volume_baseline_stats: dict[tuple[str, str], dict[int, tuple[float, int]]],
-    key: tuple[str, str],
-    date: pd.Timestamp,
-    volume: float,
-) -> tuple[int, float] | None:
-    """
-    Incremental, never-decaying running-mean update. Mutates
-    volume_baseline_stats in place and returns (month, new_mean) for the
-    caller to patch into its own frozen model dict's baseline_volume[month]
-    -- or None if the update was skipped (key has no seeded stats yet, or
-    volume is NaN).
-    """
-    if key not in volume_baseline_stats or pd.isna(volume):
-        return None
-
-    month = date.month
-    prev_sum, prev_count = volume_baseline_stats[key].get(month, (0.0, 0))
-    new_sum, new_count = prev_sum + volume, prev_count + 1
-    volume_baseline_stats[key][month] = (new_sum, new_count)
-    return month, new_sum / new_count
 
 
 def populate_price_time_series(
