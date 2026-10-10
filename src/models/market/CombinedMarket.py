@@ -6,26 +6,16 @@ plain numbers.
 """
 import logging
 
-import numpy as np
 import pandas as pd
-from dateutil.relativedelta import relativedelta
 
 from . import consts
 from .CatchAccumulator import CatchAccumulator
-from .PriceModel import PriceModel
-from .TrendCorrection import TrendCorrection
-from .LevelOnlyModel import LevelOnlyModel
-from .LevelVolumeModel import LevelVolumeModel
-from .VolumeBaselineTracker import VolumeBaselineTracker
+from .price_models import PriceModel, TrendCorrection
+from .VolumeBaselineTracker import VolumeBaselineTracker, update_tracker_and_model
 from .RealPriceLookup import RealPriceLookup
-from .level_volume_model import (
-    fit_level_volume_model,
-    predict_level_volume,
-    fit_trend_rate_model,
-    score_mape,
-)
+from .level_volume_model import fit_trend_rate_model
 from .trend_confidence import compute_trend_confidence
-from .window_selection import build_rolling_splits, select_best_window
+from .window_selection import fit_price_model_with_window_selection
 
 
 class CombinedMarket:
@@ -64,94 +54,31 @@ class CombinedMarket:
         get_price() can apply the trend correction unconditionally (a
         no-op ~1.0 multiplier for a non-trending key).
         """
-        selected: dict[tuple[str, str], str | None] = {}
-
-        for key, monthly in monthly_by_key.items():
-            rolling_splits = build_rolling_splits(latest_date)
-
-            def fit_fn(train_start, train_end, _monthly=monthly):
-                return fit_level_volume_model(_monthly, train_start, train_end)
-
-            def score_fn(params, test_start, test_end, _monthly=monthly):
-                predicted = predict_level_volume(_monthly, params)
-                mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
-                return score_mape(predicted[mask], _monthly["price"][mask])
-
-            result = select_best_window(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
-
-            if result is not None:
-                label, years = result
-                train_start = latest_date - relativedelta(years=years) if years is not None else None
-                try:
-                    model = LevelVolumeModel.fit(
-                        monthly, train_start, latest_date, self._fit_trend(monthly, latest_date)
-                    )
-                except (ValueError, np.linalg.LinAlgError):
-                    # Rolling-origin validation scored this window acceptably, but the
-                    # final window (train_start..latest_date) can still fail to fit if
-                    # sparse real data makes the volume-anomaly series degenerate (zero
-                    # variance) -- fall through to the same fallback used when no window
-                    # was selected at all.
-                    self.logger.warning(
-                        f"CombinedMarket {self.market_code}: selected window {label} for {key} "
-                        f"scored acceptably in rolling-origin validation but failed to re-fit on "
-                        f"the final window ending at {latest_date}; falling back to level-only fit"
-                    )
-                    model = None
-
-                if model is not None:
-                    self.models[key] = model
-                    self.window_labels[key] = label
-                    self._seed_volume_baseline_stats(key, monthly, train_start, latest_date)
-                    selected[key] = label
-                    continue
-
-            # Fallback: try a level-only fit.
-            else:
-                self.logger.warning(
-                    f"CombinedMarket {self.market_code}: no stable level-volume window found "
-                    f"for {key}, falling back to level-only fit"
-                )
-            try:
-                model = LevelOnlyModel.fit(monthly, None, latest_date, self._fit_trend(monthly, latest_date))
-                self.models[key] = model
-                self.window_labels[key] = "level-only-fallback"
-                selected[key] = "level-only-fallback"
-            except ValueError:
-                self.logger.warning(
-                    f"CombinedMarket {self.market_code}: no usable price history at all "
-                    f"for {key}, excluding from output"
-                )
-                selected[key] = None
-
-        return selected
+        return fit_price_model_with_window_selection(
+            monthly_by_key,
+            latest_date,
+            build_trend=self._fit_trend,
+            models=self.models,
+            window_labels=self.window_labels,
+            volume_baseline=self.volume_baseline,
+            logger=self.logger,
+            class_label="CombinedMarket",
+            market_code=self.market_code,
+            window_noun="level-volume window",
+        )
 
     def _fit_trend(self, monthly: pd.DataFrame, train_end: pd.Timestamp) -> TrendCorrection:
         trend_rate_params = fit_trend_rate_model(monthly, train_end)
         return TrendCorrection(
-            confidence=compute_trend_confidence(monthly),
+            confidence=compute_trend_confidence(monthly, train_end),
             rate=trend_rate_params["rate"],
             years_trained=trend_rate_params["years_trained"],
             train_end=train_end,
         )
 
-    def _seed_volume_baseline_stats(self, key, monthly, train_start, train_end):
-        tracker = VolumeBaselineTracker()
-        tracker.seed(monthly, train_start, train_end)
-        self.volume_baseline[key] = tracker
-
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
         """Incremental, never-decaying running mean."""
-        key = (species_code, category_code)
-        tracker = self.volume_baseline.get(key)
-        if tracker is None:
-            return
-        result = tracker.update(date, volume)
-        if result is None:
-            return
-        month, new_mean = result
-        if key in self.models:
-            self.models[key].update_baseline_volume(month, new_mean)
+        update_tracker_and_model(self.volume_baseline, self.models, (species_code, category_code), date, volume)
 
     def load_price_time_series(self, prices_df: pd.DataFrame):
         """Load real recorded prices for this market_code."""
@@ -170,30 +97,6 @@ class CombinedMarket:
             return None
 
         return self.models[key].predict(date, volume)
-
-    def get_live_anchor_series(
-        self, species_code: str, category_code: str, own_monthly: pd.DataFrame, target_dates
-    ) -> pd.Series | None:
-        """
-        Alternate anchor scheme: this market's own frozen coefficients
-        applied to its own real historical volume at each date, varying
-        month-to-month (unlike get_baseline_price_table's fixed 12-month
-        seasonal cycle). Analysis-only -- never used by the live
-        production path.
-
-        own_monthly is this CombinedMarket's own (date, price,
-        landings_kg) series, retained by the caller since CombinedMarket
-        doesn't keep it after fit() returns. Returns None if there's no
-        frozen model for the key; otherwise reindexed to target_dates,
-        with NaN outside own_monthly's own range.
-        """
-        key = (species_code, category_code)
-        if key not in self.models:
-            return None
-
-        predicted = self.models[key].predict_series(own_monthly).copy()
-        predicted.index = own_monthly["date"]
-        return predicted.reindex(pd.DatetimeIndex(target_dates))
 
     def get_baseline_price_table(self, species_code: str, category_code: str) -> pd.Series | None:
         """

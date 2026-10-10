@@ -3,8 +3,8 @@ import datetime
 import pandas as pd
 from grpc import StatusCode
 
-from src.models.market import consts
 from src.models.market.MarketSystem import MarketSystem, build_prefix_to_locals
+from src.models.market.test.fidelity_backtest_harness import _live_anchor_resolver_from
 
 
 def _markets_df():
@@ -332,12 +332,18 @@ def test_fit_all_live_anchor_scheme_produces_a_different_but_valid_neighbor_mode
 
     live_system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
     live_system.setup_topology(_markets_df_three_ports())
-    live_system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"), anchor_scheme=consts.ANCHOR_SCHEME_LIVE)
+    blended = prices_df[prices_df["size"].isna()]
+    combined_monthly_by_key = {
+        prefix: live_system._build_monthly_by_key(blended[blended["market_code"] == prefix])
+        for prefix in live_system.combined_markets
+    }
+    resolver = _live_anchor_resolver_from(combined_monthly_by_key)
+    live_system.fit_all(prices_df, latest_date=pd.Timestamp("2024-01-01"), anchor_resolver=resolver)
 
     assert key in static_system.local_markets["ESALC"].neighbor_models
     assert key in live_system.local_markets["ESALC"].neighbor_models
-    static_gamma = static_system.local_markets["ESALC"].neighbor_models[key].stacked.gamma
-    live_gamma = live_system.local_markets["ESALC"].neighbor_models[key].stacked.gamma
+    static_gamma = static_system.local_markets["ESALC"].neighbor_models[key].gamma
+    live_gamma = live_system.local_markets["ESALC"].neighbor_models[key].gamma
     assert static_gamma != live_gamma  # different anchor source must produce a different fit
 
     # The base model and CombinedMarket don't depend on anchor_scheme at all.

@@ -139,42 +139,6 @@ def test_get_baseline_price_table_reindexes_to_all_12_months_on_fallback():
     assert pd.notna(table[2])
 
 
-def test_get_live_anchor_series_varies_month_to_month_unlike_static_baseline():
-    market = CombinedMarket("ES")
-    own_monthly = _synthetic_monthly()
-    market.fit({("ANE", "Fresh - Whole"): own_monthly}, latest_date=pd.Timestamp("2024-01-01"))
-
-    live_series = market.get_live_anchor_series("ANE", "Fresh - Whole", own_monthly, own_monthly["date"])
-
-    assert live_series is not None
-    assert len(live_series) == len(own_monthly)
-    # Unlike the static table (one value per calendar month, repeating
-    # every year), the live series reflects real volume at each date, so
-    # two different Januaries should generally differ.
-    by_year = live_series.groupby(live_series.index.year).first()
-    assert by_year.nunique() > 1
-
-
-def test_get_live_anchor_series_reindexes_to_target_dates_with_nan_outside_own_range():
-    market = CombinedMarket("ES")
-    own_monthly = _synthetic_monthly(n_years=2)  # 2018-01 .. 2019-12
-    market.fit({("ANE", "Fresh - Whole"): own_monthly}, latest_date=pd.Timestamp("2020-01-01"))
-
-    target_dates = pd.date_range("2019-06-01", periods=12, freq="MS")  # extends past own_monthly's range
-    live_series = market.get_live_anchor_series("ANE", "Fresh - Whole", own_monthly, target_dates)
-
-    assert len(live_series) == len(target_dates)
-    assert pd.notna(live_series[pd.Timestamp("2019-06-01")])
-    assert pd.isna(live_series[pd.Timestamp("2020-05-01")])  # past own_monthly's last date
-
-
-def test_get_live_anchor_series_returns_none_when_no_frozen_model():
-    market = CombinedMarket("ES")
-    own_monthly = _synthetic_monthly()
-    result = market.get_live_anchor_series("GHOST", "Fresh - Whole", own_monthly, own_monthly["date"])
-    assert result is None
-
-
 def test_fit_excludes_species_with_zero_usable_data(caplog):
     market = CombinedMarket("ES")
     monthly = pd.DataFrame({
@@ -255,6 +219,7 @@ def test_fit_attaches_trend_params_to_every_key():
     flat_confidence = market.models[("MUT", "Fresh - Whole")].trend.confidence
     assert trending_confidence == pytest.approx(1.0)
     assert flat_confidence == pytest.approx(1 / 12)
+    assert flat_confidence < trending_confidence
 
 
 def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatch):
@@ -267,11 +232,11 @@ def test_window_and_baseline_identical_regardless_of_trend_confidence(monkeypatc
     key = ("ANE", "Fresh - Whole")
     latest_date = pd.Timestamp("2025-01-01")
 
-    monkeypatch.setattr("src.models.market.CombinedMarket.compute_trend_confidence", lambda m: 0.0)
+    monkeypatch.setattr("src.models.market.CombinedMarket.compute_trend_confidence", lambda m, te: 0.0)
     market_low = CombinedMarket("ES")
     market_low.fit({key: monthly}, latest_date=latest_date)
 
-    monkeypatch.setattr("src.models.market.CombinedMarket.compute_trend_confidence", lambda m: 1.0)
+    monkeypatch.setattr("src.models.market.CombinedMarket.compute_trend_confidence", lambda m, te: 1.0)
     market_high = CombinedMarket("ES")
     market_high.fit({key: monthly}, latest_date=latest_date)
 
@@ -345,21 +310,6 @@ def test_get_baseline_price_table_unaffected_by_trend_term():
     )
 
 
-def test_get_live_anchor_series_unaffected_by_trend_term():
-    # Analysis-only path -- confirm it still returns a result shaped the
-    # same way for a trend-bearing key. It dispatches only on
-    # baseline_volume is None and never reads trend_confidence/trend_rate,
-    # so it always takes the plain predict_level_volume branch with no
-    # trend correction.
-    market = CombinedMarket("ES")
-    monthly = _trending_synthetic_monthly()
-    market.fit({("ANE", "Fresh - Whole"): monthly}, latest_date=pd.Timestamp("2025-01-01"))
-
-    live_series = market.get_live_anchor_series("ANE", "Fresh - Whole", monthly, monthly["date"])
-    assert live_series is not None
-    assert len(live_series) == len(monthly)
-
-
 import os
 
 VALIDATED_SPECIES = ["ANE", "PIL", "HKE", "SAA", "MUT"]
@@ -384,20 +334,41 @@ def _build_monthly_from_real_prices(market_code, species_code):
 
 
 # Measured against real production data. Window label must match exactly
-# (deterministic, from fit_level_volume_model/select_best_window).
-# confidence and rate use generous tolerances since small fencepost
-# differences in window boundaries are expected, not a bug.
+# (deterministic, from fit_level_volume_model/select_best_window, and
+# unaffected by the trend redesign -- window selection never depends on
+# trend fitting). confidence and rate use generous tolerances since small
+# fencepost differences in window boundaries are expected, not a bug.
+#
+# These are compute_trend_confidence/fit_trend_rate_model's values under
+# the Stage 6b fix (df-scaled critical value + train_end filtering, see
+# trend_confidence.py and .stage6b-report.md) -- the per-calendar-month
+# structure restored after Stage 6's single-pooled-OLS redesign was shown
+# to make things worse. Versus the pre-Stage-6 original design, the two
+# targeted fixes measurably LOWER confidence for FR/PIL (0.08->0.00),
+# FR/HKE (0.17->0.00), and FR/MUT (0.42->0.25) -- the df-scaled critical
+# value correctly demanding more evidence before calling a thin month
+# significant. All other pairs are unchanged.
+#
+# IMPORTANT, see .stage6b-report.md: FR/SAA is the real-data case
+# ARCHITECTURE.md section 6 documents as a "confidently-measured but
+# spurious trend from a cyclical (not genuinely trending) price history".
+# Its confidence is UNCHANGED at 0.25 under this narrower fix -- neither
+# of the two targeted defects (df-blind threshold, train_end leakage)
+# happens to be present in FR/SAA's own per-month breakdown, so this
+# fix neither worsens it (unlike Stage 6's 1.00) nor improves it. This is
+# reported plainly as a real, honest limitation of this narrower fix, not
+# papered over.
 EXPECTED_TREND_PARAMS = {
-    ("ES", "ANE"): {"window": "3yr", "confidence": 0.92, "rate": 0.0625},
-    ("ES", "PIL"): {"window": "2yr", "confidence": 0.00, "rate": 0.0060},
-    ("ES", "HKE"): {"window": "Full", "confidence": 0.00, "rate": 0.0157},
-    ("ES", "SAA"): {"window": "6yr", "confidence": 0.08, "rate": 0.0203},
-    ("ES", "MUT"): {"window": "3yr", "confidence": 0.42, "rate": 0.0150},
-    ("FR", "ANE"): {"window": "3yr", "confidence": 0.08, "rate": 0.0337},
-    ("FR", "PIL"): {"window": "Full", "confidence": 0.08, "rate": -0.0027},
-    ("FR", "HKE"): {"window": "4yr", "confidence": 0.17, "rate": 0.0294},
-    ("FR", "SAA"): {"window": "Full", "confidence": 0.25, "rate": 0.0226},
-    ("FR", "MUT"): {"window": "3yr", "confidence": 0.42, "rate": -0.0252},
+    ("ES", "ANE"): {"window": "3yr", "confidence": 0.92, "rate": 0.0622},
+    ("ES", "PIL"): {"window": "2yr", "confidence": 0.00, "rate": 0.0036},
+    ("ES", "HKE"): {"window": "Full", "confidence": 0.00, "rate": 0.0199},
+    ("ES", "SAA"): {"window": "6yr", "confidence": 0.08, "rate": 0.0236},
+    ("ES", "MUT"): {"window": "3yr", "confidence": 0.42, "rate": 0.0143},
+    ("FR", "ANE"): {"window": "3yr", "confidence": 0.08, "rate": 0.0335},
+    ("FR", "PIL"): {"window": "Full", "confidence": 0.00, "rate": -0.0012},
+    ("FR", "HKE"): {"window": "4yr", "confidence": 0.00, "rate": 0.0306},
+    ("FR", "SAA"): {"window": "Full", "confidence": 0.25, "rate": 0.0208},
+    ("FR", "MUT"): {"window": "3yr", "confidence": 0.25, "rate": -0.0242},
 }
 
 

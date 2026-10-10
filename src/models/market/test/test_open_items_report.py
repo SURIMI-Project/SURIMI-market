@@ -3,7 +3,6 @@ import os
 import pandas as pd
 import pytest
 
-from src.models.market import consts
 from src.models.market.test.fidelity_backtest_harness import run_backtest_split
 
 VALIDATED_SPECIES = ["ANE", "PIL", "HKE", "SAA", "MUT"]
@@ -135,7 +134,7 @@ def test_open_items_report():
         as_of_date=pd.Timestamp("2022-01-01"),
         test_horizon_years=2,
         species_codes=VALIDATED_SPECIES,
-        anchor_scheme=consts.ANCHOR_SCHEME_LIVE,
+        anchor_scheme="live",
         return_handler=True,
     )
 

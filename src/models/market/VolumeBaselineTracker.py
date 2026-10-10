@@ -1,11 +1,13 @@
 """
 Per-(species_code, category_code)-key tracker of observed landings volume,
 by calendar month -- used to compute how far a tick's volume is from what's
-normal for that month ("volume anomaly"/"volume ratio"). Wraps
-level_volume_model.compute_volume_baseline_stats/apply_volume_baseline_update,
-which stay the free functions doing the actual math; this class just gives
-the per-key running state a home instead of a raw dict CombinedMarket and
-LocalMarket each poked at directly and identically.
+normal for that month ("volume anomaly"/"volume ratio"). .seed() delegates
+to level_volume_model.compute_volume_baseline_stats, the free function
+doing that initial-fit math; .update()'s incremental running-mean logic is
+implemented directly here instead -- there's no free-function equivalent
+it's wrapping. This class just gives the per-key running state a home
+instead of a raw dict CombinedMarket and LocalMarket each poked at directly
+and identically.
 """
 import pandas as pd
 
@@ -46,3 +48,42 @@ class VolumeBaselineTracker:
         pairs -- for callers (tests, diagnostics) that need to observe the
         bookkeeping directly rather than through .ratio()."""
         return dict(self._stats)
+
+
+def seed_tracker(
+    volume_baseline: dict[tuple[str, str], "VolumeBaselineTracker"],
+    key: tuple[str, str],
+    monthly: pd.DataFrame,
+    train_start: pd.Timestamp | None,
+    train_end: pd.Timestamp,
+) -> None:
+    """Shared by CombinedMarket and LocalMarket (identical logic in both,
+    previously each class's own private _seed_volume_baseline_stats):
+    construct a fresh VolumeBaselineTracker for key, seed it from monthly's
+    training range, and store it in volume_baseline."""
+    tracker = VolumeBaselineTracker()
+    tracker.seed(monthly, train_start, train_end)
+    volume_baseline[key] = tracker
+
+
+def update_tracker_and_model(
+    volume_baseline: dict[tuple[str, str], "VolumeBaselineTracker"],
+    models: dict[tuple[str, str], object],
+    key: tuple[str, str],
+    date: pd.Timestamp,
+    volume: float,
+) -> None:
+    """Shared by CombinedMarket.update_volume_baseline and
+    LocalMarket.update_volume_baseline (identical logic in both):
+    incremental, never-decaying running-mean update, patched into the
+    frozen model's own baseline_volume[month] if key has both a tracker
+    and a fitted model."""
+    tracker = volume_baseline.get(key)
+    if tracker is None:
+        return
+    result = tracker.update(date, volume)
+    if result is None:
+        return
+    month, new_mean = result
+    if key in models:
+        models[key].update_baseline_volume(month, new_mean)

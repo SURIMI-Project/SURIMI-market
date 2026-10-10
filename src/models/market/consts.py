@@ -42,11 +42,6 @@ N_ROLLING_SPLITS = 3
 ROLLING_SPLIT_STEP_YEARS = 1
 ROLLING_TEST_HORIZON_YEARS = 2
 
-# Anchor schemes: "static" is the only one used in the live production
-# path; "live" exists so the fidelity backtest can compare both.
-ANCHOR_SCHEME_STATIC = "static"
-ANCHOR_SCHEME_LIVE = "live"
-
 # Trend confidence: per-calendar-month OLS (year -> price) on the full
 # real historical record before train_end. Continuous, not a pass/fail
 # gate -- confidence = (months individually significant, in the majority

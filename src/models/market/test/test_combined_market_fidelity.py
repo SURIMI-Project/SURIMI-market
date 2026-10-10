@@ -48,6 +48,12 @@ def test_combined_market_accuracy_within_acceptable_mape():
     # that matters: ES/ANE measurably higher than every other validated
     # pair. Without this, a future change could silently stop exercising
     # the trend correction without anyone noticing.
+    #
+    # (Stage 6b, see .stage6b-report.md: this strict-ranking invariant was
+    # dropped during Stage 6, whose single-pooled-OLS redesign let FR/SAA
+    # saturate at the same confidence=1.0 ceiling as ES/ANE. Stage 6 was
+    # reverted precisely because of that regression; the restored
+    # per-calendar-month design reproduces this invariant again.)
     confidences = {
         (market_code, species): combined_market.models[(species, category)].trend.confidence
         for market_code, combined_market in handler.market_system.combined_markets.items()

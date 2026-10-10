@@ -8,11 +8,11 @@ held-out window that follows.
 import datetime
 import tempfile
 from pathlib import Path
+from typing import Callable
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-from src.models.market import consts
 from src.models.market.MarketHandler import MarketHandler
 from src.models.market.level_volume_model import score_mape
 from src.models.market.test.fake_simulation import (
@@ -32,6 +32,25 @@ def _build_fake_simulation(market_codes, species_codes, category_codes):
     ))
 
 
+def _live_anchor_resolver_from(combined_monthly_by_key: dict) -> Callable:
+    """Builds an anchor_resolver (MarketSystem.fit_all's injection point)
+    that anchors on CombinedMarket's own live tick-by-tick prediction
+    instead of its frozen seasonal baseline -- analysis-only, used to
+    compare against the production default. Moved here from the
+    now-deleted CombinedMarket.get_live_anchor_series; identical math,
+    just relocated out of the production class since nothing in
+    production ever used it."""
+    def resolver(combined_market, species_code, category_code, port_monthly):
+        key = (species_code, category_code)
+        own_monthly = combined_monthly_by_key.get(combined_market.market_code, {}).get(key)
+        if own_monthly is None or key not in combined_market.models:
+            return None
+        predicted = combined_market.models[key].predict_series(own_monthly).copy()
+        predicted.index = own_monthly["date"]
+        return predicted.reindex(pd.DatetimeIndex(port_monthly["date"]))
+    return resolver
+
+
 def run_backtest_split(
     root_config_dir: str,
     scenario_id: str,
@@ -39,7 +58,7 @@ def run_backtest_split(
     test_horizon_years: int,
     species_codes: list[str],
     return_handler: bool = False,
-    anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
+    anchor_scheme: str = "static",
 ):
     prices_df = pd.read_csv(f"{root_config_dir}/{scenario_id}/prices.csv", parse_dates=["date"])
     if "size" not in prices_df.columns:
@@ -74,14 +93,22 @@ def run_backtest_split(
         if err is not None:
             raise RuntimeError(f"backtest init_simulation failed: {err.message}")
 
-        if anchor_scheme != consts.ANCHOR_SCHEME_STATIC:
+        if anchor_scheme != "static":
             # init_simulation always fits with the production default
             # (static). Re-fit Step 2 with the requested alternate scheme on
             # the same truncated data/latest_date before stepping, so only
             # Step 2's models change -- Step 1 and CombinedMarket don't
             # depend on anchor_scheme.
             latest_date = pd.Timestamp(truncated_prices["date"].max())
-            handler.market_system.fit_all(truncated_prices, latest_date, anchor_scheme=anchor_scheme)
+            blended_for_resolver = truncated_prices[truncated_prices["size"].isna()]
+            combined_monthly_by_key = {
+                prefix: handler.market_system._build_monthly_by_key(
+                    blended_for_resolver[blended_for_resolver["market_code"] == prefix]
+                )
+                for prefix in handler.market_system.combined_markets
+            }
+            resolver = _live_anchor_resolver_from(combined_monthly_by_key)
+            handler.market_system.fit_all(truncated_prices, latest_date, anchor_resolver=resolver)
 
         # Step the market_system forward, feeding it this window's real
         # landings as simulated catch input so Step 1/2 see real volumes.

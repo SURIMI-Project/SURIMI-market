@@ -3,12 +3,21 @@ Generic, model-agnostic adaptive training-window selection. Callers supply
 fit/score closures; this module knows nothing about what kind of model is
 being fit -- it only knows how to generate rolling-origin splits and pick
 whichever candidate window length generalizes best.
+
+Also holds fit_price_model_with_window_selection, the shared
+window-selection-then-fallback cascade used identically by
+CombinedMarket.fit and LocalMarket.fit_base_models (both fit the same
+level-volume/level-only base model, just against combined-market-level or
+per-port-level monthly data).
 """
 import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
 from . import consts
+from .price_models import LevelOnlyModel, LevelVolumeModel
+from .VolumeBaselineTracker import seed_tracker
+from .level_volume_model import fit_level_volume_model, predict_level_volume, score_mape
 
 
 def build_rolling_splits(latest_date: pd.Timestamp) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
@@ -87,3 +96,114 @@ def select_best_window(
     """
     ranked = rank_windows_by_score(candidates, rolling_splits, fit_fn, score_fn, sanity_check_fn)
     return ranked[0] if ranked else None
+
+
+def fit_price_model_with_window_selection(
+    monthly_by_key: dict[tuple[str, str], pd.DataFrame],
+    latest_date: pd.Timestamp,
+    *,
+    build_trend,
+    models: dict,
+    window_labels: dict,
+    volume_baseline: dict,
+    logger,
+    class_label: str,
+    market_code: str,
+    window_noun: str,
+    exclusion_suffix: str = "",
+    on_model_fitted=None,
+) -> dict[tuple[str, str], str | None]:
+    """
+    Shared by CombinedMarket.fit and LocalMarket.fit_base_models (identical
+    window-selection-then-fallback cascade in both, previously duplicated):
+    select the best rolling-origin-validated training window for the
+    level-volume model, falling back to a level-only fit if no window is
+    stable or the chosen window's final re-fit fails; exclude the key
+    entirely if even the level-only fallback fails.
+
+    models/window_labels/volume_baseline are the caller's own dicts,
+    mutated in place. volume_baseline is seeded (via
+    VolumeBaselineTracker.seed_tracker) only on the full level-volume
+    success path, never on the level-only fallback -- matching both
+    classes' pre-extraction behavior exactly.
+
+    build_trend(monthly, latest_date) -> TrendCorrection lets each caller
+    supply its own trend construction (CombinedMarket fits a real trend
+    per call; LocalMarket passes a closure returning one pre-built
+    TrendCorrection.identity(latest_date) instance, computed once outside
+    this function and reused for every key/branch).
+
+    logger/class_label/market_code/window_noun/exclusion_suffix reproduce
+    each caller's exact historical log wording -- CombinedMarket and
+    LocalMarket differ in a few words beyond just the class name, so this
+    isn't reduced to one generic message.
+
+    on_model_fitted(key, model, monthly), if given, runs after EVERY
+    successful fit (both the level-volume success path and the level-only
+    fallback) -- used by LocalMarket to additionally stash
+    _base_predicted_series; CombinedMarket passes None.
+    """
+    selected: dict[tuple[str, str], str | None] = {}
+
+    for key, monthly in monthly_by_key.items():
+        rolling_splits = build_rolling_splits(latest_date)
+
+        def fit_fn(train_start, train_end, _monthly=monthly):
+            return fit_level_volume_model(_monthly, train_start, train_end)
+
+        def score_fn(params, test_start, test_end, _monthly=monthly):
+            predicted = predict_level_volume(_monthly, params)
+            mask = (_monthly["date"] >= test_start) & (_monthly["date"] < test_end)
+            return score_mape(predicted[mask], _monthly["price"][mask])
+
+        result = select_best_window(consts.WINDOW_CANDIDATE_YEARS, rolling_splits, fit_fn, score_fn)
+
+        model = None
+        if result is not None:
+            window_label, years = result
+            train_start = latest_date - relativedelta(years=years) if years is not None else None
+            try:
+                model = LevelVolumeModel.fit(monthly, train_start, latest_date, build_trend(monthly, latest_date))
+            except (ValueError, np.linalg.LinAlgError):
+                # Rolling-origin validation scored this window acceptably, but the
+                # final window (train_start..latest_date) can still fail to fit if
+                # sparse real data makes the volume-anomaly series degenerate (zero
+                # variance) -- fall through to the same fallback used when no window
+                # was selected at all.
+                logger.warning(
+                    f"{class_label} {market_code}: selected window {window_label} for {key} "
+                    f"scored acceptably in rolling-origin validation but failed to re-fit on "
+                    f"the final window ending at {latest_date}; falling back to level-only fit"
+                )
+                model = None
+
+            if model is not None:
+                models[key] = model
+                window_labels[key] = window_label
+                seed_tracker(volume_baseline, key, monthly, train_start, latest_date)
+                if on_model_fitted is not None:
+                    on_model_fitted(key, model, monthly)
+                selected[key] = window_label
+                continue
+
+        # Fallback: try a level-only fit.
+        else:
+            logger.warning(
+                f"{class_label} {market_code}: no stable {window_noun} found "
+                f"for {key}, falling back to level-only fit"
+            )
+        try:
+            model = LevelOnlyModel.fit(monthly, None, latest_date, build_trend(monthly, latest_date))
+            models[key] = model
+            window_labels[key] = "level-only-fallback"
+            if on_model_fitted is not None:
+                on_model_fitted(key, model, monthly)
+            selected[key] = "level-only-fallback"
+        except ValueError:
+            logger.warning(
+                f"{class_label} {market_code}: no usable price history at all "
+                f"for {key}, excluding from output{exclusion_suffix}"
+            )
+            selected[key] = None
+
+    return selected

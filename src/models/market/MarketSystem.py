@@ -28,6 +28,17 @@ from .stacked_model import (
 )
 
 
+def _static_anchor_resolver(combined_market, species_code, category_code, port_monthly) -> pd.Series | None:
+    """The only anchor source production ever uses: CombinedMarket's
+    frozen seasonal baseline. Analysis code can inject a different
+    resolver (see fit_all's anchor_resolver parameter) to compare against
+    this without touching the per-port fitting loop itself."""
+    baseline_table = combined_market.get_baseline_price_table(species_code, category_code)
+    if baseline_table is None:
+        return None
+    return build_static_anchor_series(port_monthly["date"], baseline_table)
+
+
 class MarketSystem:
     def __init__(self, currency: str, start_time: datetime.datetime):
         self.tick = Tick(step_months=1, start_time=start_time)
@@ -105,7 +116,7 @@ class MarketSystem:
         # start_date_time is a UTC epoch (gRPC); fromtimestamp() must resolve
         # it in UTC explicitly, or it would use the host's local timezone.
         # tzinfo is then stripped only to match current_time's own awareness
-        # (naive, per Tick.reset()'s utcnow(), or UTC-aware, per Elsa).
+        # (naive, if the configured start_time was naive, or UTC-aware, per Elsa).
         requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
         if current_time.tzinfo is None:
             requested_time = requested_time.replace(tzinfo=None)
@@ -149,25 +160,24 @@ class MarketSystem:
         self,
         prices_df: pd.DataFrame,
         latest_date: pd.Timestamp,
-        anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
+        anchor_resolver=None,
     ):
-        """anchor_scheme selects the neighbor-informed model's anchor source.
-        ANCHOR_SCHEME_STATIC (default, used in production) anchors on
-        CombinedMarket's frozen seasonal baseline; ANCHOR_SCHEME_LIVE
-        (analysis-only, used by the fidelity backtest) anchors on
-        CombinedMarket's own live prediction instead. Only
-        _fit_neighbor_models_for_all_ports branches on it."""
+        """anchor_resolver, if given, overrides how each port's
+        neighbor-informed-model anchor series is computed -- signature
+        (combined_market, species_code, category_code, port_monthly) ->
+        pd.Series | None. Production never passes one (the default
+        resolver -- the current STATIC logic -- is all that ever runs);
+        analysis code (the fidelity backtest) injects an alternate
+        resolver to compare against it."""
         blended = prices_df[prices_df["size"].isna()]
         if self.species_codes:
             blended = blended[blended["species_code"].isin(self.species_codes)]
         if self.category_codes_contract:
             blended = blended[blended["category_code"].isin(self.category_codes_contract)]
 
-        combined_monthly_by_key = {}
         for prefix, combined_market in self.combined_markets.items():
             rows = blended[blended["market_code"] == prefix]
             monthly_by_key = self._build_monthly_by_key(rows)
-            combined_monthly_by_key[prefix] = monthly_by_key
             combined_market.fit(monthly_by_key, latest_date)
             combined_market.load_price_time_series(prices_df)
 
@@ -177,7 +187,7 @@ class MarketSystem:
             local_market.fit_base_models(monthly_by_key, latest_date)
             local_market.load_price_time_series(prices_df)
 
-        self._fit_neighbor_models_for_all_ports(blended, latest_date, combined_monthly_by_key, anchor_scheme)
+        self._fit_neighbor_models_for_all_ports(blended, latest_date, anchor_resolver)
 
     def _build_monthly_by_key(self, rows: pd.DataFrame) -> dict[tuple[str, str], pd.DataFrame]:
         result = {}
@@ -193,9 +203,10 @@ class MarketSystem:
         self,
         blended: pd.DataFrame,
         latest_date: pd.Timestamp,
-        combined_monthly_by_key: dict[str, dict[tuple[str, str], pd.DataFrame]],
-        anchor_scheme: str = consts.ANCHOR_SCHEME_STATIC,
+        anchor_resolver=None,
     ):
+        resolve_anchor = anchor_resolver or _static_anchor_resolver
+
         all_keys = set()
         for local_market in self.local_markets.values():
             all_keys.update(local_market.models.keys())
@@ -240,22 +251,7 @@ class MarketSystem:
                 if port_monthly is None:
                     continue
 
-                if anchor_scheme == consts.ANCHOR_SCHEME_LIVE:
-                    own_monthly = combined_monthly_by_key.get(prefix, {}).get(key)
-                    anchor_series = (
-                        combined_market.get_live_anchor_series(
-                            species_code, category_code, own_monthly, port_monthly["date"]
-                        )
-                        if own_monthly is not None
-                        else None
-                    )
-                else:
-                    baseline_table = combined_market.get_baseline_price_table(species_code, category_code)
-                    anchor_series = (
-                        build_static_anchor_series(port_monthly["date"], baseline_table)
-                        if baseline_table is not None
-                        else None
-                    )
+                anchor_series = resolve_anchor(combined_market, species_code, category_code, port_monthly)
                 if anchor_series is None:
                     continue
 
