@@ -136,12 +136,20 @@ def update_tracker_and_model(
     key: tuple[str, str],
     date: pd.Timestamp,
     volume: float,
+    *extra_models: dict[tuple[str, str], object],
 ) -> None:
     """Shared by CombinedMarket.update_volume_baseline and
     LocalMarket.update_volume_baseline (identical logic in both):
-    incremental, never-decaying running-mean update, patched into the
-    frozen model's own baseline_volume[month] if key has both a tracker
-    and a fitted model."""
+    incremental, never-decaying running-mean update, patched into every
+    given models dict's frozen model.update_baseline_volume(month,
+    new_mean) for key, if key has both a tracker and a fitted model there.
+
+    *extra_models lets LocalMarket patch its neighbor_models (StackedModel)
+    from the exact same tracker update as its own base models -- both
+    represent the same real-world quantity (this port's own observed
+    monthly-average landings), so the tracker itself must only be updated
+    once per observation, not once per model that cares about the result.
+    CombinedMarket (no neighbor models) passes none and is unaffected."""
     tracker = volume_baseline.get(key)
     if tracker is None:
         return
@@ -149,5 +157,6 @@ def update_tracker_and_model(
     if result is None:
         return
     month, new_mean = result
-    if key in models:
-        models[key].update_baseline_volume(month, new_mean)
+    for model_dict in (models, *extra_models):
+        if key in model_dict:
+            model_dict[key].update_baseline_volume(month, new_mean)

@@ -217,6 +217,47 @@ def test_fit_neighbor_models_reuses_the_base_models_window_label():
     assert isinstance(model.gamma, float)
 
 
+def test_update_volume_baseline_also_updates_the_neighbor_models_own_baseline():
+    """update_volume_baseline must keep StackedModel's own
+    port_baseline_volume in sync with the base model's baseline_volume --
+    both represent the same real-world quantity (this port's own observed
+    monthly-average landings), and StackedModel's own vol_anom term is
+    built to behave exactly like the base model's for this reason. If only
+    the base model is patched, the neighbor model's volume anomaly keeps
+    comparing against a stale, frozen-at-fit-time baseline forever."""
+    key = ("ANE", "Fresh - Whole")
+    port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
+    port.fit_base_models({key: _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
+
+    port_monthly, anchor_series, neighbor_signal = _synthetic_port_neighbor_anchor()
+    port.fit_neighbor_models(
+        key[0], key[1],
+        NeighborFitInputs(
+            port_monthly=port_monthly, anchor_series=anchor_series, neighbor_signal=neighbor_signal,
+            latest_date=pd.Timestamp("2024-01-01"),
+        ),
+    )
+
+    base_model = port.models[key]
+    neighbor_model = port.neighbor_models[key]
+    update_date = pd.Timestamp("2024-02-01")
+    month = update_date.month
+    base_before = base_model.baseline_volume[month]
+    neighbor_before = neighbor_model.port_baseline_volume[month]
+
+    new_volume = base_before + 10_000.0  # a large, unmistakable jump
+    port.update_volume_baseline(key[0], key[1], update_date, new_volume)
+
+    base_after = base_model.baseline_volume[month]
+    neighbor_after = neighbor_model.port_baseline_volume[month]
+
+    assert base_after != base_before, "sanity check: the base model's own baseline should have moved"
+    assert neighbor_after == base_after, (
+        "the neighbor model's own baseline must track the base model's exactly -- "
+        f"base moved to {base_after}, neighbor stayed at {neighbor_after} (was {neighbor_before})"
+    )
+
+
 def test_fit_neighbor_models_returns_none_when_base_model_used_level_only_fallback(caplog):
     """No well-defined window to reuse when the base model itself fell
     back to the no-volume-term fit -- must fall back to the base model

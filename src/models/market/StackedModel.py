@@ -208,6 +208,9 @@ class StackedModel:
             predict_stacked_model, date, volume, self._as_params(), anchor_value, neighbor_value
         )
 
+    def update_baseline_volume(self, month: int, new_mean: float) -> None:
+        self.port_baseline_volume[month] = new_mean
+
     def _as_params(self) -> dict:
         return {
             "delta": self.delta,

@@ -111,7 +111,9 @@ class LocalMarket:
         return series
 
     def update_volume_baseline(self, species_code: str, category_code: str, date: pd.Timestamp, volume: float):
-        update_tracker_and_model(self.volume_baseline, self.models, (species_code, category_code), date, volume)
+        update_tracker_and_model(
+            self.volume_baseline, self.models, (species_code, category_code), date, volume, self.neighbor_models
+        )
 
     def predict_from_base_model(
         self, species_code: str, category_code: str, date: pd.Timestamp, volume: float
