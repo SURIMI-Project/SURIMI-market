@@ -5,6 +5,7 @@ init-time fitting, the per-tick flow, and history/export.
 """
 import datetime
 import logging
+import math
 from pathlib import Path
 
 import grpc
@@ -104,7 +105,7 @@ class MarketSystem:
                 )
 
             for sale in summary.sales:
-                if sale.quantity < 1e-323:
+                if not math.isfinite(sale.quantity) or sale.quantity < 1e-323:
                     return MarketError(
                         grpc.StatusCode.INVALID_ARGUMENT,
                         f"Quantity for market {market_code}, species {sale.species.species_code} "
