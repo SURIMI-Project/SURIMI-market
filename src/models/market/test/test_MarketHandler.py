@@ -112,6 +112,36 @@ def test_init_simulation_succeeds_without_optional_size_ratios_csv(tmp_path):
     assert err is None
 
 
+def test_init_simulation_returns_a_clean_error_for_a_malformed_prices_csv(tmp_path):
+    """prices.csv existing but failing to parse (missing the date column,
+    corrupted content, wrong encoding -- a realistic condition from a
+    truncated download or a manual edit) must return a MarketError like
+    every other validation failure in this method, not let the underlying
+    pandas ParserError/ValueError propagate uncaught out of the gRPC call."""
+    scenario_dir = tmp_path / "scn"
+    scenario_dir.mkdir()
+    pd.DataFrame({
+        "market_code": ["ES", "ESALC"], "market_name": ["Spain", "Alicante"],
+        "lon": [None, -0.5], "lat": [None, 38.3],
+    }).to_csv(scenario_dir / "markets.csv", index=False)
+    pd.DataFrame({"species_code": ["ANE"], "species_name": ["Anchovy"]}).to_csv(
+        scenario_dir / "species.csv", index=False
+    )
+    # No "date" column at all -- prices.csv exists but can't be parsed the
+    # way this method requires.
+    pd.DataFrame({
+        "market_code": ["ESALC"], "species_code": ["ANE"], "category_code": ["Fresh - Whole"],
+        "landings_kg": [500.0], "price": [2.0], "currency": ["EUR"], "measurement_unit": ["kg"],
+    }).to_csv(scenario_dir / "prices.csv", index=False)
+
+    handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)
+    response, err = handler.init_simulation(_fake_simulation(), str(tmp_path))
+
+    assert response is None
+    assert err is not None
+    assert err.status_code == StatusCode.INVALID_ARGUMENT
+
+
 def _init_handler(tmp_path):
     root_config_dir = _write_minimal_config(tmp_path)
     handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)

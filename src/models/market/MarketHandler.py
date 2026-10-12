@@ -44,9 +44,15 @@ class MarketHandler(Handler.Handler):
             err_msg += f"The configured directory path is {root_config_dir}."
             return None, MarketError(grpc.StatusCode.NOT_FOUND, err_msg)
 
-        markets_df = pd.read_csv(markets_path)
-        species_df = pd.read_csv(species_path)
-        prices_df = pd.read_csv(prices_path, parse_dates=["date"])
+        try:
+            markets_df = pd.read_csv(markets_path)
+            species_df = pd.read_csv(species_path)
+            prices_df = pd.read_csv(prices_path, parse_dates=["date"])
+        except (ValueError, pd.errors.ParserError, UnicodeDecodeError) as e:
+            return None, MarketError(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Failed to parse configuration files for scenario '{self.scenario_id}': {e}",
+            )
         if "size" not in prices_df.columns:
             prices_df["size"] = None
 
