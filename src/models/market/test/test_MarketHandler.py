@@ -102,6 +102,27 @@ def test_init_simulation_errors_on_missing_contract_species(tmp_path):
     assert err.status_code == StatusCode.NOT_FOUND
 
 
+def test_init_simulation_errors_on_missing_contract_category(tmp_path):
+    """Unlike ports and species, price categories were never validated
+    against prices.csv's real loaded data -- a typo'd/bogus category_code
+    in the contract used to silently succeed with zero fitted models for
+    every port/species, instead of a clear NOT_FOUND error like the other
+    two contract mismatches."""
+    root_config_dir = _write_minimal_config(tmp_path)
+    handler = MarketHandler("sim-1", "scn", datetime.datetime(2024, 1, 1), 1)
+
+    simulation = _FakeSimulation(_FakeItems(
+        markets=[_FakeMarket("ESALC")],
+        species=[_FakeSpecies("ANE")],
+        price_categories=[_FakePriceCategory("Fresh-Whole")],  # typo: missing spaces, not in prices.csv
+    ))
+
+    response, err = handler.init_simulation(simulation, str(root_config_dir))
+
+    assert response is None
+    assert err.status_code == StatusCode.NOT_FOUND
+
+
 def test_init_simulation_succeeds_without_optional_size_ratios_csv(tmp_path):
     root_config_dir = _write_minimal_config(tmp_path)
     assert not (root_config_dir / "scn" / "size_ratios.csv").exists()

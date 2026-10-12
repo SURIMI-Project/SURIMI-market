@@ -58,6 +58,7 @@ class MarketHandler(Handler.Handler):
 
         loaded_species = set(species_df["species_code"].dropna().unique())
         known_market_codes = set(markets_df["market_code"].dropna().unique())
+        loaded_categories = set(prices_df["category_code"].dropna().unique())
 
         contract_ports = {m.market_code for m in simulation.items.markets}
         contract_species = {s.species_code for s in simulation.items.species}
@@ -75,6 +76,14 @@ class MarketHandler(Handler.Handler):
             self.logger.critical(f"Missing the following species: {missing_species}")
             return None, MarketError(
                 grpc.StatusCode.NOT_FOUND, f"The market is missing the following species: {missing_species}"
+            )
+
+        missing_categories = category_contract - loaded_categories
+        if missing_categories:
+            self.logger.critical(f"Missing the following price categories: {missing_categories}")
+            return None, MarketError(
+                grpc.StatusCode.NOT_FOUND,
+                f"The market is missing the following price categories: {missing_categories}",
             )
 
         # Trim to exactly the contracted local ports, but always keep every
