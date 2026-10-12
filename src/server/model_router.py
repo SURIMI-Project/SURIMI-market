@@ -1,9 +1,11 @@
 from models.elsa import ElsaHandler
 from models.arimax import ArimaxHandler
+from models.market import MarketHandler
 
 MODELS = {
     "elsa": ElsaHandler.ElsaHandler,
-    "arimax": ArimaxHandler.ArimaxHandler
+    "arimax": ArimaxHandler.ArimaxHandler,
+    "market": MarketHandler.MarketHandler,
 }
 
 def get_model_handler(model_name: str):

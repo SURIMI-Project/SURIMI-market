@@ -348,6 +348,13 @@ class MarketSystem:
                     date = row[0]
                     species_code = row[2]
                     category_code = row[3]
+                    # NOTE: with the current prices.csv column order (date, market_code,
+                    # species_code, category_code, landings_kg, price, currency,
+                    # measurement_unit, size), row[4] is actually landings_kg, not price --
+                    # this positional read is reading the wrong column. Documented here,
+                    # not fixed, per a deliberate decision made while building the
+                    # src/models/market/ plugin (out of scope for that work; left for a
+                    # separate, explicit fix).
                     price = row[4]
 
                     market.price_time_series[(species_code, category_code, date)] = price
