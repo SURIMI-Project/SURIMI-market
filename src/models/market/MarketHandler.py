@@ -124,9 +124,9 @@ class MarketHandler(Handler.Handler):
                 f"match the input time of {controller_simulation_time.isoformat()}Z",
             )
 
+        tick = self.market_system.tick.get_tick()
         self.market_system.step()
 
-        tick = self.market_system.tick.get_tick()
         self.logger.info(f"Tick {tick} completed.")
         return simulate_step_pb2.SimulateStepResponse(simulation_id=self.simulation_id), None
 

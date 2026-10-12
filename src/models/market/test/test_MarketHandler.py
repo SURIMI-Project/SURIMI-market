@@ -205,6 +205,21 @@ def test_simulate_step_advances_tick_when_time_matches(tmp_path):
     assert handler.market_system.tick.get_tick() == 1
 
 
+def test_simulate_step_logs_the_tick_that_was_just_processed(tmp_path, caplog):
+    """tick.get_tick() is read AFTER step() already incremented it --
+    logging that post-increment value as "the tick that just completed"
+    is off by one. The first simulate_step() call processes tick 0 (the
+    initial state); the log must say "Tick 0 completed", not "Tick 1
+    completed" (the new current tick, about to be processed next)."""
+    handler = _init_handler(tmp_path)
+
+    with caplog.at_level("INFO"):
+        handler.simulate_step(datetime.datetime(2024, 1, 1))
+
+    assert "Tick 0 completed" in caplog.text
+    assert "Tick 1 completed" not in caplog.text
+
+
 def test_simulate_step_errors_on_time_mismatch(tmp_path):
     handler = _init_handler(tmp_path)
 
