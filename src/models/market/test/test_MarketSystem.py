@@ -1,6 +1,7 @@
 import datetime
 
 import pandas as pd
+import pytest
 from grpc import StatusCode
 
 from src.models.market.MarketSystem import MarketSystem, build_prefix_to_locals
@@ -486,6 +487,34 @@ def test_step_advances_tick_and_clears_accumulators():
 
     assert system.tick.get_tick() == 1
     assert system.local_markets["ESALC"].get_monthly_catch_snapshot() == {}
+
+
+def test_step_restores_taken_catch_if_the_rest_of_the_tick_fails(monkeypatch):
+    """take_monthly_catch()/take_direct_catch() atomically clear the
+    accumulators as the very first thing in step(), to close the
+    concurrent-UpdateSales race (a sale landing between a separate
+    snapshot and a later clear used to be silently dropped). But that
+    means if anything after the take() raises, the already-cleared catch
+    must not simply vanish -- a retried step() (the tick number never
+    advanced, since increase_tick() is the last line of
+    _advance_tick_state) would otherwise silently treat this tick as
+    zero-catch forever. step() must restore what it took before
+    re-raising."""
+    system = _fitted_system()
+    system.local_markets["ESALC"].add_monthly_catch("ANE", "Fresh - Whole", 999.0)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated failure partway through the tick")
+
+    monkeypatch.setattr(system, "_advance_tick_state", boom)
+
+    with pytest.raises(RuntimeError, match="simulated failure"):
+        system.step()
+
+    assert system.tick.get_tick() == 0  # the tick never actually advanced
+    assert system.local_markets["ESALC"].get_monthly_catch_snapshot() == {
+        ("ANE", "Fresh - Whole"): 999.0
+    }
 
 
 def test_step_updates_volume_baseline_from_real_observed_volume():

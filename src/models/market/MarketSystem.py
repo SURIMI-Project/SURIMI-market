@@ -296,11 +296,29 @@ class MarketSystem:
             code: cm.take_direct_catch() for code, cm in self.combined_markets.items()
         }
 
-        combined_prices, combined_total_volumes, local_prices = self._compute_tick_prices(
-            current_date, local_volumes, combined_direct_volumes
-        )
+        try:
+            combined_prices, combined_total_volumes, local_prices = self._compute_tick_prices(
+                current_date, local_volumes, combined_direct_volumes
+            )
 
-        self._advance_tick_state(current_date, local_volumes, combined_total_volumes, local_prices, combined_prices)
+            self._advance_tick_state(
+                current_date, local_volumes, combined_total_volumes, local_prices, combined_prices
+            )
+        except Exception:
+            # The accumulators were already atomically cleared above (to avoid
+            # the concurrent-UpdateSales race). If anything below fails, restore
+            # what was taken so a retried step() doesn't silently treat this
+            # tick as zero-catch -- add() merges with (not overwrites) anything
+            # a concurrent UpdateSales call added in the meantime.
+            for code, volumes in local_volumes.items():
+                local_market = self.local_markets[code]
+                for key, qty in volumes.items():
+                    local_market.add_monthly_catch(key[0], key[1], qty)
+            for code, volumes in combined_direct_volumes.items():
+                combined_market = self.combined_markets[code]
+                for key, qty in volumes.items():
+                    combined_market.add_direct_catch(key[0], key[1], qty)
+            raise
 
     def _compute_tick_prices(self, current_date, local_volumes, combined_direct_volumes):
         """Pure price computation for a single tick: CombinedMarket prices,
