@@ -2,7 +2,11 @@
 (market-model-specific) output files."""
 import pandas as pd
 
-from .. import consts
+# Matches consts.SUPPORTED_MEASUREMENT_UNIT in the main package -- not
+# imported directly since data_prep is meant to be fully self-contained
+# (no imports from outside this directory), ahead of eventually living in
+# its own repository.
+SUPPORTED_MEASUREMENT_UNIT = "kg"
 
 PRICES_CSV_COLUMNS = [
     "date", "market_code", "species_code", "category_code",
@@ -24,7 +28,7 @@ def build_prices_csv_rows(*row_frames) -> pd.DataFrame:
     non_empty_frames = [frame for frame in row_frames if not frame.empty]
     all_rows = pd.concat(non_empty_frames if non_empty_frames else row_frames, ignore_index=True)
     all_rows["currency"] = "EUR"
-    all_rows["measurement_unit"] = consts.SUPPORTED_MEASUREMENT_UNIT
+    all_rows["measurement_unit"] = SUPPORTED_MEASUREMENT_UNIT
     return all_rows[PRICES_CSV_COLUMNS]
 
 
