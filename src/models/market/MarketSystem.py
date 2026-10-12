@@ -70,6 +70,14 @@ class MarketSystem:
         self.pending_sales_summary = {}
 
     def setup_topology(self, markets_df: pd.DataFrame) -> MarketError | None:
+        required_columns = {"market_code", "market_name", "lon", "lat"}
+        missing_columns = required_columns - set(markets_df.columns)
+        if missing_columns:
+            return MarketError(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"markets.csv is missing required column(s): {sorted(missing_columns)}.",
+            )
+
         self.prefix_to_locals = build_prefix_to_locals(markets_df)
         self.distance_lookup = build_distance_lookup(markets_df)
 

@@ -62,6 +62,23 @@ def test_setup_topology_errors_on_missing_local_coordinates():
     assert "ESBCN" in err.message
 
 
+def test_setup_topology_errors_cleanly_when_lon_lat_columns_are_missing_entirely():
+    """A markets.csv missing the lon/lat columns entirely (not just NaN
+    values within them -- a malformed reference-data file) must return a
+    clean MarketError like every other validation failure here, not let
+    an uncaught pandas KeyError surface from build_distance_lookup."""
+    markets_df = pd.DataFrame({
+        "market_code": ["ES", "ESALC"],
+        "market_name": ["Spain", "Alicante"],
+        # no "lon"/"lat" columns at all
+    })
+    system = MarketSystem("EUR", datetime.datetime(2024, 1, 1))
+    err = system.setup_topology(markets_df)
+
+    assert err is not None
+    assert err.status_code == StatusCode.FAILED_PRECONDITION
+
+
 def test_setup_topology_does_not_error_on_combined_markets_missing_coordinates():
     # ES/FR having NA lon/lat is expected -- only LOCAL markets (5-letter
     # codes) are checked.
