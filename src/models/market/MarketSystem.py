@@ -126,7 +126,12 @@ class MarketSystem:
         # it in UTC explicitly, or it would use the host's local timezone.
         # tzinfo is then stripped only to match current_time's own awareness
         # (naive, if the configured start_time was naive, or UTC-aware, per Elsa).
-        requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
+        try:
+            requested_time = datetime.datetime.fromtimestamp(start_date_time, tz=datetime.UTC)
+        except (OverflowError, OSError, ValueError):
+            return MarketError(
+                grpc.StatusCode.INVALID_ARGUMENT, f"start_date_time {start_date_time} is out of range."
+            )
         if current_time.tzinfo is None:
             requested_time = requested_time.replace(tzinfo=None)
 

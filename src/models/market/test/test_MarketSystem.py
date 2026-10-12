@@ -161,6 +161,19 @@ def test_update_sales_rejects_non_positive_quantity():
     assert err.status_code == StatusCode.INVALID_ARGUMENT
 
 
+def test_update_sales_rejects_out_of_range_start_date_time():
+    """start_date_time.seconds is a raw protobuf int64 with no range
+    validation at the protocol level -- a client sending a value outside
+    what datetime.fromtimestamp can represent must get a clean
+    INVALID_ARGUMENT error, not an unhandled OverflowError/OSError/
+    ValueError propagating out of the gRPC call."""
+    system = _system_with_topology()
+    err = system.update_sales(_market_sales("ESALC"), 9_999_999_999_999_999)
+
+    assert err is not None
+    assert err.status_code == StatusCode.INVALID_ARGUMENT
+
+
 def test_update_sales_defers_future_dated_sales():
     system = _system_with_topology()
     future_ts = _utc_epoch(system.tick.get_datetime() + datetime.timedelta(days=31))
