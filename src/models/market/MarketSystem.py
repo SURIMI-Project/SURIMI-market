@@ -288,9 +288,12 @@ class MarketSystem:
             for sale in self.pending_sales_summary.pop(date_str):
                 self._accumulate_market_catches(sale)
 
-        local_volumes = {code: lm.get_monthly_catch_snapshot() for code, lm in self.local_markets.items()}
+        # Atomic take (not snapshot-then-clear-later): closes the window where a
+        # concurrent UpdateSales call for this exact tick's date could otherwise
+        # land after the snapshot but before the clear and be silently dropped.
+        local_volumes = {code: lm.take_monthly_catch() for code, lm in self.local_markets.items()}
         combined_direct_volumes = {
-            code: cm.get_direct_catch_snapshot() for code, cm in self.combined_markets.items()
+            code: cm.take_direct_catch() for code, cm in self.combined_markets.items()
         }
 
         combined_prices, combined_total_volumes, local_prices = self._compute_tick_prices(
@@ -396,11 +399,8 @@ class MarketSystem:
             }
             combined_market.record_history(current_tick, prices_for_prefix, volumes_for_prefix)
 
-        # Clear accumulators, advance tick.
-        for local_market in self.local_markets.values():
-            local_market.clear_monthly_catch()
-        for combined_market in self.combined_markets.values():
-            combined_market.clear_direct_catch()
+        # Accumulators were already cleared atomically by take_monthly_catch()/
+        # take_direct_catch() above, at the same moment they were read.
         self.tick.increase_tick()
 
     def _weighted_neighbor_value(

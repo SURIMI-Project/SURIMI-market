@@ -65,6 +65,11 @@ class LocalMarket:
     def get_monthly_catch_snapshot(self):
         return self._monthly_catch.snapshot()
 
+    def take_monthly_catch(self):
+        """Atomically snapshot and clear this tick's accumulated catch --
+        see CatchAccumulator.take()."""
+        return self._monthly_catch.take()
+
     # --- Base model fitting ---
 
     def fit_base_models(

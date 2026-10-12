@@ -120,3 +120,8 @@ class CombinedMarket:
 
     def get_direct_catch_snapshot(self) -> dict:
         return self._direct_catch.snapshot()
+
+    def take_direct_catch(self) -> dict:
+        """Atomically snapshot and clear this tick's accumulated catch --
+        see CatchAccumulator.take()."""
+        return self._direct_catch.take()

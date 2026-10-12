@@ -40,6 +40,16 @@ class CatchAccumulator:
         with self._lock:
             return dict(self._totals)
 
+    def take(self) -> dict:
+        """Atomically snapshot and clear in one lock acquisition -- unlike
+        calling .snapshot() then .clear() separately, this leaves no window
+        where a concurrent .add() could be captured by neither the snapshot
+        nor the next tick's."""
+        with self._lock:
+            result = dict(self._totals)
+            self._totals.clear()
+            return result
+
 
 class RealPriceLookup:
     """Real recorded prices for one market_code, keyed by (species_code,
