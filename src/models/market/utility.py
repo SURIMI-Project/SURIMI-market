@@ -34,7 +34,10 @@ def build_distance_lookup(markets_df: pd.DataFrame) -> dict[tuple[str, str], flo
 
     lookup: dict[tuple[str, str], float] = {}
     for (_, row_a), (_, row_b) in combinations(valid.iterrows(), 2):
-        dist = haversine_distance_m(row_a["lon"], row_a["lat"], row_b["lon"], row_b["lat"])
+        dist = max(
+            haversine_distance_m(row_a["lon"], row_a["lat"], row_b["lon"], row_b["lat"]),
+            consts.MIN_DISTANCE_M,
+        )
         lookup[(row_a["market_code"], row_b["market_code"])] = dist
         lookup[(row_b["market_code"], row_a["market_code"])] = dist
 

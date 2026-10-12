@@ -22,6 +22,14 @@ SIMULATION_HANDLER_LOGGER_NAME = "market_simulation"
 # geosphere::distHaversine() default to 1e-10m precision.
 EARTH_RADIUS_M = 6_378_137
 
+# Floor applied to every pairwise distance in utility.build_distance_lookup --
+# never 0.0, even for two market_codes sharing identical reference
+# coordinates (a real possibility, e.g. both geocoded to the same harbour
+# centroid), since StackedModel.compute_inverse_distance_weights divides by
+# this value. 1 meter is effectively "co-located" in real-world terms while
+# still being a safe, finite divisor.
+MIN_DISTANCE_M = 1.0
+
 # Neighbor-donor eligibility: a port may donate its base-model predicted
 # series only if it's among the target port's K nearest (haversine
 # distance) -- replaces an earlier volume-share tier gate.
