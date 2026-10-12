@@ -598,6 +598,16 @@ def test_step_neighbor_signal_is_unaffected_by_sibling_real_price():
     assert price_with_real == price_without_real
 
 
+def test_fit_all_donor_candidates_by_key_pinned_before_perf_refactor():
+    """Pins donor_candidates_by_key, built in _fit_neighbor_models_for_all_ports
+    by filtering+grouping the whole `blended` DataFrame once per key, against
+    a fixed synthetic fixture. Exists so the planned O(keys^2) -> O(n)
+    optimization (grouping once before the key loop instead of re-filtering
+    per key) can be proven behavior-preserving -- this must not change."""
+    system = _fitted_system()
+    assert system.donor_candidates_by_key == {("ANE", "Fresh - Whole"): {"ESVLC", "ESBCN", "ESALC"}}
+
+
 import tempfile
 from pathlib import Path
 

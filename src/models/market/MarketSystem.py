@@ -221,15 +221,21 @@ class MarketSystem:
             for market_code in self.local_markets
         }
 
+        # Precomputed once (O(n)), not re-filtered/re-grouped per key (O(keys^2)) --
+        # same fix as monthly_by_key_by_port above, applied to this lookup too.
+        volumes_by_port_by_key = (
+            blended[blended["market_code"].isin(self.local_markets.keys())]
+            .groupby(["species_code", "category_code", "market_code"])["landings_kg"]
+            .sum()
+        )
+
         for key in all_keys:
             species_code, category_code = key
 
-            volume_rows = blended[
-                (blended["species_code"] == species_code)
-                & (blended["category_code"] == category_code)
-                & (blended["market_code"].isin(self.local_markets.keys()))
-            ]
-            volumes_by_port = volume_rows.groupby("market_code")["landings_kg"].sum().to_dict()
+            try:
+                volumes_by_port = volumes_by_port_by_key.loc[(species_code, category_code)].to_dict()
+            except KeyError:
+                volumes_by_port = {}
             donor_candidate_ports = {port for port, volume in volumes_by_port.items() if volume > 0}
             self.donor_candidates_by_key[key] = donor_candidate_ports
 
