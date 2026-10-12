@@ -608,6 +608,22 @@ def test_fit_all_donor_candidates_by_key_pinned_before_perf_refactor():
     assert system.donor_candidates_by_key == {("ANE", "Fresh - Whole"): {"ESVLC", "ESBCN", "ESALC"}}
 
 
+def test_step_neighbor_candidate_lookup_pins_exact_price_before_perf_refactor():
+    """Pins the exact neighbor-informed price for ESBCN (whose neighbor
+    signal comes from ESALC's base-model prediction, via the
+    base_predictions scan in _compute_tick_prices) against a fixed,
+    deterministic synthetic fixture. Exists specifically so the planned
+    O((ports*keys)^2) -> O(ports*keys) optimization of that scan (indexing
+    base_predictions by key instead of filtering the whole dict per
+    (port, key) pair) can be proven byte-for-byte behavior-preserving --
+    this value must not change by even one bit after that refactor."""
+    system = _fitted_system()
+    system.step()
+
+    tick, snapshot = system.local_markets["ESBCN"].price_history[-1]
+    assert snapshot["prices"][("ANE", "Fresh - Whole")] == 2.305057802311024
+
+
 import tempfile
 from pathlib import Path
 

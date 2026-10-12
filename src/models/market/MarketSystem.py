@@ -349,12 +349,16 @@ class MarketSystem:
         # needed as neighbor fuel regardless of whether this port itself has
         # real data this tick.
         base_predictions = {}
+        base_predictions_by_key = {}
         for code, local_market in self.local_markets.items():
             for key in local_market.models.keys():
                 volume = local_volumes[code].get(key, 0.0)
-                base_predictions[(code, key)] = local_market.predict_from_base_model(
+                predicted = local_market.predict_from_base_model(
                     key[0], key[1], current_date, volume
                 )
+                base_predictions[(code, key)] = predicted
+                if predicted is not None:
+                    base_predictions_by_key.setdefault(key, {})[code] = predicted
 
         # Final reported price per LocalMarket (real-price-first;
         # The neighbor-informed model is only computed/used when this port itself lacks real data).
@@ -378,8 +382,8 @@ class MarketSystem:
                         donor_candidate_ports = self.donor_candidates_by_key.get(key, set())
                         neighbor_candidates = {
                             other_code: predicted
-                            for (other_code, other_key), predicted in base_predictions.items()
-                            if other_key == key and other_code != code and predicted is not None
+                            for other_code, predicted in base_predictions_by_key.get(key, {}).items()
+                            if other_code != code
                         }
                         neighbor_value = self._weighted_neighbor_value(code, donor_candidate_ports, neighbor_candidates)
                         if neighbor_value is not None:
