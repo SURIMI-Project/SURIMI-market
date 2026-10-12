@@ -160,6 +160,31 @@ def test_fit_and_predict_stacked_model_recovers_neighbor_sensitivity():
     assert mape < 5.0
 
 
+def test_predict_stacked_model_returns_nan_when_port_baseline_volume_is_zero():
+    """Same guard as level_volume_model.predict_level_volume: a calendar
+    month with a legitimate zero port_baseline_volume (e.g. a recorded
+    closed season every year in training) must not silently produce a
+    confident-looking vol_anom_max prediction. Dividing by a zero
+    baseline is undefined -- NaN, not +-inf clipped into looking real."""
+    params = {
+        "delta": 0.0,
+        "beta": -0.3,
+        "gamma": 0.5,
+        "port_baseline_volume": pd.Series({1: 0.0}),
+        "neighbor_baseline": pd.Series({1: 2.0}),
+        "vol_anom_min": -0.5,
+        "vol_anom_max": 0.5,
+    }
+    dates = pd.to_datetime(["2024-01-01"])
+    port_monthly = pd.DataFrame({"date": dates, "price": [np.nan], "landings_kg": [100.0]})
+    anchor_series = pd.Series([2.0], index=dates)
+    neighbor_signal = pd.Series([2.0], index=dates)
+
+    predicted = predict_stacked_model(port_monthly, anchor_series, neighbor_signal, params)
+
+    assert pd.isna(predicted.iloc[0])
+
+
 def test_fit_stacked_model_raises_on_insufficient_rows():
     port_monthly = pd.DataFrame({
         "date": pd.date_range("2020-01-01", periods=2, freq="MS"),

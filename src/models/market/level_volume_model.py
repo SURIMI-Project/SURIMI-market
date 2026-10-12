@@ -104,6 +104,10 @@ def predict_level_volume(monthly: pd.DataFrame, params: dict) -> pd.Series:
 
     baseline_volume_mapped = monthly["month"].map(params["baseline_volume"])
     vol_anom = (monthly["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    # A non-positive baseline (e.g. a recorded closed season every year in
+    # training) makes the anomaly undefined -- NaN, not +-inf silently
+    # clipped into looking like a real, confident reading.
+    vol_anom = vol_anom.where(baseline_volume_mapped > 0)
     vol_anom = vol_anom.clip(lower=params["vol_anom_min"], upper=params["vol_anom_max"])
     predicted_log = (
         monthly["month"].map(params["baseline_log_price"]) + params["alpha"] + params["beta"] * vol_anom

@@ -170,6 +170,10 @@ def predict_stacked_model(
 
     baseline_volume_mapped = port["month"].map(params["port_baseline_volume"])
     vol_anom = (port["landings_kg"] - baseline_volume_mapped) / baseline_volume_mapped
+    # A non-positive baseline (e.g. a recorded closed season every year in
+    # training) makes the anomaly undefined -- NaN, not +-inf silently
+    # clipped into looking like a real, confident reading.
+    vol_anom = vol_anom.where(baseline_volume_mapped > 0)
     vol_anom = vol_anom.clip(lower=params["vol_anom_min"], upper=params["vol_anom_max"])
     neighbor_anom = port["neighbor"] - port["month"].map(params["neighbor_baseline"])
 

@@ -40,6 +40,33 @@ def test_fit_and_predict_recovers_known_relationship():
     assert mape < 5.0  # well-fit synthetic data, should be very low error
 
 
+def test_predict_level_volume_returns_nan_when_baseline_volume_is_zero():
+    """A calendar month with a legitimate zero baseline volume (e.g. a
+    recorded closed season every year in training, landings_kg=0.0 not
+    missing) must not silently produce a confident-looking vol_anom_max
+    prediction. Dividing by a zero baseline is undefined -- the model
+    must say so (NaN), not pretend it's the highest observed volume
+    anomaly just because +inf happens to clip to vol_anom_max."""
+    params = {
+        "baseline_price": pd.Series({1: 2.0}),
+        "baseline_log_price": pd.Series({1: np.log(2.0)}),
+        "baseline_volume": pd.Series({1: 0.0}),
+        "alpha": 0.0,
+        "beta": -0.001,
+        "vol_anom_min": -0.5,
+        "vol_anom_max": 0.5,
+    }
+    monthly = pd.DataFrame({
+        "date": pd.to_datetime(["2024-01-01"]),
+        "price": [np.nan],
+        "landings_kg": [100.0],  # nonzero observed volume against a zero baseline
+    })
+
+    predicted = predict_level_volume(monthly, params)
+
+    assert pd.isna(predicted.iloc[0])
+
+
 def test_fit_respects_train_start_window():
     monthly = _make_monthly()
     full = fit_level_volume_model(monthly, train_start=None, train_end=pd.Timestamp("2023-01-01"))
