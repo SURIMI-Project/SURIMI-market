@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from src.models.market import consts
-from src.models.market.stacked_model import (
+from src.models.market.StackedModel import (
     distance_weighted_neighbor_signal,
     compute_inverse_distance_weights,
 )
@@ -104,7 +104,7 @@ def test_compute_inverse_distance_weights_handles_fewer_than_k_candidates():
     assert weights["P1"] == pytest.approx(1.0 / 10.0)
 
 
-from src.models.market.stacked_model import (
+from src.models.market.StackedModel import (
     build_static_anchor_series,
     fit_stacked_model,
     predict_stacked_model,

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.models.market.RealPriceLookup import RealPriceLookup
+from src.models.market.market_trackers import RealPriceLookup
 
 
 def _prices_df():

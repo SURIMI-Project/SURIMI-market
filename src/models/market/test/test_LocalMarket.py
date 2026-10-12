@@ -173,7 +173,7 @@ def _synthetic_port_neighbor_anchor(seed=1):
     dates = pd.date_range("2018-01-01", periods=72, freq="MS")
     baseline_price = pd.Series({m: 2.0 for m in range(1, 13)})
 
-    from src.models.market.stacked_model import build_static_anchor_series
+    from src.models.market.StackedModel import build_static_anchor_series
     anchor_series = build_static_anchor_series(dates, baseline_price)
     neighbor_signal = pd.Series(2.0 + rng.normal(0, 0.3, len(dates)), index=dates)
 
@@ -267,7 +267,7 @@ def test_fit_neighbor_models_falls_back_to_base_model_only_when_the_single_refit
     candidate now -- the base model's own reused window -- so a re-fit
     failure here must fall straight back to the base model only, with no
     retry loop."""
-    import src.models.market.LocalMarket as local_market_module
+    import src.models.market.StackedModel as stacked_model_module
 
     port = LocalMarket("ESALC", lon=-0.5, lat=38.3)
     port.fit_base_models({("ANE", "Fresh - Whole"): _synthetic_monthly()}, latest_date=pd.Timestamp("2024-01-01"))
@@ -276,7 +276,7 @@ def test_fit_neighbor_models_falls_back_to_base_model_only_when_the_single_refit
     def always_fails(*args, **kwargs):
         raise ValueError("simulated: this port's real landings gap falls inside the reused window")
 
-    monkeypatch.setattr(local_market_module, "fit_stacked_model", always_fails)
+    monkeypatch.setattr(stacked_model_module, "fit_stacked_model", always_fails)
 
     label = port.fit_neighbor_models(
         "ANE", "Fresh - Whole",

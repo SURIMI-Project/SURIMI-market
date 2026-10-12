@@ -13,12 +13,9 @@ import numpy as np
 import pandas as pd
 
 from . import consts
-from .CatchAccumulator import CatchAccumulator
+from .market_trackers import CatchAccumulator, RealPriceLookup, VolumeBaselineTracker, update_tracker_and_model
 from .price_models import PriceModel, TrendCorrection
-from .VolumeBaselineTracker import VolumeBaselineTracker, update_tracker_and_model
-from .RealPriceLookup import RealPriceLookup
 from .StackedModel import StackedModel
-from .stacked_model import fit_stacked_model
 from .window_selection import fit_price_model_with_window_selection
 
 
@@ -163,7 +160,7 @@ class LocalMarket:
         train_start = inputs.latest_date - relativedelta(years=years) if years is not None else None
 
         try:
-            params = fit_stacked_model(
+            model = StackedModel.fit(
                 inputs.port_monthly, inputs.anchor_series, inputs.neighbor_signal, train_start, inputs.latest_date
             )
         except (ValueError, np.linalg.LinAlgError):
@@ -173,7 +170,7 @@ class LocalMarket:
             )
             return None
 
-        self.neighbor_models[key] = StackedModel(params)
+        self.neighbor_models[key] = model
         self.neighbor_window_labels[key] = base_window_label
         return base_window_label
 

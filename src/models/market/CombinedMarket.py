@@ -9,10 +9,8 @@ import logging
 import pandas as pd
 
 from . import consts
-from .CatchAccumulator import CatchAccumulator
+from .market_trackers import CatchAccumulator, RealPriceLookup, VolumeBaselineTracker, update_tracker_and_model
 from .price_models import PriceModel, TrendCorrection
-from .VolumeBaselineTracker import VolumeBaselineTracker, update_tracker_and_model
-from .RealPriceLookup import RealPriceLookup
 from .level_volume_model import fit_trend_rate_model
 from .trend_confidence import compute_trend_confidence
 from .window_selection import fit_price_model_with_window_selection

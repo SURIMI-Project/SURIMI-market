@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.models.market.VolumeBaselineTracker import VolumeBaselineTracker
+from src.models.market.market_trackers import VolumeBaselineTracker
 
 
 def test_seed_then_ratio_reflects_training_data():

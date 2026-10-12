@@ -1,20 +1,74 @@
 """
-Per-(species_code, category_code)-key tracker of observed landings volume,
-by calendar month -- used to compute how far a tick's volume is from what's
-normal for that month ("volume anomaly"/"volume ratio"). .seed() delegates
-to level_volume_model.compute_volume_baseline_stats, the free function
-doing that initial-fit math; .update()'s incremental running-mean logic is
-implemented directly here instead -- there's no free-function equivalent
-it's wrapping. This class just gives the per-key running state a home
-instead of a raw dict CombinedMarket and LocalMarket each poked at directly
-and identically.
+Three small, always-together per-key running-state trackers that
+CombinedMarket and LocalMarket both hold identically: `CatchAccumulator`
+(catch quantities routed between ticks), `RealPriceLookup` (real recorded
+prices, keyed by species/category/date), and `VolumeBaselineTracker`
+(running-mean landings volume per calendar month, used for the
+volume-anomaly term). Kept in one file -- deliberately diverging from the
+usual one-class-per-file convention, same justification as
+price_models.py -- because these three are never read or changed
+independently of one another: they are CombinedMarket/LocalMarket's
+shared per-key state layer as one concept, not three unrelated utilities
+that happen to be small.
 """
+from collections import defaultdict
+import threading
+
 import pandas as pd
 
-from .level_volume_model import compute_volume_baseline_stats
+from .level_volume_model import compute_volume_baseline_stats, populate_price_time_series
+
+
+class CatchAccumulator:
+    """Thread-safe accumulator for catch quantities routed to a market
+    between ticks -- the same pattern CombinedMarket and LocalMarket each
+    need for their own catch bookkeeping."""
+
+    def __init__(self):
+        self._totals: dict[tuple[str, str], float] = defaultdict(float)
+        self._lock = threading.Lock()
+
+    def add(self, species_code: str, category_code: str, quantity: float):
+        with self._lock:
+            self._totals[(species_code, category_code)] += quantity
+
+    def clear(self):
+        with self._lock:
+            self._totals.clear()
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return dict(self._totals)
+
+
+class RealPriceLookup:
+    """Real recorded prices for one market_code, keyed by (species_code,
+    category_code, date). Wraps level_volume_model.populate_price_time_series,
+    which stays the free function doing the actual CSV-row filtering; this
+    class just gives the per-market lookup table a home instead of a raw
+    dict CombinedMarket and LocalMarket each built/read identically."""
+
+    def __init__(self):
+        self._prices: dict[tuple[str, str, pd.Timestamp], float] = {}
+
+    def load(self, prices_df: pd.DataFrame, market_code: str) -> None:
+        populate_price_time_series(self._prices, prices_df, market_code)
+
+    def get(self, species_code: str, category_code: str, date: pd.Timestamp) -> float | None:
+        return self._prices.get((species_code, category_code, date))
 
 
 class VolumeBaselineTracker:
+    """Per-(species_code, category_code)-key tracker of observed landings
+    volume, by calendar month -- used to compute how far a tick's volume
+    is from what's normal for that month ("volume anomaly"/"volume
+    ratio"). .seed() delegates to level_volume_model.compute_volume_baseline_stats,
+    the free function doing that initial-fit math; .update()'s incremental
+    running-mean logic is implemented directly here instead -- there's no
+    free-function equivalent it's wrapping. This class just gives the
+    per-key running state a home instead of a raw dict CombinedMarket and
+    LocalMarket each poked at directly and identically."""
+
     def __init__(self):
         self._stats: dict[int, tuple[float, int]] = {}
 

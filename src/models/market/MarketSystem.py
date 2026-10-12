@@ -21,7 +21,7 @@ from .CombinedMarket import CombinedMarket
 from .utility import build_distance_lookup
 from .level_volume_model import build_complete_monthly_series
 from .market_topology import build_prefix_to_locals
-from .stacked_model import (
+from .StackedModel import (
     distance_weighted_neighbor_signal,
     build_static_anchor_series,
     compute_inverse_distance_weights,

@@ -1,4 +1,4 @@
-from src.models.market.CatchAccumulator import CatchAccumulator
+from src.models.market.market_trackers import CatchAccumulator
 
 
 def test_add_accumulates_quantity_for_the_same_key():
