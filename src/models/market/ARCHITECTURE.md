@@ -23,8 +23,8 @@ Each price is built up in layers:
 
 The model is fitted to historical first-sale prices derived from EMODnet
 (`src/models/market/data_prep/`). When the simulation reaches a month for
-which a real price was recorded, it reports that recorded price as-is;
-for months without historic prices, it reports the model's prediction.
+which a historic price was recorded, it reports that price as-is; for
+months without a historic price, it reports the model's prediction.
 
 The model is implemented in the price simulation framework
 (`src/models/market/`) and registered with its simulation handler
@@ -273,8 +273,8 @@ sequenceDiagram
     MS->>CM: take_direct_catch(), atomic snapshot and clear
     alt prices computed
         MS->>MS: compute every LocalMarket's base-model prediction fresh this tick (base_predictions_by_key), needed as neighbor fuel for sibling ports
-        MS->>CM: get_price(...): recorded price if one exists, else LevelVolumeModel/LevelOnlyModel x TrendCorrection
-        MS->>LM: recorded price if one exists, else predict_from_base_model(...), else predict_from_neighbor_model(...)
+        MS->>CM: get_price(...): historic price if one exists, else LevelVolumeModel/LevelOnlyModel x TrendCorrection
+        MS->>LM: historic price if one exists, else predict_from_base_model(...), else predict_from_neighbor_model(...)
         MS->>LM: update_volume_baseline(...) for the base model and the StackedModel
         MS->>CM: update_volume_baseline(...)
         MS->>MS: record_history(), tick.increase_tick()
@@ -297,7 +297,16 @@ sequenceDiagram
 
 ## 3. Supply-Driven Seasonal Price Model
 
-### 3.1 CombinedMarket (national level)
+### 3.1 Combined Market
+
+```mermaid
+flowchart LR
+    A[Price requested for a species, market and date] --> B{Historic price recorded for this date?}
+    B -->|Yes| C[Return the historic price]
+    B -->|No| D["Compute the seasonal + volume-response price<br/>"]
+    D --> E[Apply the trend correction]
+    E --> F[Return price]
+```
 
 For each species at each national market, the model sets the price of a
 simulated month in three steps:
@@ -339,8 +348,8 @@ where, for one species at one national market:
 `vol_anom` is clipped to the minimum and maximum relative anomaly seen
 during training, so the volume response never exceeds the most extreme
 response observed. When `baseline_volume[month] <= 0`, `vol_anom` is
-`NaN`. Both rules apply to `CombinedMarket`, to the `LocalMarket` base
-model (Section 3.2) and to `StackedModel` (Section 3.3).
+`NaN`. Both rules apply to `CombinedMarket` here, and to the `LocalMarket`
+base model and to `StackedModel` in Section 3.2.
 
 **Interpretation:**
 - Landings/catches above the typical amount for the month push the price
@@ -353,8 +362,9 @@ model (Section 3.2) and to `StackedModel` (Section 3.3).
 - A calendar month with no usable baseline volume has no volume response
   at all.
 
-If the volume-anomaly series is degenerate, the fit falls back to a
-level-only model (no volume term).
+If the volume-anomaly series has too few usable training rows, or
+doesn't vary at all, the fit falls back to a level-only model (no
+volume term).
 
 #### Trend
 
@@ -386,16 +396,12 @@ where:
 | `clip(x, lower, upper)` | A function with three arguments that limits x to the range lower to upper. In the formula, x is elapsed_years, lower is min_trend_years and upper is years_trained. |
 | `elapsed_years` | The years between train_end and date, before any limits are applied. |
 
-`confidence` comes from per-calendar-month OLS significance
-(`trend_confidence.compute_trend_confidence`), computed on data before
-`train_end` only. Each month's `|t|` is tested against a critical value
-scaled by its degrees of freedom
-(`consts.trend_confidence_critical_value`), so a month backed by few years
-of data needs a higher `|t|` to count as significant. `rate` comes from
-sequential 3-year block-average log-prices, anchored backward from
-`train_end` (`level_volume_model.fit_trend_rate_model`). For a species
-without a multi-year trend, `confidence` is close to 0, so the correction
-has no effect without any special case.
+`confidence` measures how statistically certain the long-run trend is,
+using only data before `train_end`; a month backed by fewer years of
+data needs stronger evidence to count as confident. `rate` is the
+measured long-run trend in log-price per year, computed over the years
+before `train_end`. For a species without a real multi-year trend,
+`confidence` is close to 0, so the correction has no effect.
 
 **Interpretation:**
 - A species with a well-established, statistically confident long-run
@@ -408,63 +414,50 @@ has no effect without any special case.
   effect at all: it only ever pushes the price forward in time, never
   backward.
 
-#### Price resolution
+### 3.2 Local Market
 
 ```mermaid
 flowchart LR
-    A[Price requested for a species, market and date] --> B{Real price recorded for this date?}
-    B -->|Yes| C[Return the recorded price]
-    B -->|No| D["Compute the seasonal + volume-response price<br/>(LevelVolumeModel, or LevelOnlyModel if no volume term could be fit)"]
-    D --> E[Apply the trend correction]
-    E --> F[Return price_hat]
+    A[Price requested for a species, port and date] --> B{Historic price recorded for this date?}
+    B -->|Yes| C[Return the historic price]
+    B -->|No| D["Compute the base-model prediction<br/>"]
+    D --> E{Eligible neighbor-informed model,<br/>and a neighbor value available this tick?}
+    E -->|Yes| F[Compute the neighbor-informed StackedModel prediction]
+    F --> G[Return the neighbor-informed price]
+    E -->|No| H[Return the base-model price]
 ```
 
-### 3.2 LocalMarket base model (port level)
+Each port's price is built in two layers:
 
-The same level-volume model as Section 3.1 (same `level_volume_model.py`
-functions, including the `NaN` guard for non-positive baseline volume),
-fitted independently per 5-letter port. Ports have sparser data than the
-national aggregate, so the level-only fallback is more frequent here
-(Section 4).
+1. **Base model.** Fitted independently on the port's own history, using
+   the same formula as Section 3.1.
+2. **Neighbor-informed model.** For ports with a usable geographic
+   neighbor, blends in nearby ports' own predictions on top of the base
+   model.
 
-The port level has no trend correction: its models use
-`TrendCorrection.identity`. The anchor that ports read from
-`CombinedMarket.get_baseline_price_table()` is the untrended seasonal
-baseline, so port prices carry no national trend either. This is a
-deliberate design choice. Per-port series have fewer years per calendar
-month, which makes a genuine multi-year trend hard to separate from
-noise. A test on the 5 port/species pairs with the longest history (10
-cutoffs between 2010 and 2023, forecasts up to 11 years ahead) confirmed
-it: for 4 pairs the measured confidence was close to 0, so the correction
-had no effect, and for FRSET/SAA (confidence 0.22–0.42) it worsened
-long-horizon MAPE by 6.2 points on average and by up to 50 points at
-single cutoffs.
+#### Base model (port level)
 
-### 3.3 LocalMarket neighbor-informed model
+The same seasonal-plus-volume-response model as Section 3.1, fitted
+independently per 5-letter port, without the trend term: ports anchor on
+`CombinedMarket`'s untrended seasonal baseline instead of fitting their
+own trend. Where the volume-anomaly series has too few usable training
+rows, or doesn't vary at all, the fit falls back to the level-only model
+(no volume term), the same as at the national level.
 
-Built on top of the base model (Section 3.2) for ports with a usable
-neighbor among the **TOP_K_NEAREST_DONORS** (5) geographically closest
-local ports, weighted by inverse distance
-(`compute_inverse_distance_weights`). Pairwise port distances
-(`utility.build_distance_lookup`) are floored at `consts.MIN_DISTANCE_M`
-(1 m), so two ports geocoded to the same coordinates still receive a
-valid weight. `MarketSystem` computes two inputs and passes them to
-`LocalMarket.fit_neighbor_models` as one `NeighborFitInputs` object:
+#### Neighbor-informed model
 
-- **Anchor series**: `CombinedMarket`'s frozen seasonal baseline for this
-  species, via `MarketSystem.fit_all`'s `anchor_resolver` injection point
-  (production never overrides it, so this static baseline is the only
-  anchor source ever used live). Analysis code (the fidelity backtest)
-  can inject an alternate resolver anchoring on `CombinedMarket`'s own
-  live tick-by-tick prediction instead, to compare both; that resolver
-  lives in `test/fidelity_backtest_harness.py`, not in production.
-- **Neighbor signal**: a distance-weighted blend of *other* ports' own
-  base-model predicted series, using `utility.build_distance_lookup`.
+A port with a usable neighbor gets a second model layered on top of the
+base model. Its neighbors are its 5 closest local ports by geographic
+distance, with closer ports counting for more. Two inputs feed this fit:
 
-One model is fitted, `StackedModel`. It has the same formula shape as the
-base model (Section 3.2): log-space, an own-volume anomaly relative to
-the port's baseline volume and clipped to the training range, plus a
-`gamma * neighbor_anom` term:
+- **Anchor series**: `CombinedMarket`'s own seasonal baseline for this
+  species.
+- **Neighbor signal**: a distance-weighted blend of the other ports' own
+  predicted prices.
+
+`StackedModel` fits one combined formula: the port's own volume
+response, same as the base model, plus a term for the neighboring
+ports' predicted prices:
 
 ```
 log(price) - log(anchor) = delta + beta * vol_anom + gamma * neighbor_anom
@@ -472,7 +465,7 @@ vol_anom      = clip((volume - port_baseline_volume[month]) / port_baseline_volu
 neighbor_anom = neighbor_value - neighbor_baseline[month]
 ```
 
-where, for one species at one port:
+where, for one species at one local port:
 
 | Variable | Meaning |
 |---|---|
@@ -488,10 +481,14 @@ where, for one species at one port:
 | `neighbor_baseline[month]` | The typical value of `neighbor_value` for the given calendar month. |
 | `neighbor_anom` | How far `neighbor_value` lies from `neighbor_baseline[month]`. |
 
+`port_baseline_volume[month]` is kept in sync with the base model's own
+baseline: every per-tick update applies to both, so the two models
+compute the same volume anomaly.
+
 **Interpretation:**
 - A port's price tracks the national seasonal baseline, adjusted up or
-  down by its own supply and by what's happening at its nearest
-  neighboring ports.
+  down by its own supply and by its nearest neighboring ports' own
+  predicted prices.
 - The port's own volume response works exactly like the base model's:
   above-typical landings/catches push the price down, below-typical
   landings/catches push it up, clipped to what was seen during training.
@@ -500,75 +497,31 @@ where, for one species at one port:
 - Because everything is computed in log-space, the reported price can
   never be zero or negative.
 
-`StackedModel` is fitted once, on the training window already
-selected for the port's base model (Section 3.5).
-`StackedModel.port_baseline_volume` follows the port's baseline volume as
-the simulation runs: every per-tick `update_volume_baseline` call updates
-the base model and the `StackedModel` together through
-`market_trackers.update_tracker_and_model`, so both models compute the
-same volume anomaly.
+### 3.3 Shared Mechanisms
 
-#### Price resolution
+#### Historic-price-first
 
-```mermaid
-flowchart LR
-    A[Price requested for a species, port and date] --> B{Real price recorded for this date?}
-    B -->|Yes| C[Return the recorded price]
-    B -->|No| D["Compute the base-model prediction<br/>(always — needed as neighbor fuel for sibling ports too)"]
-    D --> E{Eligible neighbor-informed model,<br/>and a neighbor value available this tick?}
-    E -->|Yes| F[Compute the neighbor-informed StackedModel prediction]
-    F --> G[Return the neighbor-informed prediction]
-    E -->|No| H[Return the base-model prediction]
-```
+Both `CombinedMarket` and `LocalMarket` check their own historic-price
+lookup (a `RealPriceLookup` instance, loaded from `prices.csv`'s blended
+rows) first, and return that price directly whenever one exists —
+prediction is only ever reached for a date with no historic price.
 
-### 3.4 Real-price-first
+#### Window selection
 
-Both `CombinedMarket.get_price()` and `LocalMarket.get_real_price()`
-check their own `real_prices` lookup (a `RealPriceLookup` instance,
-loaded from `prices.csv`'s blended rows) first, and return the real
-recorded price directly whenever one exists — prediction is only ever
-reached for a date with no real price.
-
-### 3.5 Window selection (shared methodology)
-
-`CombinedMarket.fit` and `LocalMarket.fit_base_models` select their
+`CombinedMarket` and `LocalMarket`'s base models select their
 training-window length the same way: score each candidate window
-(`WINDOW_CANDIDATE_YEARS = {2yr, 3yr, 4yr, 6yr, Full}`) via rolling-origin
-validation (`window_selection.py`, model-agnostic — it only knows about
-`fit_fn`/`score_fn` closures the caller supplies), then re-fit on the
-single best-scoring window against the complete real history.
+(`WINDOW_CANDIDATE_YEARS = {2yr, 3yr, 4yr, 6yr, Full}`) via model-agnostic
+rolling-origin validation, then re-fit on the single best-scoring window
+against the complete real history.
 
-`LocalMarket.fit_neighbor_models` reuses the window that
-`fit_base_models` selected for the same key and fits the `StackedModel`
-once on it. If the base model is level-only, or the fit on that window
-fails, the port has no neighbor-informed model for that key.
-
----
-
-## 4. Validation
-
-The model is validated on first-sale data for 5 species in Spain and
-France (category Fresh - Whole, January 2010 to December 2024), with a
-rolling backtest over 5 splits (`as_of_date` = 1 January 2018 to 2022,
-2-year horizon).
-
-| Measure | Result |
-|---|---|
-| National fits using the level-volume model | 10 of 10 (species, market) pairs |
-| Port fits using the level-only fallback | 19 of 174 (about 11%) |
-| Port/key pairs with a neighbor-informed model (split 2022-01-01) | 156 of 172 (90.7%) |
-| Backtest MAPE, 5 splits, 800 comparable pairs | mean 42.32%, median 29.40% |
-| Full fit in `init_simulation` with the real config data | 30.65 s |
-
-`test_fidelity_backtest.py` checks the 2022-01-01 split against a 50%
-MAPE ceiling. ANE at ESGLE, a volatile pair, reaches 50.32% at that split
-and is on the test's documented exemption list. A 240-tick (20-year)
-simulation through the gRPC interface with the full `northwestern_med`
-config data runs without errors.
+The neighbor-informed model reuses the window the base model already
+selected for the same key, and fits `StackedModel` once on it. If the
+base model is level-only, or the fit on that window fails, the port has
+no neighbor-informed model for that key.
 
 ---
 
-## 5. Known Limitations
+## 4. Known Limitations
 
 - **Spurious national trends.** A cyclical price history can produce a
   confidently measured trend that is not real. SAA in France is the
