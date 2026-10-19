@@ -57,10 +57,10 @@ class MarketService(market_service_pb2_grpc.MarketServiceServicer):
         # A model is selected with the environment variable `MODEL_NAME`.
 
         # TODO make sure the consts don't collide
-        # Default to the Elsa model.
+        # Default to the Market model.
         model_name = os.environ.get("MODEL_NAME")
         if model_name is None or model_name.strip() == "":
-            model_name = "elsa"
+            model_name = "market"
         model_handler = get_model_handler(model_name)
 
         if model_handler is None:
