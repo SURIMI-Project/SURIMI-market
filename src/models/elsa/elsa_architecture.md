@@ -5,7 +5,7 @@ registered as `"elsa"` in `src/server/model_router.py` — the default
 model if `MODEL_NAME` is unset). It is a separate, independently-selectable
 plugin from **`market`** (`src/models/market/`, a more detailed
 seasonal-plus-volume-response price model — see
-`src/models/market/ARCHITECTURE.md`).
+`src/models/market/market_model_architecture.md`).
 
 The framework layer above this plugin (Controller → App → `MarketService`,
 shared across every model plugin) is documented in `market_architecture.md`.

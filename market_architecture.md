@@ -25,7 +25,7 @@
 
 The **SURIMI Market Model** is a gRPC microservice framework that simulates fish market price dynamics as part of the broader **SURIMI** research project — a European initiative (2024–2027) developing socio-ecological models to support marine management strategy evaluation under the EU's **European Digital Twin of the Ocean (EU DTO)**.
 
-The framework hosts a pluggable price model, selected at startup via the `MODEL_NAME` environment variable (see Section 6); the default is **`market`** (see `src/models/market/ARCHITECTURE.md`). The model answers the question *how do fish prices respond to changes in catch volume?* with its own domain model and price-formation logic; this document covers only what the framework itself provides: the gRPC surface, the simulation lifecycle's outer layers, config/data handling, deployment and infrastructure.
+The framework hosts a pluggable price model, selected at startup via the `MODEL_NAME` environment variable (see Section 6); the default is **`market`** (see `src/models/market/market_model_architecture.md`). The model answers the question *how do fish prices respond to changes in catch volume?* with its own domain model and price-formation logic; this document covers only what the framework itself provides: the gRPC surface, the simulation lifecycle's outer layers, config/data handling, deployment and infrastructure.
 
 The service integrates into a larger simulation framework alongside other models (e.g., EwE, Poseidon, CMSY). An external workflow controller drives the simulation tick by tick, pushing catch data in and reading prices back out via gRPC.
 
@@ -52,7 +52,7 @@ model's own architecture doc.
 ### Market Model Plugins
 
 Each model plugin defines its own domain model (the classes implementing
-price formation). See `src/models/market/ARCHITECTURE.md`.
+price formation). See `src/models/market/market_model_architecture.md`.
 
 ---
 
@@ -64,7 +64,7 @@ A simulation proceeds in three phases: **Initialise**, one or more **tick iterat
 
 This diagram covers the framework layer only, down to each model's own
 `SimulationHandler`. What happens inside that handler is model-specific —
-see `src/models/market/ARCHITECTURE.md`.
+see `src/models/market/market_model_architecture.md`.
 
 ```mermaid
 sequenceDiagram
@@ -172,7 +172,7 @@ Both services share a `simulation_dictionary: dict[str, SimulationHandler]` inje
 
 ### 5.1 Input Configuration Files
 
-Config files live in `config/` and are synced nightly from `SURIMI-western_med` (see Section 5.4). The exact files and columns a given model expects are documented in that model's own architecture doc (`src/models/market/ARCHITECTURE.md`).
+Config files live in `config/` and are synced nightly from `SURIMI-western_med` (see Section 5.4). The exact files and columns a given model expects are documented in that model's own architecture doc (`src/models/market/market_model_architecture.md`).
 
 On `Initialise`, the global `config/` directory is copied to `simulations/<simulation_id>/config/` to snapshot the inputs at the time of the run.
 
