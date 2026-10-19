@@ -293,6 +293,8 @@ sequenceDiagram
     MH->>MS: export_results(simulation_id, folder_path)
 ```
 
+The gRPC contract carries several fields this plugin never reads: `Simulation.time_step` (tick length is hardcoded to one month — see `Tick.py`), `end_date_time` (on both `InitialiseSimulationRequest` and `UpdateSalesRequest`), `Sale.fleet_segment`, and `Species`'s demographic fields (`length_class`, `age`, `life_stage`). None of these have any effect regardless of what a caller sends. This isn't specific to `market`: `elsa` ignores the same fields (it stores `step_size` but never reads it back), so this reflects shared protocol fields that no currently-implemented model consumes, not a gap in this plugin.
+
 ---
 
 ## 3. Supply-Driven Seasonal Price Model
