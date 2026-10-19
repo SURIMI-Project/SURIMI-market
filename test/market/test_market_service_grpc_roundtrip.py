@@ -9,8 +9,9 @@ verified that the REAL protobuf message shape matches what those stand-ins
 assume).
 
 This exercises: MODEL_NAME-based routing to MarketHandler (server/model_router.py),
-InitialiseSimulation, UpdateSales, SimulateStep (twice), GetSpeciesPrices, and
-FinaliseSimulation, in the order a real controller would call them.
+InitialiseSimulation, UpdateSales, SimulateStep (twice), GetSpeciesPrices,
+FinaliseSimulation, CancelSimulation, and GetProtocolVersion, in the order a
+real controller would call them.
 """
 import datetime
 import shutil
@@ -21,7 +22,9 @@ from dateutil.relativedelta import relativedelta
 from google.protobuf.json_format import ParseDict
 from google.protobuf.timestamp_pb2 import Timestamp
 from surimi.v1 import (
+    cancel_simulation_pb2,
     finalise_simulation_pb2,
+    get_protocol_version_pb2,
     get_species_prices_pb2,
     initialise_simulation_pb2,
     sales_pb2,
@@ -210,3 +213,48 @@ def test_market_service_full_grpc_lifecycle(tmp_path, monkeypatch):
         assert (output_dir / "local_prices.csv").exists()
     finally:
         shutil.rmtree(scenario_output_dir, ignore_errors=True)
+
+
+def test_market_service_cancel_simulation(tmp_path, monkeypatch):
+    monkeypatch.setenv("MODEL_NAME", "market")
+    monkeypatch.setenv("ROOT_CONFIG_DIR", str(tmp_path))
+    monkeypatch.delenv("AWS_BUCKET_NAME", raising=False)
+
+    scenario_id = "grpc_cancel_scn"
+    simulation_id = "grpc-cancel-sim"
+    _write_market_config(tmp_path, scenario_id)
+    contract = _build_contract(simulation_id, scenario_id)
+    context = _DummyServicerContext()
+    service = MarketService("1.0.0-test")
+
+    init_response = service.InitialiseSimulation(contract, context)
+    assert init_response is not None
+    assert simulation_id in service.simulation_dictionary
+
+    # CancelSimulation drops the simulation from the in-memory dictionary,
+    # same as FinaliseSimulation, but writes no output files.
+    cancel_response = service.CancelSimulation(
+        cancel_simulation_pb2.CancelSimulationRequest(simulation_id=simulation_id), context
+    )
+    assert cancel_response is not None
+    assert cancel_response.simulation_id == simulation_id
+    assert simulation_id not in service.simulation_dictionary
+
+    # Cancelling a simulation that no longer exists must be rejected.
+    try:
+        service.CancelSimulation(
+            cancel_simulation_pb2.CancelSimulationRequest(simulation_id=simulation_id), context
+        )
+        raise AssertionError("expected cancelling a non-existent simulation to abort")
+    except AssertionError as e:
+        assert "does not" in str(e)
+
+
+def test_market_service_get_protocol_version():
+    context = _DummyServicerContext()
+    service = MarketService("9.9.9-test-version")
+
+    response = service.GetProtocolVersion(get_protocol_version_pb2.GetProtocolVersionRequest(), context)
+
+    assert response is not None
+    assert response.protocol_version == "9.9.9-test-version"
