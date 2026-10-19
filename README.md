@@ -13,11 +13,6 @@ It holds the source code of the SURIMI Market model
 - [Create a Docker image](#create-a-docker-image)
 - [Config files Synchronisation from the SURIMI-western_med repo](#config-files-synchronisation-from-the-surimi-western_med-repo)
 - [Virtual Environment](#virtual-environment)
-- [SURIMI](#surimi)
-  - [Market Model](#market-model)
-    - [Object Graph](#object-graph)
-    - [Notation](#notation)
-    - [Hypothesis](#hypothesis)
   - [Links](#links)
 - [Troubleshooting](#troubleshooting)
 
@@ -277,42 +272,6 @@ The European Union’s (EU) Mission ‘Restore our Ocean and Waters’ by 2030, 
 
 SURIMI is a 3-year project (2024-2027) that will feed into the EU DTO. SURIMI’s mission is to build partnerships with stakeholders from industry, science, policy, and society to develop nine socio-ecological models for integration into the EU DTO. With access to ecological and fisheries data alongside economic and social data, SURIMI will use Large Language Models to improve the EU DTO’s ability to support informed decision-making and policy development in marine management strategy evaluation analyses in European waters.
 
-## Market Model
-
-Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
-
-### Object Graph
-
-```tree
-── MarketModel   
-    ├── Species (dict)  
-    ├── GlobalMarket 
-        └── species_price_params, catch, etc.
-    └── Ports (dict)  
-        └── LocalMarket  
-            └── species_price_params, catch, etc.  
-```
-
-### Notation
-
-- *N* = Biomass
-- *C* = Catch
-- *P* = Price
-- *i* = fish population
-- *l* = local
-- *g* = global
-- *β* = lowest price per unit of fish. 
-- *d* = price for fish on local market
-- *ϵ* = elasticity of demand
-
-### Hypothesis  
-
-- Global market is assumed to have constant prices with prices, as price does not change when catch quantity changes.  
-*P*<sub>*ig*</sub> = *p*
-- Local markets are considered small volume markets, with decreasing returns to scale. As more fish is sold the local demand is saturated and price decreases.   
-*P*<sub>*il*</sub> = *d*<sub>*i*</sub>*e*<sup>-*β*<sub>*i*</sub>*C*<sub>*il*</sub></sup>
-- The local market have an elasticity of *ϵ* = 1 / ln( *p* / *d* )
-
 
 ### Links
 
@@ -320,23 +279,6 @@ Interesting paper: https://doi.org/10.1016/j.ecolecon.2018.09.008
 - [Twitter](https://x.com/surimi_project)
 - [LinkedIn](https://www.linkedin.com/company/surimi-project/)
 
-### Notes from Ernesto
-
-log(p) = elasticity*log(q) + C
-log(p) = alpha*log(catch_local) + beta * log(catch_total) + C
-
-alpha =0, beta = 0
-
-P = MC (perfect competition)
-- price received is the cost of  catching one more ton of fish
-- if poseidon is running with free entry (= people can enter the market)
-
-- Global price is fixed at the moment, if I want to connect them , price global should be a function of all the catches, 
-- Be aware that prices can jump up if working with averaging (dampening)
-- Check data for how prices develop over seasons (also check for demand), 
-
-- Attention --> pricing might be affected by processing (tons of fish after skinning etc.), there is not a 1 to 1 from bought to sold
-  - there are tables from the european union on this, something. Check if there is paper Brian reed powers (ask nick)
  
 ## Troubleshooting
 Problem: I get the following error:
