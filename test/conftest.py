@@ -36,10 +36,10 @@ def contract() -> InitialiseSimulationRequest:
             "start_date_time": "2010-01-01T00:00:00Z",
             "items": {
                 "markets": [
-                    {"market_code": "PORT_A"},
-                    {"market_code": "PORT_B"},
-                    {"market_code": "PORT_C"},
-                    {"market_code": "PORT_D"}
+                    {"market_code": "PORTA"},
+                    {"market_code": "PORTB"},
+                    {"market_code": "PORTC"},
+                    {"market_code": "PORTD"}
                 ],
                 "currencies": [
                     {"code": "EUR"}
@@ -73,6 +73,11 @@ def contract() -> InitialiseSimulationRequest:
 
 @pytest.fixture
 def market_service(contract, config_dir, grpc_context) -> MarketService:
+    # 5-character market codes (e.g. "PORTA") work as local markets under
+    # every model: the `market` plugin requires exactly 5 characters for its
+    # LOCODE-style local-market topology, and `elsa` has no such constraint.
+    # This keeps the fixture valid regardless of which model MarketService
+    # currently defaults to.
     os.environ["ROOT_CONFIG_DIR"] = str(config_dir)
     market_service = MarketService("1.0.0-test")
     assert market_service.InitialiseSimulation(contract, grpc_context), \

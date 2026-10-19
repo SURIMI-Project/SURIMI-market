@@ -1,20 +1,17 @@
 """
 Market-model equivalent of test/market/test_update_sales.py's scenarios.
 
-That file, despite living under test/market/, actually tests ElsaHandler:
-it drives MarketService through the shared root test/conftest.py fixtures
-(`market_service`/`contract`/`config_dir`), which never set MODEL_NAME, so
-MarketService.InitialiseSimulation silently defaults to "elsa" -- confirmed
-empirically, not just read from code (constructed the handler and printed
-its type). Those fixtures' PORT_A/PORT_B-style codes are also structurally
-incompatible with this plugin's 5-letter/2-letter LOCODE topology (neither
-length matches build_prefix_to_locals' filters), so forcing MODEL_NAME=market
-onto them would not even work -- MarketSystem.setup_topology would derive
-an empty topology.
+That file drives MarketService through the shared root test/conftest.py
+fixtures (`market_service`/`contract`/`config_dir`), which exercise whichever
+model MarketService currently routes to by default -- it does not pin
+MODEL_NAME, by design, since those fixtures use 5-character market codes
+(e.g. "PORTA") that are valid local-market codes under every model.
 
-This file gives MarketHandler/MarketSystem its own LOCODE-compatible
-fixtures and exercises the SAME accumulation and future-landings-deferral
-scenarios for real, using real protobuf UpdateSalesRequest messages.
+This file instead constructs MarketHandler/MarketSystem directly, with its
+own realistic LOCODE fixtures (e.g. "ESALC"), to exercise the SAME
+accumulation and future-landings-deferral scenarios at the model-internals
+level, using real protobuf UpdateSalesRequest messages, independent of
+MarketService's routing.
 """
 import datetime
 

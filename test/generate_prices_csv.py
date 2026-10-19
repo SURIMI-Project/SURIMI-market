@@ -16,10 +16,10 @@ if __name__ == "__main__":
                     for m in range(1, 13)
             ],
         "market_code": [
-            "PORT_A",
-            "PORT_B",
-            "PORT_C",
-            "PORT_D"
+            "PORTA",
+            "PORTB",
+            "PORTC",
+            "PORTD"
         ],
         "species_code": [
             "Species_A",

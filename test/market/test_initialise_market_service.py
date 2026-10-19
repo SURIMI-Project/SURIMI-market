@@ -67,8 +67,8 @@ def test_initialise_local_market_price_history(contract, config_dir):
     # Check that the initial price timeline is correct
     prices_path = Path(config_dir, contract.scenario_name, PRICES_CSV)
     df = pd.read_csv(prices_path)
-    data_for_port_a = df[df["market_code"] == "PORT_A"]
-    price_history = handler.market_system.local_markets.get("PORT_A").price_time_series
+    data_for_port_a = df[df["market_code"] == "PORTA"]
+    price_history = handler.market_system.local_markets.get("PORTA").price_time_series
     do_match = len(price_history) == len(data_for_port_a)
     assert do_match, f"The number of initialised prices do not match with the dataset {PRICES_CSV}"
 

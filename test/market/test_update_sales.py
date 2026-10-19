@@ -12,7 +12,7 @@ def update_request_01() -> UpdateSalesRequest:
         "sales_summary": {
             "market_sales": [
                 {
-                    "market_code": "PORT_A",
+                    "market_code": "PORTA",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -45,7 +45,7 @@ def update_request_02() -> UpdateSalesRequest:
         "sales_summary": {
             "market_sales": [
                 {
-                    "market_code": "PORT_A",
+                    "market_code": "PORTA",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -78,7 +78,7 @@ def update_request_03() -> UpdateSalesRequest:
         "sales_summary": {
             "market_sales": [
                 {
-                    "market_code": "PORT_A",
+                    "market_code": "PORTA",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -89,7 +89,7 @@ def update_request_03() -> UpdateSalesRequest:
                     ]
                 },
                 {
-                    "market_code": "PORT_B",
+                    "market_code": "PORTB",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -114,7 +114,7 @@ def update_future_landings_01() -> UpdateSalesRequest:
         "sales_summary": {
             "market_sales": [
                 {
-                    "market_code": "PORT_A",
+                    "market_code": "PORTA",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -130,7 +130,7 @@ def update_future_landings_01() -> UpdateSalesRequest:
                     ]
                 },
                 {
-                    "market_code": "PORT_B",
+                    "market_code": "PORTB",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -159,7 +159,7 @@ def update_future_landings_02() -> UpdateSalesRequest:
         "sales_summary": {
             "market_sales": [
                 {
-                    "market_code": "PORT_A",
+                    "market_code": "PORTA",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -170,7 +170,7 @@ def update_future_landings_02() -> UpdateSalesRequest:
                     ]
                 },
                 {
-                    "market_code": "PORT_B",
+                    "market_code": "PORTB",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -181,7 +181,7 @@ def update_future_landings_02() -> UpdateSalesRequest:
                     ]
                 },
                 {
-                    "market_code": "PORT_C",
+                    "market_code": "PORTC",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -210,7 +210,7 @@ def update_future_landings_03() -> UpdateSalesRequest:
         "sales_summary": {
             "market_sales": [
                 {
-                    "market_code": "PORT_A",
+                    "market_code": "PORTA",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -221,7 +221,7 @@ def update_future_landings_03() -> UpdateSalesRequest:
                     ]
                 },
                 {
-                    "market_code": "PORT_B",
+                    "market_code": "PORTB",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -232,7 +232,7 @@ def update_future_landings_03() -> UpdateSalesRequest:
                     ]
                 },
                 {
-                    "market_code": "PORT_C",
+                    "market_code": "PORTC",
                     "currency": "EUR",
                     "sales": [
                         {
@@ -268,7 +268,7 @@ def test_accumulate_landings_for_the_current_month(contract,
     # There is a flaw in the model where the quantity is not persistent across
     # the timeline. As a result, the catch is reset on each stepå
 
-    snapshot_01 = market_system.local_markets["PORT_A"].get_monthly_catch_snapshot()
+    snapshot_01 = market_system.local_markets["PORTA"].get_monthly_catch_snapshot()
     landings_01 = snapshot_01[("SPECIES_A", "PriceCategory_A")]
     assert landings_01 == 2, \
         "Local market with updated landings for the current timestep should" \
@@ -282,7 +282,7 @@ def test_accumulate_landings_for_the_current_month(contract,
     # Send another update request
     market_system.update_sales(update_request_02.sales_summary.market_sales,
                                update_request_02.start_date_time.seconds)
-    snapshot_02 = market_system.local_markets["PORT_A"].get_monthly_catch_snapshot()
+    snapshot_02 = market_system.local_markets["PORTA"].get_monthly_catch_snapshot()
     landings_02a = snapshot_02[("SPECIES_A", "PriceCategory_A")]
     assert landings_02a == 4.3, \
         "Sending another update request to an already update landings should" \
@@ -296,14 +296,14 @@ def test_accumulate_landings_for_the_current_month(contract,
     # Send another request, but update two different ports this time.
     market_system.update_sales(update_request_03.sales_summary.market_sales,
                                update_request_03.start_date_time.seconds)
-    landings_03a = market_system.local_markets["PORT_A"] \
+    landings_03a = market_system.local_markets["PORTA"] \
                       .get_monthly_catch_snapshot() \
                       .get(("SPECIES_A", "PriceCategory_A"))
     assert landings_03a == 5.3, \
         "Updating an existing landings for the current month should add the" \
         "new landings"
     
-    landings_03b = market_system.local_markets["PORT_B"] \
+    landings_03b = market_system.local_markets["PORTB"] \
                       .get_monthly_catch_snapshot() \
                       .get(("SPECIES_A", "PriceCategory_A"))
     assert landings_03b and landings_03b == 1.0, \
@@ -327,7 +327,7 @@ def test_update_future_landings(contract,
     )
 
     current_landings = market_system \
-                       .local_markets.get("PORT_A") \
+                       .local_markets.get("PORTA") \
                        .get_monthly_catch_snapshot() \
                        .get(("SPECIES_A", "PriceCategory_A"))
     assert not current_landings, \
@@ -349,11 +349,11 @@ def test_update_future_landings(contract,
         "is not equivalent to 2."
     
     assert len(sales_port_a) == 2, \
-        "Updating future PORT_A with 2 different species identifiers, but " \
+        "Updating future PORTA with 2 different species identifiers, but " \
         "exactly 2 were not registered."
 
     assert len(sales_port_b) == 1, \
-        "Updating future PORT_B with 1 species identifier, but " \
+        "Updating future PORTB with 1 species identifier, but " \
         "exactly 1 was not registered."
     
     # --------------------------------------------------------------------------
