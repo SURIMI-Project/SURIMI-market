@@ -521,7 +521,49 @@ no neighbor-informed model for that key.
 
 ---
 
-## 4. Known Limitations
+## 4. Input and Output Files
+
+### 4.1 Input Configuration Files
+
+| File | Key columns | Description |
+|---|---|---|
+| `species.csv` | `species_code` | The contracted species. |
+| `markets.csv` | `market_code`, `market_name`, `lon`, `lat` | Every port and national market; 5-letter codes are local ports, 2-letter codes are national markets. |
+| `prices.csv` | `date`, `market_code`, `species_code`, `category_code`, `price`, `landings_kg`, `size` | Historical first-sale prices and landings/catches. Rows with no `size` value are the blended real-price rows the model fits and reports against. |
+
+An optional `size_ratios.csv` is also loaded if present, but not yet used
+by any model logic.
+
+### 4.2 Output Files
+
+Both files are written under `simulations/<simulation_id>/` when the
+simulation finishes.
+
+**`combined_prices.csv`**
+
+| Column | Description |
+|---|---|
+| `tick` | Simulation tick number. |
+| `market_code` | The 2-letter national market code. |
+| `species` | Species code. |
+| `category_code` | Price category code. |
+| `price` | The reported price (blank if none). |
+| `volume` | Total landings/catches for this market, species and category this tick. |
+
+**`local_prices.csv`**
+
+| Column | Description |
+|---|---|
+| `tick` | Simulation tick number. |
+| `market_code` | The 5-letter local port code. |
+| `species` | Species code. |
+| `category_code` | Price category code. |
+| `price` | The reported price (blank if none). |
+| `catch` | Landings/catches at this port, species and category this tick. |
+
+---
+
+## 5. Known Limitations
 
 - **Spurious national trends.** A cyclical price history can produce a
   confidently measured trend that is not real. SAA in France is the
