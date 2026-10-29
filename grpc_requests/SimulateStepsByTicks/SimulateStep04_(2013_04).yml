@@ -1,0 +1,18 @@
+info:
+  name: SimulateStep04_(2013_04)
+  type: grpc
+  seq: 4
+
+grpc:
+  url: localhost:{{PORT}}
+  method: /surimi.v1.MarketService/SimulateStep
+  methodType: unary
+  message: |-
+    {
+        "simulation_id": "aa9c4025-cbc3-4400-baed-627b19b70d30",
+        "current_date_time": {
+          "seconds": 1364774400,
+          "nanos": 0
+        }
+    }
+  auth: inherit

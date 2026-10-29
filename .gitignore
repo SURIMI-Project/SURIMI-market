@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+src/__pycache__/
+server/__pycache__/
+*.py[cod]
+*$py.class
+
+# Python virtual environment
+.venv/
+.env
+
+# Artifacts from models
+catboost_info/
+
+# IDE or code editor related
+## Visual Studio (version 2015 and newer) cache/options directory
+.vs/
+
+## Jetbrains
+.idea/
+
+## Visual Studio Code
+.vscode/
+
+# Project artifacts
+simulations/
+logs/
+BUGS.md
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+*.lcov
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Local-only scratch/evaluation artifacts -- never pushed, kept on disk only
+/local/
+
+# Agentic-workflow planning/spec documents -- working notes, not project docs
+/docs/superpowers/

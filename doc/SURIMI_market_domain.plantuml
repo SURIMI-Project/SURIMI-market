@@ -1,0 +1,63 @@
+@startuml MarketSystemDomain
+
+class MarketSystem {
+  - currency: str
+  - measurement_unit: str
+  - species_dict: Dict[str, Species]
+  - local_markets: Dict[str, LocalMarket]
+  - global_market: GlobalMarket
+  - tick: Tick
+  + add_species(s: Species)
+  + catch_by_species(market_code, species_code, quantity)
+  + update_species_prices_message()
+}
+
+class Species {
+  - name: str
+  - code: str
+  - last_price: float
+  - last_quantity: float
+  - epsilon: float
+  + calculate_price(quantity: float): float
+}
+
+class LocalMarket {
+  - market_code: str
+  - lambda_mix: float
+  - theta_mix: float
+  - species_dict: Dict[str, Species]
+  - monthly_catch: Dict[str, float]
+  - local_prices: Dict[str, float]
+  - price_history: List
+  - global_market: GlobalMarket
+  + record_monthly_catch(species_code, quantity)
+  + calculate_local_price(species_code=None, other_market_avg=None)
+  + get_elasticity(species_code)
+}
+
+class GlobalMarket {
+  - species_dict: Dict[str, Species]
+  - global_prices: Dict[str, float]
+  + compute_price(species_code, total_quantity)
+  + get_global_price(species_code)
+}
+
+class Tick {
+  - tick: int
+  - start_time: datetime
+  + increase_tick()
+  + get_tick()
+  + set_timestep(days)
+  + get_timestamp()
+  + reset()
+}
+
+MarketSystem "1" o-- "many" Species
+MarketSystem "1" o-- "many" LocalMarket
+MarketSystem "1" o-- "1" GlobalMarket
+LocalMarket "1" --> "1" GlobalMarket
+LocalMarket "1" --> "many" Species
+GlobalMarket "1" --> "many" Species
+MarketSystem "1" o-- "1" Tick
+
+@enduml

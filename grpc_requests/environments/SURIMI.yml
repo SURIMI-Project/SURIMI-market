@@ -1,0 +1,4 @@
+name: SURIMI
+variables:
+  - name: PORT
+    value: "5001"

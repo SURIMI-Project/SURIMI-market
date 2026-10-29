@@ -1,0 +1,61 @@
+@startuml
+title SURIMI Sequence Diagram
+
+participant Controller
+participant Config
+participant EwE
+participant Poseidon
+participant CMSY
+participant Market
+'Continue Here !!!!'
+participant ValueChain
+participant Aggregator
+
+== Initialization ==
+' this is the init'
+Controller --> Config: request config
+Config --> Controller: config
+Controller --> EwE: init (config)
+EwE --> Controller: success? 
+note right
+    unless otherwise specified:
+    every gRPC service reports its status after each request!
+end note
+Controller --> Poseidon: init (config)
+Controller --> CMSY: init (config)
+Controller --> Market: init (config)
+Controller --> ValueChain: init (config)
+
+== Simulation ==
+' starting the simulation'
+loop N years
+    Controller --> CMSY: 
+    loop 12 months
+        Controller --> Market:    request prices
+        Market --> Controller: prices
+        Controller --> EwE: update prices
+        Controller --> Poseidon: update prices
+        Controller --> EwE: request biomass
+        EwE --> Controller: biomass
+        Controller --> Poseidon: update biomass
+        Controller --> Poseidon: simulate timestep (1 month)
+        Controller --> Poseidon: request landings 
+        Controller --> Poseidon: request catches
+        Poseidon --> Controller: catches
+        Controller --> EwE: update catches
+        Controller --> Poseidon: request discards
+        note right
+            discards by fleet, location and species
+            end note
+        Poseidon --> Controller: discards
+        Controller --> EwE: update discards
+        Controller --> EwE: simulate timestep (1 month)
+        Controller --> Market: update landings 
+        Controller --> Aggregator: update aggregation (prices, biomass, landings)
+    end
+        
+    Controller --> Aggregator: request aggregation
+    Controller --> CMSY: update biomass (aggregation)
+end
+
+@enduml
